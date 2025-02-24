@@ -1,0 +1,22 @@
+package: api
+version: 1.0.0
+
+page:
+    title: 'translate:api-title'
+    icon: rex-icon rex-icon-language
+    perm: api[]
+    subpages:
+        token:
+            title: 'translate:api_token'
+        openapi:
+            title: 'translate:api_openapi'
+        readme:
+            title: 'translate:readme'
+            itemClass: pull-right
+            subPath: README.md
+
+requires:
+    php: '>=8.2'
+    packages:
+        yform: '>=4.1.1'
+    redaxo: '^5.17.0'

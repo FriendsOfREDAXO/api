@@ -1,0 +1,20 @@
+api-title = API
+api_token = Token
+api_token_caption = Tokens
+api_token_name = Name/Beschreibung
+api_token_token = Token
+api_token_not_found = Keine Tokens bisher vorhanden
+api_token_status = aktiv
+api_token_create = API-Token erstellen
+api_token_token_notice = Wie wäre es mit diesem Token {0}
+api_token_token_scopes = Scopes
+api_token_update = API-Token bearbeiten
+api_token_updated = API-Token Eintrag wurde aktualisiert
+api_openapi = SwaggerIO
+api_token_deleted = API-Token wurde gelöscht
+api_token_added = API-Token wurde hinzugefügt
+
+api_openapi_title = OpenAPI Dokumentation
+api_openapi_description = Hier werden alle erfassten Endpunkte ausgegeben und können eingesehen und getestet werden. Um sie nutzen zu können, muss vorher ein Token mit den entsprechenden Zugriffen erstellt werden.
+
+readme = ReadMe
