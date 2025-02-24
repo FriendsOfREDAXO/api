@@ -30,27 +30,25 @@ if ('1' === rex_request('load_config', 'string')) {
         /** @var Route $Route */
         $Route = $RouteArray['route'];
 
-        $config['paths'][$Route->getPath()] = [
-            strtolower($Route->getMethods()[0]) => [
-                'summary' => $RouteArray['description'],
-                'responses' => [
-                    '200' => [
-                        'description' => 'successful operation',
-                    ],
-                    '400' => [
-                        'description' => 'Unvalid request',
-                    ],
-                    '401' => [
-                        'description' => 'Not authorized',
-                    ],
-                    '500' => [
-                        'description' => 'Internal server error',
-                    ],
+        $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])] = [
+            'summary' => $RouteArray['description'],
+            'responses' => [
+                '200' => [
+                    'description' => 'successful operation',
                 ],
-                'security' => [
-                    [
-                        'bearerAuth' => [],
-                    ],
+                '400' => [
+                    'description' => 'Unvalid request',
+                ],
+                '401' => [
+                    'description' => 'Not authorized',
+                ],
+                '500' => [
+                    'description' => 'Internal server error',
+                ],
+            ],
+            'security' => [
+                [
+                    'bearerAuth' => [],
                 ],
             ],
         ];
