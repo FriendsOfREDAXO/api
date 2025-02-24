@@ -24,10 +24,10 @@ Zunächst ist geplant die Basisfeatures von REDAXO abzubilden.
 | /api/media                           | POST      | Medium anlegen     | <span style="color:red">noch offen</span>                                 |
 | /api/media/{id}                      | DELETE    | Medium löschen     | <span style="color:red">noch offen</span>                                 |
 | /api/media/{id}                      | PUT/PATCH | Medium ändern      | <span style="color:red">noch offen</span>                                 |
-| /api/modules                         | GET       | Modulliste         | <span style="color:red">noch offen</span>                                 |
-| /api/modules                         | POST      | Modul anlegen      | <span style="color:red">noch offen</span>                                 |
-| /api/module/{id}                     | DELETE    | Modul löschen      | <span style="color:red">noch offen</span>                                 |
-| /api/module/{id}                     | PUT/PATCH | Modul ändern       | <span style="color:red">noch offen</span>                                 |
+| /api/modules                         | GET       | Modulliste         | <span style="color:green">umgesetzt</span>                                 |
+| /api/modules                         | POST      | Modul anlegen      | <span style="color:green">umgesetzt</span>                                 |
+| /api/module/{id}                     | DELETE    | Modul löschen      | <span style="color:green">umgesetzt</span>                                 |
+| /api/module/{id}                     | PUT/PATCH | Modul ändern       | <span style="color:green">umgesetzt</span>                                 |
 | /api/templates                       | GET       | Template Liste     | <span style="color:red">noch offen</span>                                 |
 | /api/templates                       | POST      | Template anlegen   | <span style="color:red">noch offen</span>                                 |
 | /api/templates/{id}                  | DELETE    | Template löschen   | <span style="color:red">noch offen</span>                                 |
@@ -36,6 +36,10 @@ Zunächst ist geplant die Basisfeatures von REDAXO abzubilden.
 | /api/users                           | POST      | User anlegen       | <span style="color:red">noch offen</span>                                 |
 | /api/users/{id}                      | DELETE    | User löschen       | <span style="color:red">noch offen</span>                                 |
 | /api/users/{id}                      | PUT/PATCH | User ändern        | <span style="color:red">noch offen</span>                                 |
+| /api/users/roles                     | GET       | Rollenliste        | <span style="color:red">noch offen</span>                                 |
+| /api/users/roles                     | POST      | Rolle anlegen      | <span style="color:red">noch offen</span>                                 |
+| /api/users/roles/{id}                | DELETE    | Rolle löschen      | <span style="color:red">noch offen</span>                                 |
+| /api/users/roles/{id}                | PUT/PATCH | Rolle ändern       | <span style="color:red">noch offen</span>                                 |
 | /api/clangs                          | GET       | Sprachenliste      | <span style="color:red">noch offen</span>                                 |
 | /api/clangs                          | POST      | Sprache anlegen    | <span style="color:red">noch offen</span>                                 |
 | /api/clangs/{id}                     | DELETE    | Sprache löschen    | <span style="color:red">noch offen</span>                                 |
