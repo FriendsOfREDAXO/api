@@ -57,7 +57,7 @@ Bitte zuerst einen API-Token im Backend anlegen und die ensprechenden Scopes (En
 
 ## API Struktur
 
-Am besten direkt im AddOn unter SwaggerIO nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet.
+Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet.
 
 ## Weitere noch nicht beachtete Usecases
 

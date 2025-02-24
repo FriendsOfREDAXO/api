@@ -10,7 +10,7 @@ api_token_token_notice = Wie wäre es mit diesem Token {0}
 api_token_token_scopes = Scopes
 api_token_update = API-Token bearbeiten
 api_token_updated = API-Token Eintrag wurde aktualisiert
-api_openapi = SwaggerIO
+api_openapi = OpenAPI
 api_token_deleted = API-Token wurde gelöscht
 api_token_added = API-Token wurde hinzugefügt
 
