@@ -6,25 +6,23 @@ use Exception;
 use FriendsOfREDAXO\API\RouteCollection;
 use FriendsOfREDAXO\API\RoutePackage;
 use rex;
-use rex_module;
-use rex_module_manager;
 use rex_sql;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 use function count;
 use const JSON_PRETTY_PRINT;
 
-class Module extends RoutePackage
+class Modules extends RoutePackage
 {
     public function loadRoutes(): void
     {
-        // Module List
+        // Modules List
         RouteCollection::registerRoute(
-            'module/list',
+            'modules/list',
             new Route(
-                'module',
+                'modules',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Module::handleModuleList',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleModulesList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -34,6 +32,11 @@ class Module extends RoutePackage
                                     'default' => null,
                                 ],
                                 'name' => [
+                                    'type' => 'string',
+                                    'required' => false,
+                                    'default' => null,
+                                ],
+                                'key' => [  // Added key filter
                                     'type' => 'string',
                                     'required' => false,
                                     'default' => null,
@@ -63,17 +66,22 @@ class Module extends RoutePackage
             'Access to the list of modules',
         );
 
-        // Module Add
+        // Modules Add
         RouteCollection::registerRoute(
-            'module/add',
+            'modules/add',
             new Route(
-                'module',
+                'modules',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Module::handleAddModule',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleAddModules',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
                             'required' => true,
+                        ],
+                        'key' => [ // Added key field
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                         'input' => [
                             'type' => 'string',
@@ -83,11 +91,7 @@ class Module extends RoutePackage
                             'type' => 'string',
                             'required' => true,
                         ],
-                        'attributes' => [
-                            'type' => 'string',
-                            'required' => false,
-                            'default' => null,
-                        ],
+                        // Removed attributes
                     ],
                 ],
                 [],
@@ -98,13 +102,13 @@ class Module extends RoutePackage
             'Add a module',
         );
 
-        // Module Get Details
+        // Modules Get Details
         RouteCollection::registerRoute(
-            'module/get',
+            'modules/get',
             new Route(
-                'module/{id}',
+                'modules/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Module::handleGetModule',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleGetModules',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -114,15 +118,20 @@ class Module extends RoutePackage
             'Get module details',
         );
 
-        // Module Update
+        // Modules Update
         RouteCollection::registerRoute(
-            'module/update',
+            'modules/update',
             new Route(
-                'module/{id}',
+                'modules/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Module::handleUpdateModule',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleUpdateModules',
                     'Body' => [
                         'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'key' => [ // Added key field
                             'type' => 'string',
                             'required' => false,
                             'default' => null,
@@ -137,11 +146,7 @@ class Module extends RoutePackage
                             'required' => false,
                             'default' => null,
                         ],
-                        'attributes' => [
-                            'type' => 'string',
-                            'required' => false,
-                            'default' => null,
-                        ],
+                        // Removed attributes
                     ],
                 ],
                 ['id' => '\d+'],
@@ -152,13 +157,13 @@ class Module extends RoutePackage
             'Update a module',
         );
 
-        // Module Delete
+        // Modules Delete
         RouteCollection::registerRoute(
-            'module/delete',
+            'modules/delete',
             new Route(
-                'module/{id}',
+                'modules/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Module::handleDeleteModule',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleDeleteModules',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -170,7 +175,7 @@ class Module extends RoutePackage
     }
 
     /** @api */
-    public static function handleModuleList($Parameter): Response
+    public static function handleModulesList($Parameter): Response
     {
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
@@ -178,7 +183,8 @@ class Module extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        $fields = ['id', 'name', 'input', 'output',             'createdate', 'createuser', 'updatedate', 'updateuser', 'attributes', 'revision'];
+        // Include 'key' in the selected fields
+        $fields = ['id', 'name', 'key', 'input', 'output', 'createdate', 'createuser', 'updatedate', 'updateuser', 'revision'];
 
         $SqlQueryWhere = [];
         $SqlParameters = [];
@@ -191,6 +197,12 @@ class Module extends RoutePackage
         if (null !== $Query['filter']['name']) {
             $SqlQueryWhere[':name'] = 'name LIKE :name';
             $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
+        }
+
+        // Add filter for 'key'
+        if (null !== $Query['filter']['key']) {
+            $SqlQueryWhere[':key'] = '`key` LIKE :key'; // Use backticks for the 'key' column
+            $SqlParameters[':key'] = '%' . $Query['filter']['key'] . '%';
         }
 
         $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
@@ -218,25 +230,25 @@ class Module extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetModule($Parameter): Response
+    public static function handleGetModules($Parameter): Response
     {
         $moduleId = $Parameter['id'];
-        
-        $ModuleSQL = rex_sql::factory();
-        $ModuleData = $ModuleSQL->getArray(
+
+        $ModulesSQL = rex_sql::factory();
+        $ModulesData = $ModulesSQL->getArray(
             'SELECT * FROM ' . rex::getTablePrefix() . 'module WHERE id = :id',
             [':id' => $moduleId]
         );
 
-        if (empty($ModuleData)) {
+        if (empty($ModulesData)) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
 
-        return new Response(json_encode($ModuleData[0], JSON_PRETTY_PRINT));
+        return new Response(json_encode($ModulesData[0], JSON_PRETTY_PRINT));
     }
 
     /** @api */
-    public static function handleAddModule($Parameter): Response
+    public static function handleAddModules($Parameter): Response
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -254,18 +266,19 @@ class Module extends RoutePackage
             $sql = rex_sql::factory();
             $sql->setTable(rex::getTable('module'));
             $sql->setValue('name', $Data['name']);
+            // Add 'key' to the insert
+            if (isset($Data['key'])) { // Check if 'key' is provided, even if it's null
+                $sql->setValue('key', $Data['key']);
+            }
             $sql->setValue('input', $Data['input']);
             $sql->setValue('output', $Data['output']);
-            
-            if (isset($Data['attributes']) && $Data['attributes'] !== null) {
-                $sql->setValue('attributes', $Data['attributes']);
-            }
-            
+            // Removed attributes
+
             $sql->setValue('createdate', date('Y-m-d H:i:s'));
             $sql->setValue('createuser', 'API');
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
             $sql->setValue('updateuser', 'API');
-            
+
             $sql->insert();
             $moduleId = $sql->getLastId();
 
@@ -276,7 +289,7 @@ class Module extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateModule($Parameter): Response
+    public static function handleUpdateModules($Parameter): Response
     {
         $moduleId = $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
@@ -294,7 +307,7 @@ class Module extends RoutePackage
         // Check if module exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $moduleId]);
-        
+
         if ($checkSql->getRows() === 0) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
@@ -303,27 +316,29 @@ class Module extends RoutePackage
             $sql = rex_sql::factory();
             $sql->setTable(rex::getTable('module'));
             $sql->setWhere(['id' => $moduleId]);
-            
+
             // Only update fields that are provided
             if (null !== $Data['name']) {
                 $sql->setValue('name', $Data['name']);
             }
-            
+
+            // Update 'key'
+            if (array_key_exists('key', $Data)) { // Use array_key_exists to allow updating to null
+                $sql->setValue('key', $Data['key']);
+            }
+
             if (null !== $Data['input']) {
                 $sql->setValue('input', $Data['input']);
             }
-            
+
             if (null !== $Data['output']) {
                 $sql->setValue('output', $Data['output']);
             }
-            
-            if (null !== $Data['attributes']) {
-                $sql->setValue('attributes', $Data['attributes']);
-            }
-            
+            // Removed attributes
+
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
             $sql->setValue('updateuser', 'API');
-            
+
             $sql->update();
 
             return new Response(json_encode(['message' => 'Module updated', 'id' => $moduleId]), 200);
@@ -333,14 +348,14 @@ class Module extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteModule($Parameter): Response
+    public static function handleDeleteModules($Parameter): Response
     {
         $moduleId = $Parameter['id'];
 
         // Check if module exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $moduleId]);
-        
+
         if ($checkSql->getRows() === 0) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
@@ -352,13 +367,13 @@ class Module extends RoutePackage
                 'SELECT id FROM ' . rex::getTable('article_slice') . ' WHERE module_id = :id LIMIT 1',
                 [':id' => $moduleId]
             );
-            
+
             if ($usageCheck->getRows() > 0) {
                 return new Response(json_encode([
                     'error' => 'Cannot delete module. It is in use by one or more slices.'
                 ]), 409);
             }
-            
+
             // Delete module
             $sql = rex_sql::factory();
             $sql->setQuery(
