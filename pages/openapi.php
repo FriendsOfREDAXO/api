@@ -42,6 +42,12 @@ if ('1' === rex_request('load_config', 'string')) {
                 '401' => [
                     'description' => 'Not authorized',
                 ],
+                '404' => [
+                    'description' => 'Not found',
+                ],
+                '409' => [
+                    'description' => 'Conflict',
+                ],
                 '500' => [
                     'description' => 'Internal server error',
                 ],
