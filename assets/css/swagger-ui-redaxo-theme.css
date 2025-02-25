@@ -1,0 +1,84 @@
+@media (prefers-color-scheme: dark) {
+    body.rex-has-theme:not(.rex-theme-light) {
+        .info .main .title {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .info .main .description .renderedMarkdown {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .wrapper .block .opblock-tag-section .opblock-tag h3 {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui a.nostyle, .swagger-ui a.nostyle:visited {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .markdown p, .swagger-ui .markdown pre, .swagger-ui .renderedMarkdown p, .swagger-ui .renderedMarkdown pre {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .opblock .opblock-summary-description {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui table thead tr td, .swagger-ui table thead tr th {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .parameter__extension, .swagger-ui .parameter__in,
+        .swagger-ui .parameter__type,
+        .swagger-ui .parameter__name {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .response-col_status {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .response-col_links {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .tab li button.tablinks {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui label {
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        svg[class="arrow"] {
+            fill: rgba(255, 255, 255, 0.75);
+        }
+
+        .swagger-ui .authorization__btn.unlocked {
+            fill: #49cc90;
+        }
+
+        .swagger-ui .info .title small pre {
+            color: #fff;
+            background-color: unset;
+            border: 0;
+        }
+
+        table {
+            background-color: unset;
+        }
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    body.rex-has-theme:not(.rex-theme-dark) {
+        table {
+            background-color: unset;
+        }
+        .swagger-ui .info .title small pre {
+            color: #fff;
+            background-color: unset;
+            border: 0;
+        }
+    }
+}
