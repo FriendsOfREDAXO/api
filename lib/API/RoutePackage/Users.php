@@ -6,7 +6,6 @@ use Exception;
 use FriendsOfREDAXO\API\RouteCollection;
 use FriendsOfREDAXO\API\RoutePackage;
 use rex;
-use rex_password_policy;
 use rex_sql;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
@@ -319,7 +318,7 @@ class Users extends RoutePackage
             ),
             'Get user role details',
         );
-        
+
         // User Role Add
         RouteCollection::registerRoute(
             'users/roles/add',
@@ -336,10 +335,6 @@ class Users extends RoutePackage
                             'type' => 'string',
                             'required' => false,
                             'default' => null,
-                        ],
-                        'perms' => [
-                            'type' => 'string',
-                            'required' => true,
                         ],
                     ],
                 ],
@@ -366,11 +361,6 @@ class Users extends RoutePackage
                             'default' => null,
                         ],
                         'description' => [
-                            'type' => 'string',
-                            'required' => false,
-                            'default' => null,
-                        ],
-                        'perms' => [
                             'type' => 'string',
                             'required' => false,
                             'default' => null,
@@ -413,11 +403,9 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        // Sensitive fields to exclude from response
         $excludeFields = ['password', 'previous_passwords', 'session_id'];
         $fields = [];
-        
-        // Get all field names from the user table
+
         $tableFields = rex_sql::factory()->getArray('SHOW COLUMNS FROM ' . rex::getTable('user'));
         foreach ($tableFields as $field) {
             if (!in_array($field['Field'], $excludeFields)) {
@@ -428,49 +416,41 @@ class Users extends RoutePackage
         $SqlQueryWhere = [];
         $SqlParameters = [];
 
-        // ID filter
         if (isset($Query['filter']['id']) && $Query['filter']['id'] !== null) {
             $SqlQueryWhere[':id'] = 'id = :id';
             $SqlParameters[':id'] = $Query['filter']['id'];
         }
 
-        // Name filter
         if (isset($Query['filter']['name']) && $Query['filter']['name'] !== null) {
             $SqlQueryWhere[':name'] = 'name LIKE :name';
             $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
         }
 
-        // Login filter
         if (isset($Query['filter']['login']) && $Query['filter']['login'] !== null) {
             $SqlQueryWhere[':login'] = 'login LIKE :login';
             $SqlParameters[':login'] = '%' . $Query['filter']['login'] . '%';
         }
 
-        // Email filter
         if (isset($Query['filter']['email']) && $Query['filter']['email'] !== null) {
             $SqlQueryWhere[':email'] = 'email LIKE :email';
             $SqlParameters[':email'] = '%' . $Query['filter']['email'] . '%';
         }
 
-        // Status filter
         if (isset($Query['filter']['status']) && $Query['filter']['status'] !== null) {
             $SqlQueryWhere[':status'] = 'status = :status';
             $SqlParameters[':status'] = $Query['filter']['status'];
         }
 
-        // Admin filter
         if (isset($Query['filter']['admin']) && $Query['filter']['admin'] !== null) {
             $SqlQueryWhere[':admin'] = 'admin = :admin';
             $SqlParameters[':admin'] = $Query['filter']['admin'];
         }
 
-        // Role filter
         if (isset($Query['filter']['role']) && $Query['filter']['role'] !== null) {
             $SqlQueryWhere[':role'] = 'role LIKE :role';
             $SqlParameters[':role'] = '%' . $Query['filter']['role'] . '%';
         }
 
-        // Pagination
         $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
         $page = (1 > $Query['page']) ? 1 : $Query['page'];
         $start = ($page - 1) * $per_page;
@@ -500,11 +480,9 @@ class Users extends RoutePackage
     {
         $userId = $Parameter['id'];
 
-        // Sensitive fields to exclude from response
         $excludeFields = ['password', 'previous_passwords', 'session_id'];
         $fields = [];
-        
-        // Get all field names from the user table
+
         $tableFields = rex_sql::factory()->getArray('SHOW COLUMNS FROM ' . rex::getTable('user'));
         foreach ($tableFields as $field) {
             if (!in_array($field['Field'], $excludeFields)) {
@@ -540,7 +518,6 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if login already exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE login = :login', [':login' => $Data['login']]);
 
@@ -553,28 +530,27 @@ class Users extends RoutePackage
             $sql->setTable(rex::getTable('user'));
             $sql->setValue('name', $Data['name']);
             $sql->setValue('login', $Data['login']);
-            
-            // Hash the password using REDAXO's password hashing
+
             if (method_exists('rex_login', 'passwordHash')) {
                 $sql->setValue('password', rex_login::passwordHash($Data['password']));
             } else {
                 $sql->setValue('password', password_hash($Data['password'], PASSWORD_DEFAULT));
             }
-            
+
             $sql->setValue('email', $Data['email']);
             $sql->setValue('status', $Data['status']);
             $sql->setValue('admin', $Data['admin']);
             $sql->setValue('language', $Data['language']);
             $sql->setValue('startpage', $Data['startpage']);
-            
+
             if ($Data['role'] !== null) {
                 $sql->setValue('role', $Data['role']);
             }
-            
+
             if ($Data['description'] !== null) {
                 $sql->setValue('description', $Data['description']);
             }
-            
+
             $sql->setValue('createdate', date('Y-m-d H:i:s'));
             $sql->setValue('createuser', 'API');
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
@@ -607,7 +583,6 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if user exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE id = :id', [':id' => $userId]);
 
@@ -615,10 +590,9 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'User not found']), 404);
         }
 
-        // Check if login already exists for another user
         if ($Data['login'] !== null) {
             $loginSql = rex_sql::factory();
-            $loginSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE login = :login AND id != :id', 
+            $loginSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE login = :login AND id != :id',
                 [':login' => $Data['login'], ':id' => $userId]);
 
             if ($loginSql->getRows() > 0) {
@@ -631,7 +605,6 @@ class Users extends RoutePackage
             $sql->setTable(rex::getTable('user'));
             $sql->setWhere(['id' => $userId]);
 
-            // Only update fields that are provided
             if ($Data['name'] !== null) {
                 $sql->setValue('name', $Data['name']);
             }
@@ -641,37 +614,32 @@ class Users extends RoutePackage
             }
 
             if ($Data['password'] !== null) {
-                // Store the current password before updating
                 $currentPasswordSql = rex_sql::factory();
                 $currentPassword = $currentPasswordSql->getArray(
                     'SELECT password, previous_passwords FROM ' . rex::getTable('user') . ' WHERE id = :id',
                     [':id' => $userId]
                 );
 
-                // Hash the new password
                 if (method_exists('rex_login', 'passwordHash')) {
                     $hashedPassword = rex_login::passwordHash($Data['password']);
                 } else {
                     $hashedPassword = password_hash($Data['password'], PASSWORD_DEFAULT);
                 }
-                
+
                 $sql->setValue('password', $hashedPassword);
                 $sql->setValue('password_changed', date('Y-m-d H:i:s'));
-                
-                // Update previous_passwords if needed
+
                 if (!empty($currentPassword) && isset($currentPassword[0]['password'])) {
-                    $prevPasswords = $currentPassword[0]['previous_passwords'] 
-                        ? json_decode($currentPassword[0]['previous_passwords'], true) 
+                    $prevPasswords = $currentPassword[0]['previous_passwords']
+                        ? json_decode($currentPassword[0]['previous_passwords'], true)
                         : [];
-                    
-                    // Add current password to previous_passwords
+
                     array_unshift($prevPasswords, $currentPassword[0]['password']);
-                    
-                    // Limit to 5 previous passwords
+
                     if (count($prevPasswords) > 5) {
                         $prevPasswords = array_slice($prevPasswords, 0, 5);
                     }
-                    
+
                     $sql->setValue('previous_passwords', json_encode($prevPasswords));
                 }
             }
@@ -709,7 +677,6 @@ class Users extends RoutePackage
 
             $sql->update();
 
-            // Clear user instance cache to ensure changes take effect immediately
             if (method_exists('rex_user', 'clearInstance')) {
                 rex_user::clearInstance($userId);
             }
@@ -725,7 +692,6 @@ class Users extends RoutePackage
     {
         $userId = $Parameter['id'];
 
-        // Check if user exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE id = :id', [':id' => $userId]);
 
@@ -733,7 +699,6 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'User not found']), 404);
         }
 
-        // Check if user is the only admin
         $adminSql = rex_sql::factory();
         $adminSql->setQuery('SELECT COUNT(*) as admin_count FROM ' . rex::getTable('user') . ' WHERE admin = 1');
         $adminCount = $adminSql->getValue('admin_count');
@@ -747,12 +712,10 @@ class Users extends RoutePackage
         }
 
         try {
-            // Clear user instance cache before deleting
             if (method_exists('rex_user', 'clearInstance')) {
                 rex_user::clearInstance($userId);
             }
 
-            // Delete user
             $sql = rex_sql::factory();
             $sql->setQuery(
                 'DELETE FROM ' . rex::getTable('user') . ' WHERE id = :id',
@@ -777,19 +740,16 @@ class Users extends RoutePackage
         $SqlQueryWhere = [];
         $SqlParameters = [];
 
-        // ID filter
         if (isset($Query['filter']['id']) && $Query['filter']['id'] !== null) {
             $SqlQueryWhere[':id'] = 'id = :id';
             $SqlParameters[':id'] = $Query['filter']['id'];
         }
 
-        // Name filter
         if (isset($Query['filter']['name']) && $Query['filter']['name'] !== null) {
             $SqlQueryWhere[':name'] = 'name LIKE :name';
             $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
         }
 
-        // Pagination
         $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
         $page = (1 > $Query['page']) ? 1 : $Query['page'];
         $start = ($page - 1) * $per_page;
@@ -821,7 +781,7 @@ class Users extends RoutePackage
 
         $RoleSQL = rex_sql::factory();
         $RoleData = $RoleSQL->getArray(
-            'SELECT id, name, description, perms, createdate, createuser, updatedate, updateuser, revision FROM ' . rex::getTable('user_role') . ' WHERE id = :id',
+            'SELECT id, name, description, createdate, createuser, updatedate, updateuser, revision FROM ' . rex::getTable('user_role') . ' WHERE id = :id',
             [':id' => $roleId]
         );
 
@@ -831,7 +791,7 @@ class Users extends RoutePackage
 
         return new Response(json_encode($RoleData[0], JSON_PRETTY_PRINT));
     }
-    
+
     /** @api */
     public static function handleAddUserRole($Parameter): Response
     {
@@ -847,7 +807,6 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if role name already exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user_role') . ' WHERE name = :name', [':name' => $Data['name']]);
 
@@ -855,21 +814,15 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Role name already exists']), 409);
         }
 
-        // Validate perms JSON format
-        if (!self::isValidJson($Data['perms'])) {
-            return new Response(json_encode(['error' => 'Perms field must be a valid JSON string']), 400);
-        }
-
         try {
             $sql = rex_sql::factory();
             $sql->setTable(rex::getTable('user_role'));
             $sql->setValue('name', $Data['name']);
-            
+
             if ($Data['description'] !== null) {
                 $sql->setValue('description', $Data['description']);
             }
-            
-            $sql->setValue('perms', $Data['perms']);
+
             $sql->setValue('createdate', date('Y-m-d H:i:s'));
             $sql->setValue('createuser', 'API');
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
@@ -901,7 +854,6 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if role exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user_role') . ' WHERE id = :id', [':id' => $roleId]);
 
@@ -909,10 +861,9 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'User role not found']), 404);
         }
 
-        // Check if role name already exists for another role
         if ($Data['name'] !== null) {
             $nameSql = rex_sql::factory();
-            $nameSql->setQuery('SELECT id FROM ' . rex::getTable('user_role') . ' WHERE name = :name AND id != :id', 
+            $nameSql->setQuery('SELECT id FROM ' . rex::getTable('user_role') . ' WHERE name = :name AND id != :id',
                 [':name' => $Data['name'], ':id' => $roleId]);
 
             if ($nameSql->getRows() > 0) {
@@ -920,27 +871,17 @@ class Users extends RoutePackage
             }
         }
 
-        // Validate perms JSON format if provided
-        if ($Data['perms'] !== null && !self::isValidJson($Data['perms'])) {
-            return new Response(json_encode(['error' => 'Perms field must be a valid JSON string']), 400);
-        }
-
         try {
             $sql = rex_sql::factory();
             $sql->setTable(rex::getTable('user_role'));
             $sql->setWhere(['id' => $roleId]);
 
-            // Only update fields that are provided
             if ($Data['name'] !== null) {
                 $sql->setValue('name', $Data['name']);
             }
 
             if (array_key_exists('description', $Data)) {
                 $sql->setValue('description', $Data['description']);
-            }
-
-            if ($Data['perms'] !== null) {
-                $sql->setValue('perms', $Data['perms']);
             }
 
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
@@ -959,7 +900,6 @@ class Users extends RoutePackage
     {
         $roleId = $Parameter['id'];
 
-        // Check if role exists
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user_role') . ' WHERE id = :id', [':id' => $roleId]);
 
@@ -967,10 +907,9 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'User role not found']), 404);
         }
 
-        // Check if role is used by any users
         $usageCheck = rex_sql::factory();
         $usageCheck->setQuery(
-            'SELECT id FROM ' . rex::getTable('user') . ' WHERE FIND_IN_SET(:role_id, role) LIMIT 1',
+            'SELECT id FROM ' . rex::getTable('user') . ' WHERE role = :role_id LIMIT 1',
             [':role_id' => $roleId]
         );
 
@@ -981,7 +920,6 @@ class Users extends RoutePackage
         }
 
         try {
-            // Delete role
             $sql = rex_sql::factory();
             $sql->setQuery(
                 'DELETE FROM ' . rex::getTable('user_role') . ' WHERE id = :id',
@@ -992,18 +930,5 @@ class Users extends RoutePackage
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
-    }
-    
-    /**
-     * Helper method to validate JSON string
-     */
-    private static function isValidJson($string): bool
-    {
-        if (!is_string($string)) {
-            return false;
-        }
-        
-        json_decode($string);
-        return json_last_error() === JSON_ERROR_NONE;
     }
 }
