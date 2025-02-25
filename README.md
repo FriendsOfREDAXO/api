@@ -10,40 +10,40 @@ Zunächst ist geplant die Basisfeatures von REDAXO abzubilden.
 
 ### Endpunkte
 
-| Endpunkt                             | Method    | Beschreibung       | Status                                     |
-|--------------------------------------|-----------|--------------------|--------------------------------------------|
-| /api/structure/articles              | GET       | Artikelliste       | <span style="color:green">umgesetzt</span> |
-| /api/structure/articles/{id}/slice   | POST      | Slices erstellen   | <span style="color:green">umgesetzt</span> |
-| /api/structure/articles              | POST      | Artikel anlegen    | <span style="color:green">umgesetzt</span> |
-| /api/structure/articles/{id}         | DELETE    | Artikel löschen    | <span style="color:green">umgesetzt</span> |
-| /api/structure/articles/{id}         | PUT/PATCH | Artikel ändern     | <span style="color:red">noch offen</span>  |
-| /api/structure/categories            | POST      | Kategorie anlegen  | <span style="color:green">umgesetzt</span> |
-| /api/structure/categories/{id}       | DELETE    | Kategorie anzeigen | <span style="color:green">umgesetzt</span> |
-| /api/structure/categories/{id}       | PUT/PATCH | Kategorie ändern   | <span style="color:red">noch offen</span>                                 |
-| /api/media                           | GET       | Medienliste        | <span style="color:red">noch offen</span>                                 |
-| /api/media                           | POST      | Medium anlegen     | <span style="color:red">noch offen</span>                                 |
-| /api/media/{id}                      | DELETE    | Medium löschen     | <span style="color:red">noch offen</span>                                 |
-| /api/media/{id}                      | PUT/PATCH | Medium ändern      | <span style="color:red">noch offen</span>                                 |
-| /api/modules                         | GET       | Modulliste         | <span style="color:green">umgesetzt</span>                                 |
-| /api/modules                         | POST      | Modul anlegen      | <span style="color:green">umgesetzt</span>                                 |
-| /api/module/{id}                     | DELETE    | Modul löschen      | <span style="color:green">umgesetzt</span>                                 |
-| /api/module/{id}                     | PUT/PATCH | Modul ändern       | <span style="color:green">umgesetzt</span>                                 |
-| /api/templates                       | GET       | Template Liste     | <span style="color:red">noch offen</span>                                 |
-| /api/templates                       | POST      | Template anlegen   | <span style="color:red">noch offen</span>                                 |
-| /api/templates/{id}                  | DELETE    | Template löschen   | <span style="color:red">noch offen</span>                                 |
-| /api/templates/{id}                  | PUT/PATCH | Template ändern    | <span style="color:red">noch offen</span>                                 |
-| /api/users                           | GET       | Userliste          | <span style="color:red">noch offen</span>                                 |
-| /api/users                           | POST      | User anlegen       | <span style="color:red">noch offen</span>                                 |
-| /api/users/{id}                      | DELETE    | User löschen       | <span style="color:red">noch offen</span>                                 |
-| /api/users/{id}                      | PUT/PATCH | User ändern        | <span style="color:red">noch offen</span>                                 |
-| /api/users/roles                     | GET       | Rollenliste        | <span style="color:red">noch offen</span>                                 |
-| /api/users/roles                     | POST      | Rolle anlegen      | <span style="color:red">noch offen</span>                                 |
-| /api/users/roles/{id}                | DELETE    | Rolle löschen      | <span style="color:red">noch offen</span>                                 |
-| /api/users/roles/{id}                | PUT/PATCH | Rolle ändern       | <span style="color:red">noch offen</span>                                 |
-| /api/clangs                          | GET       | Sprachenliste      | <span style="color:red">noch offen</span>                                 |
-| /api/clangs                          | POST      | Sprache anlegen    | <span style="color:red">noch offen</span>                                 |
-| /api/clangs/{id}                     | DELETE    | Sprache löschen    | <span style="color:red">noch offen</span>                                 |
-| /api/clangs/{id}                     | PUT/PATCH | Sprache ändern     | <span style="color:red">noch offen</span>                                 |
+| Endpunkt                             | Method    | Beschreibung       | Status |
+|--------------------------------------|-----------|--------------------|--------|
+| /api/structure/articles              | GET       | Artikelliste       | ✅      |
+| /api/structure/articles/{id}/slice   | POST      | Slices erstellen   | ✅      |
+| /api/structure/articles              | POST      | Artikel anlegen    | ✅      |
+| /api/structure/articles/{id}         | DELETE    | Artikel löschen    | ✅      |
+| /api/structure/articles/{id}         | PUT/PATCH | Artikel ändern     | ❌      |
+| /api/structure/categories            | POST      | Kategorie anlegen  | ✅      |
+| /api/structure/categories/{id}       | DELETE    | Kategorie anzeigen | ✅      |
+| /api/structure/categories/{id}       | PUT/PATCH | Kategorie ändern   | ❌      |
+| /api/media                           | GET       | Medienliste        | ❌      |
+| /api/media                           | POST      | Medium anlegen     | ❌      |
+| /api/media/{id}                      | DELETE    | Medium löschen     | ❌      |
+| /api/media/{id}                      | PUT/PATCH | Medium ändern      | ❌      |
+| /api/modules                         | GET       | Modulliste         | ✅      |
+| /api/modules                         | POST      | Modul anlegen      | ✅      |
+| /api/module/{id}                     | DELETE    | Modul löschen      | ✅      |
+| /api/module/{id}                     | PUT/PATCH | Modul ändern       | ✅      |
+| /api/templates                       | GET       | Template Liste     | ✅      |
+| /api/templates                       | POST      | Template anlegen   | ✅      |
+| /api/templates/{id}                  | DELETE    | Template löschen   | ✅      |
+| /api/templates/{id}                  | PUT/PATCH | Template ändern    | ✅      |
+| /api/users                           | GET       | Userliste          | ❌      |
+| /api/users                           | POST      | User anlegen       | ❌      |
+| /api/users/{id}                      | DELETE    | User löschen       | ❌      |
+| /api/users/{id}                      | PUT/PATCH | User ändern        | ❌      |
+| /api/users/roles                     | GET       | Rollenliste        | ❌      |
+| /api/users/roles                     | POST      | Rolle anlegen      | ❌      |
+| /api/users/roles/{id}                | DELETE    | Rolle löschen      | ❌      |
+| /api/users/roles/{id}                | PUT/PATCH | Rolle ändern       | ❌      |
+| /api/clangs                          | GET       | Sprachenliste      | ❌      |
+| /api/clangs                          | POST      | Sprache anlegen    | ❌      |
+| /api/clangs/{id}                     | DELETE    | Sprache löschen    | ❌      |
+| /api/clangs/{id}                     | PUT/PATCH | Sprache ändern     | ❌      |
 
 ## Bei Problemen mit Authorization
 
