@@ -131,9 +131,9 @@ class Structure extends RoutePackage
 
         // Article Add Slice
         RouteCollection::registerRoute(
-            'structure/articles/slice/add',
+            'structure/articles/slices/add',
             new Route(
-                'structure/articles/{id}/slice',
+                'structure/articles/{id}/slices',
                 [
                     '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleAddArticleSlice',
                     'Body' => array_merge(
