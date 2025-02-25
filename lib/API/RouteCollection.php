@@ -22,12 +22,12 @@ class RouteCollection
     /** @var true */
     private static bool $packagesLoaded = false;
 
-    public static function registerRoute($scope, Route $Route, $description = ''): array
+    public static function registerRoute(string $scope, Route $Route, string $description = ''): array
     {
         self::$Routes[$scope] = [
             'scope' => $scope,
             'route' => $Route,
-            'description' => $description,
+            'description' => $description
         ];
         return self::$Routes;
     }

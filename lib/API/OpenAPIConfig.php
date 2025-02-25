@@ -1,0 +1,139 @@
+<?php
+
+namespace Redaxo\Addons\Api;
+
+use FriendsOfREDAXO\API\RouteCollection;
+use rex_i18n;
+use Symfony\Component\Routing\Route;
+
+use function is_array;
+
+class OpenAPIConfig
+{
+    public static function getByRoutes(array $Routes): array
+    {
+        $config = [
+            'openapi' => '3.0.0',
+            'info' => [
+                'title' => rex_i18n::msg('api_openapi_title'),
+                'description' => rex_i18n::msg('api_openapi_description'),
+                'version' => '1.0.0',
+            ],
+            'servers' => [
+                [
+                    'url' => '/' . RouteCollection::$preRoute,
+                ],
+            ],
+        ];
+
+        $config['components']['securitySchemes']['bearerAuth'] = [
+            'type' => 'http',
+            'scheme' => 'bearer',
+            'bearerFormat' => 'JWT',
+        ];
+
+        foreach ($Routes as $Scope => $RouteArray) {
+            /** @var Route $Route */
+            $Route = $RouteArray['route'];
+
+            $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])] = [
+                'summary' => $RouteArray['description'],
+                'responses' => [
+                    '200' => [
+                        'description' => 'successful operation',
+                    ],
+                    '400' => [
+                        'description' => 'Unvalid request',
+                    ],
+                    '401' => [
+                        'description' => 'Not authorized',
+                    ],
+                    '404' => [
+                        'description' => 'Not found',
+                    ],
+                    '409' => [
+                        'description' => 'Conflict',
+                    ],
+                    '500' => [
+                        'description' => 'Internal server error',
+                    ],
+                ],
+                'security' => [
+                    [
+                        'bearerAuth' => [],
+                    ],
+                ],
+            ];
+
+            $Parameters = [];
+
+            // inPath
+            foreach ($Route->getRequirements() ?? [] as $Key => $Parameter) {
+                // TODO: Parameter im Pfad
+                // 'id' => '\d+',
+                $Parameters[] = [
+                    'name' => $Key,
+                    'in' => 'path',
+                    'description' => $Parameter['description'] ?? '',
+                    'required' => true,
+                    'schema' => [
+                        'type' => $Parameter['type'] ?? 'string',
+                    ],
+                ];
+            }
+
+            // in Body
+            foreach ($Route->getDefault('Body') ?? [] as $Key => $Parameter) {
+                $Parameters[] = [
+                    'name' => $Key,
+                    'in' => 'body',
+                    'description' => $Parameter['description'] ?? '',
+                    'required' => $Parameter['required'] ?? false,
+                    'schema' => [
+                        'type' => $Parameter['type'],
+                    ],
+                ];
+            }
+
+            // in URL
+            foreach ($Route->getDefault('query') ?? [] as $Key => $Parameter) {
+                if (isset($Parameter['fields']) && is_array($Parameter['fields'])) {
+                    $Properties = [];
+                    foreach ($Parameter['fields'] as $FieldKey => $Field) {
+                        $Properties[$FieldKey] = [
+                            'required' => $Field['required'] ?? false,
+                            'default' => $Field['default'] ?? null,
+                        ];
+                    }
+
+                    $Parameters[] = [
+                        'name' => $Key,
+                        'in' => 'query',
+                        'description' => $Field['description'] ?? '',
+                        'required' => $Field['required'] ?? false,
+                        'schema' => [
+                            'type' => 'object',
+                            'properties' => $Properties,
+                        ],
+                        'style' => 'deepObject',
+                        'explode' => true,
+                    ];
+                }
+
+                if (!isset($Parameter['fields'])) {
+                    $Parameters[] = [
+                        'name' => $Key,
+                        'in' => 'query',
+                        'description' => $Parameter['description'] ?? '',
+                        'required' => $Parameter['required'] ?? false,
+                        'default' => $Parameter['default'] ?? null,
+                    ];
+                }
+            }
+
+            $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['parameters'] = $Parameters;
+        }
+
+        return $config;
+    }
+}
