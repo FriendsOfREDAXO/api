@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      swagger-ui-dist:
+        specifier: ^4.19.0
+        version: 4.19.1
+
+packages:
+
+  swagger-ui-dist@4.19.1:
+    resolution: {integrity: sha512-n/gFn+R7G/BXWwl5UZLw6F1YgWOlf3zkwGlsPhTMhNtAAolBGKg0JS5b2RKt5NI6/hSopVaSrki2wTIMUDDy2w==}
+
+snapshots:
+
+  swagger-ui-dist@4.19.1: {}
