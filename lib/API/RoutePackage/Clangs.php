@@ -111,13 +111,13 @@ class Clangs extends RoutePackage
                             'description' => 'Language name',
                         ],
                         'priority' => [
-                            'type' => 'int',
+                            'type' => 'integer',
                             'required' => false,
                             'default' => 0,
                             'description' => 'Sort priority',
                         ],
                         'status' => [
-                            'type' => 'int',
+                            'type' => 'integer',
                             'required' => false,
                             'default' => 1,
                             'description' => 'Active status (1 = active, 0 = inactive)',
@@ -154,13 +154,13 @@ class Clangs extends RoutePackage
                             'description' => 'Language name',
                         ],
                         'priority' => [
-                            'type' => 'int',
+                            'type' => 'integer',
                             'required' => false,
                             'default' => null,
                             'description' => 'Sort priority',
                         ],
                         'status' => [
-                            'type' => 'int',
+                            'type' => 'integer',
                             'required' => false,
                             'default' => null,
                             'description' => 'Active status (1 = active, 0 = inactive)',
