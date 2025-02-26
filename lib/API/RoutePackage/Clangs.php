@@ -8,6 +8,7 @@ use FriendsOfREDAXO\API\RoutePackage;
 use rex;
 use rex_clang;
 use rex_clang_service;
+use rex_extension;
 use rex_i18n;
 use rex_sql;
 use Symfony\Component\HttpFoundation\Response;
