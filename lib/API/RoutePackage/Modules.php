@@ -6,14 +6,23 @@ use Exception;
 use FriendsOfREDAXO\API\RouteCollection;
 use FriendsOfREDAXO\API\RoutePackage;
 use rex;
+use rex_extension;
+use rex_extension_point;
+use rex_module_cache;
 use rex_sql;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
+use function array_key_exists;
 use function count;
+use function is_array;
+
 use const JSON_PRETTY_PRINT;
 
 class Modules extends RoutePackage
 {
+    public const ModuleFields = ['id', 'name', 'key', 'input', 'output', 'createdate', 'createuser', 'updatedate', 'updateuser'];
+
     public function loadRoutes(): void
     {
         // Modules List
@@ -26,11 +35,6 @@ class Modules extends RoutePackage
                     'query' => [
                         'filter' => [
                             'fields' => [
-                                'id' => [
-                                    'type' => 'int',
-                                    'required' => false,
-                                    'default' => null,
-                                ],
                                 'name' => [
                                     'type' => 'string',
                                     'required' => false,
@@ -43,7 +47,7 @@ class Modules extends RoutePackage
                                 ],
                             ],
                             'type' => 'array',
-                            'required' => true,
+                            'required' => false,
                             'default' => [],
                         ],
                         'page' => [
@@ -183,16 +187,8 @@ class Modules extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        // Include 'key' in the selected fields
-        $fields = ['id', 'name', 'key', 'input', 'output', 'createdate', 'createuser', 'updatedate', 'updateuser', 'revision'];
-
         $SqlQueryWhere = [];
         $SqlParameters = [];
-
-        if (null !== $Query['filter']['id']) {
-            $SqlQueryWhere[':id'] = 'id = :id';
-            $SqlParameters[':id'] = $Query['filter']['id'];
-        }
 
         if (null !== $Query['filter']['name']) {
             $SqlQueryWhere[':name'] = 'name LIKE :name';
@@ -215,14 +211,14 @@ class Modules extends RoutePackage
         $ModulesSQL = rex_sql::factory();
         $Modules = $ModulesSQL->getArray(
             '
-            SELECT
-                ' . implode(',', $fields) . '
-            FROM
-                ' . rex::getTablePrefix() . 'module
+        SELECT
+            `' . implode('`,`', self::ModuleFields) . '`
+        FROM
+            ' . rex::getTablePrefix() . 'module
             ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
-            ORDER BY name ASC
-            LIMIT :start, :per_page
-            ',
+        ORDER BY name ASC
+        LIMIT :start, :per_page
+        ',
             $SqlParameters,
         );
 
@@ -236,8 +232,8 @@ class Modules extends RoutePackage
 
         $ModulesSQL = rex_sql::factory();
         $ModulesData = $ModulesSQL->getArray(
-            'SELECT * FROM ' . rex::getTablePrefix() . 'module WHERE id = :id',
-            [':id' => $moduleId]
+            'SELECT `' . implode('`,`', self::ModuleFields) . '` FROM ' . rex::getTablePrefix() . 'module WHERE id = :id',
+            [':id' => $moduleId],
         );
 
         if (empty($ModulesData)) {
@@ -308,7 +304,7 @@ class Modules extends RoutePackage
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $moduleId]);
 
-        if ($checkSql->getRows() === 0) {
+        if (0 === $checkSql->getRows()) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
 
@@ -356,7 +352,7 @@ class Modules extends RoutePackage
         $checkSql = rex_sql::factory();
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $moduleId]);
 
-        if ($checkSql->getRows() === 0) {
+        if (0 === $checkSql->getRows()) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
 
@@ -365,12 +361,12 @@ class Modules extends RoutePackage
             $usageCheck = rex_sql::factory();
             $usageCheck->setQuery(
                 'SELECT id FROM ' . rex::getTable('article_slice') . ' WHERE module_id = :id LIMIT 1',
-                [':id' => $moduleId]
+                [':id' => $moduleId],
             );
 
             if ($usageCheck->getRows() > 0) {
                 return new Response(json_encode([
-                    'error' => 'Cannot delete module. It is in use by one or more slices.'
+                    'error' => 'Cannot delete module. It is in use by one or more slices.',
                 ]), 409);
             }
 
@@ -378,8 +374,13 @@ class Modules extends RoutePackage
             $sql = rex_sql::factory();
             $sql->setQuery(
                 'DELETE FROM ' . rex::getTable('module') . ' WHERE id = :id',
-                [':id' => $moduleId]
+                [':id' => $moduleId],
             );
+
+            rex_module_cache::delete($moduleId);
+            rex_extension::registerPoint(new rex_extension_point('MODULE_DELETED', '', [
+                'id' => $moduleId,
+            ]));
 
             return new Response(json_encode(['message' => 'Module deleted', 'id' => $moduleId]), 200);
         } catch (Exception $e) {
