@@ -15,18 +15,21 @@
 
 /* Dark Mode Variables */
 [data-theme="dark"],
-.rex-theme-dark {
-    --swagger-text-color: rgba(255, 255, 255, 0.75);
-    --swagger-arrow-fill: rgba(255, 255, 255, 0.75);
-    --swagger-unlock-fill: #49cc90;
-    --swagger-bg-color: #32363b;
-    --swagger-border-color: #404448;
-    --swagger-scheme-container-bg: #32363b;
-    --swagger-scheme-container-border: #404448;
-    --swagger-modal-bg: #32363b;
-    --swagger-modal-text: rgba(255, 255, 255, 0.75);
-    --swagger-modal-border: #404448;
-    --swagger-modal-header-bg: #292c31;
+.rex-theme-dark,
+@media (prefers-color-scheme: dark) {
+    body.rex-has-theme:not(.rex-theme-light) {
+        --swagger-text-color: rgba(255, 255, 255, 0.75);
+        --swagger-arrow-fill: rgba(255, 255, 255, 0.75);
+        --swagger-unlock-fill: #49cc90;
+        --swagger-bg-color: #32363b;
+        --swagger-border-color: #404448;
+        --swagger-scheme-container-bg: #32363b;
+        --swagger-scheme-container-border: #404448;
+        --swagger-modal-bg: #32363b;
+        --swagger-modal-text: rgba(255, 255, 255, 0.75);
+        --swagger-modal-border: #404448;
+        --swagger-modal-header-bg: #292c31;
+    }
 }
 
 /* Apply variables to Swagger UI elements */
