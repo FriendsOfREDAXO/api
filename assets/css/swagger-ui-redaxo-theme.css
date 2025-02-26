@@ -41,7 +41,10 @@
 .swagger-ui .response-col_status,
 .swagger-ui .response-col_links,
 .swagger-ui .tab li button.tablinks,
-.swagger-ui label {
+.swagger-ui label,
+.swagger-ui .scheme-container .schemes-title,
+.swagger-ui .scheme-container .schemes-list select,
+.swagger-ui .scheme-container section {
     color: var(--swagger-text-color);
 }
 
