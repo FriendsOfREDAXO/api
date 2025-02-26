@@ -10,46 +10,53 @@ Zunächst ist geplant die Basisfeatures von REDAXO abzubilden.
 
 ### Endpunkte
 
-| Endpunkt                           | Method    | Beschreibung           | Status |
-|------------------------------------|-----------|------------------------|--------|
-| /api/structure/articles            | GET       | Artikelliste           | ✅      |
-| /api/structure/articles/{id}/slice | POST      | Slices erstellen       | ✅      |
-| /api/structure/articles            | POST      | Artikel anlegen        | ✅      |
-| /api/structure/articles/{id}       | DELETE    | Artikel löschen        | ✅      |
-| /api/structure/articles/{id}       | PUT/PATCH | Artikel ändern         | ❌      |
-| /api/structure/categories          | POST      | Kategorie anlegen      | ✅      |
-| /api/structure/categories/{id}     | DELETE    | Kategorie anzeigen     | ✅      |
-| /api/structure/categories/{id}     | PUT/PATCH | Kategorie ändern       | ❌      |
-| /api/media                         | GET       | Medienliste            | ✅      |
-| /api/media/{filename}              | GET       | Mediametadaten         | ✅      |
-| /api/media/{filename}/file         | GET       | Mediafile (raw)        | ✅      |
-| /api/media                         | POST      | Medium anlegen         | ❌      |
-| /api/media/{id}                    | DELETE    | Medium löschen         | ✅      |
-| /api/media/{id}                    | PUT/PATCH | Medium ändern          | ❌      |
-| /api/media/categories              | GET       | Mediakategorienliste   | ❌      |
-| /api/media/categories              | POST      | Mediakategorie anlegen | ❌      |
-| /api/media/categories/{id}         | DELETE    | Mediakategorie löschen | ❌      |
-| /api/media/categories/{id}         | PUT/PATCH | Mediakategorie ändern  | ❌      |
-| /api/modules                       | GET       | Modulliste             | ✅      |
-| /api/modules                       | POST      | Modul anlegen          | ✅      |
-| /api/module/{id}                   | DELETE    | Modul löschen          | ✅      |
-| /api/module/{id}                   | PUT/PATCH | Modul ändern           | ✅      |
-| /api/templates                     | GET       | Template Liste         | ✅      |
-| /api/templates                     | POST      | Template anlegen       | ✅      |
-| /api/templates/{id}                | DELETE    | Template löschen       | ✅      |
-| /api/templates/{id}                | PUT/PATCH | Template ändern        | ✅      |
-| /api/users                         | GET       | Userliste              | ❌      |
-| /api/users                         | POST      | User anlegen           | ❌      |
-| /api/users/{id}                    | DELETE    | User löschen           | ❌      |
-| /api/users/{id}                    | PUT/PATCH | User ändern            | ❌      |
-| /api/users/roles                   | GET       | Rollenliste            | ❌      |
-| /api/users/roles                   | POST      | Rolle anlegen          | ❌      |
-| /api/users/roles/{id}              | DELETE    | Rolle löschen          | ❌      |
-| /api/users/roles/{id}              | PUT/PATCH | Rolle ändern           | ❌      |
-| /api/clangs                        | GET       | Sprachenliste          | ❌      |
-| /api/clangs                        | POST      | Sprache anlegen        | ❌      |
-| /api/clangs/{id}                   | DELETE    | Sprache löschen        | ❌      |
-| /api/clangs/{id}                   | PUT/PATCH | Sprache ändern         | ❌      |
+| Endpunkt                                       | Method    | Beschreibung                    | Status |
+|------------------------------------------------|-----------|---------------------------------|--------|
+| /api/structure/articles                        | GET       | Artikelliste                    | ✅      |
+| /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ❌      |
+| /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      |
+| /api/structure/articles/{id}/slices/{slice_id} | GET       | Slice eines Artikel anzeigen    | ❌      |
+| /api/structure/articles/{id}/slices/{slice_id} | PUT/PATCH | Slice eines Artikel ändern      | ❌      |
+| /api/structure/articles                        | POST      | Artikel anlegen                 | ✅      |
+| /api/structure/articles/{id}                   | DELETE    | Artikel löschen                 | ✅      |
+| /api/structure/articles/{id}                   | PUT/PATCH | Artikel ändern                  | ❌      |
+| /api/structure/categories                      | POST      | Kategorie anlegen               | ✅      |
+| /api/structure/categories/{id}                 | DELETE    | Kategorie anzeigen              | ✅      |
+| /api/structure/categories/{id}                 | PUT/PATCH | Kategorie ändern                | ❌      |
+| /api/media                                     | GET       | Medienliste                     | ✅      |
+| /api/media/{filename}                          | GET       | Mediametadaten                  | ✅      |
+| /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      |
+| /api/media                                     | POST      | Medium anlegen                  | ❌      |
+| /api/media/{id}                                | DELETE    | Medium löschen                  | ✅      |
+| /api/media/{id}                                | PUT/PATCH | Medium ändern                   | ❌      |
+| /api/media/categories                          | GET       | Mediakategorienliste            | ❌      |
+| /api/media/categories                          | POST      | Mediakategorie anlegen          | ❌      |
+| /api/media/categories/{id}                     | DELETE    | Mediakategorie löschen          | ❌      |
+| /api/media/categories/{id}                     | PUT/PATCH | Mediakategorie ändern           | ❌      |
+| /api/modules                                   | GET       | Modulliste                      | ✅      |
+| /api/modules                                   | POST      | Modul anlegen                   | ✅      |
+| /api/module/{id}                               | DELETE    | Modul löschen                   | ✅      |
+| /api/module/{id}                               | PUT/PATCH | Modul ändern                    | ✅      |
+| /api/templates                                 | GET       | Template Liste                  | ✅      |
+| /api/templates                                 | POST      | Template anlegen                | ✅      |
+| /api/templates/{id}                            | DELETE    | Template löschen                | ✅      |
+| /api/templates/{id}                            | PUT/PATCH | Template ändern                 | ✅      |
+| /api/users                                     | GET       | Userliste                       | ✅      |
+| /api/users                                     | POST      | User anlegen                    | ❌      |
+| /api/users/{id}                                | GET       | User holen                      | ✅      |
+| /api/users/{id}/role                           | GET       | Userrolen eines Users auflisten | ❌      |
+| /api/users/{id}/role                           | POST      | Userrole einem Users hinzufügen | ❌      |
+| /api/users/{id}/role                           | DELETE    | Userrole eines Users löschen    | ❌      |
+| /api/users/{id}                                | DELETE    | User löschen                    | ✅      |
+| /api/users/{id}                                | PUT/PATCH | User ändern                     | ❌      |
+| /api/users/roles                               | GET       | Rollenliste                     | ✅      |
+| /api/users/roles                               | POST      | Rolle anlegen                   | ❌      |
+| /api/users/roles/{id}                          | DELETE    | Rolle löschen                   | ❌      |
+| /api/users/roles/{id}                          | PUT/PATCH | Rolle ändern                    | ❌      |
+| /api/system/clangs                             | GET       | Sprachenliste                   | ❌      |
+| /api/system/clangs                             | POST      | Sprache anlegen                 | ❌      |
+| /api/system/clangs/{id}                        | DELETE    | Sprache löschen                 | ❌      |
+| /api/system/clangs/{id}                        | PUT/PATCH | Sprache ändern                  | ❌      |
 
 ## Bei Problemen mit Authorization
 
