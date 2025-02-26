@@ -11,11 +11,9 @@ if ('1' === rex_request('load_config', 'string')) {
 ?>
 
 <!-- Swagger UI Stylesheet -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.3/swagger-ui.css">
 <div id="swagger-ui"></div>
 
 <!-- Swagger UI Script -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.18.3/swagger-ui-bundle.js" nonce="' . rex_response::getNonce() . '"></script>
 <script nonce="' . rex_response::getNonce() . '">
     // Configuration for Swagger UI
     window.onload = () => {

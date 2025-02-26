@@ -1,0 +1,169 @@
+/* Light Mode Variables */
+:root {
+    --swagger-text-color: #3b4151;
+    --swagger-arrow-fill: #3b4151;
+    --swagger-unlock-fill: #49cc90;
+    --swagger-bg-color: #fff;
+    --swagger-border-color: #d9d9d9;
+    --swagger-scheme-container-bg: #fff;
+    --swagger-scheme-container-border: #d9d9d9;
+    --swagger-modal-bg: #fff;
+    --swagger-modal-text: #3b4151;
+    --swagger-modal-border: #d9d9d9;
+    --swagger-modal-header-bg: #f7f7f7;
+}
+
+/* Dark Mode Variables */
+.rex-theme-dark {
+    --swagger-text-color: rgba(255, 255, 255, 0.75);
+    --swagger-arrow-fill: rgba(255, 255, 255, 0.75);
+    --swagger-unlock-fill: #49cc90;
+    --swagger-bg-color: #32363b;
+    --swagger-border-color: #404448;
+    --swagger-scheme-container-bg: #32363b;
+    --swagger-scheme-container-border: #404448;
+    --swagger-modal-bg: #32363b;
+    --swagger-modal-text: rgba(255, 255, 255, 0.75);
+    --swagger-modal-border: #404448;
+    --swagger-modal-header-bg: #292c31;
+}
+
+/* Also apply to data-theme="dark" attribute */
+[data-theme="dark"] {
+    --swagger-text-color: rgba(255, 255, 255, 0.75);
+    --swagger-arrow-fill: rgba(255, 255, 255, 0.75);
+    --swagger-unlock-fill: #49cc90;
+    --swagger-bg-color: #32363b;
+    --swagger-border-color: #404448;
+    --swagger-scheme-container-bg: #32363b;
+    --swagger-scheme-container-border: #404448;
+    --swagger-modal-bg: #32363b;
+    --swagger-modal-text: rgba(255, 255, 255, 0.75);
+    --swagger-modal-border: #404448;
+    --swagger-modal-header-bg: #292c31;
+}
+
+/* System preference for dark mode - only apply if light theme isn't explicitly set */
+@media (prefers-color-scheme: dark) {
+    body:not(.rex-theme-light) {
+        --swagger-text-color: rgba(255, 255, 255, 0.75);
+        --swagger-arrow-fill: rgba(255, 255, 255, 0.75);
+        --swagger-unlock-fill: #49cc90;
+        --swagger-bg-color: #32363b;
+        --swagger-border-color: #404448;
+        --swagger-scheme-container-bg: #32363b;
+        --swagger-scheme-container-border: #404448;
+        --swagger-modal-bg: #32363b;
+        --swagger-modal-text: rgba(255, 255, 255, 0.75);
+        --swagger-modal-border: #404448;
+        --swagger-modal-header-bg: #292c31;
+    }
+}
+
+/* Apply variables to Swagger UI elements */
+.swagger-ui .info .title,
+.swagger-ui .info .main .description .renderedMarkdown,
+.swagger-ui .opblock-tag-section .opblock-tag h3,
+.swagger-ui a.nostyle, 
+.swagger-ui a.nostyle:visited,
+.swagger-ui .markdown p, 
+.swagger-ui .markdown pre, 
+.swagger-ui .renderedMarkdown p, 
+.swagger-ui .renderedMarkdown pre,
+.swagger-ui .opblock .opblock-summary-description,
+.swagger-ui table thead tr td, 
+.swagger-ui table thead tr th,
+.swagger-ui .parameter__extension, 
+.swagger-ui .parameter__in,
+.swagger-ui .parameter__type,
+.swagger-ui .parameter__name,
+.swagger-ui .response-col_status,
+.swagger-ui .response-col_links,
+.swagger-ui .tab li button.tablinks,
+.swagger-ui label,
+.swagger-ui .scheme-container .schemes-title,
+.swagger-ui .scheme-container .schemes-list select,
+.swagger-ui .scheme-container section {
+    color: var(--swagger-text-color);
+}
+
+.swagger-ui svg[class="arrow"] {
+    fill: var(--swagger-arrow-fill);
+}
+
+.swagger-ui .authorization__btn.unlocked {
+    fill: var(--swagger-unlock-fill);
+}
+
+.swagger-ui .info .title small pre {
+    color: #fff;
+    background-color: unset;
+    border: 0;
+}
+
+table {
+    background-color: unset;
+}
+
+/* Swagger UI elements styling */
+.swagger-ui .opblock {
+    border-color: var(--swagger-border-color);
+}
+
+.swagger-ui .scheme-container {
+    background-color: var(--swagger-scheme-container-bg);
+    border-color: var(--swagger-scheme-container-border);
+}
+
+.swagger-ui input[type=text] {
+    background-color: var(--swagger-bg-color);
+    color: var(--swagger-text-color);
+    border-color: var(--swagger-border-color);
+}
+
+.swagger-ui select {
+    background-color: var(--swagger-bg-color);
+    color: var(--swagger-text-color);
+    border-color: var(--swagger-border-color);
+}
+
+/* Modal styling */
+.swagger-ui .dialog-ux .modal-ux {
+    background-color: var(--swagger-modal-bg);
+    border-color: var(--swagger-modal-border);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header {
+    background-color: var(--swagger-modal-header-bg);
+    border-bottom-color: var(--swagger-modal-border);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header h3 {
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux-content {
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux-content h4,
+.swagger-ui .dialog-ux .modal-ux-content p,
+.swagger-ui .dialog-ux .modal-ux-content label {
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux button.btn-done {
+    background-color: var(--swagger-unlock-fill);
+    color: white;
+}
+
+.swagger-ui .dialog-ux .modal-ux button.btn {
+    border-color: var(--swagger-modal-border);
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux input[type=text] {
+    background-color: var(--swagger-bg-color);
+    color: var(--swagger-modal-text);
+    border-color: var(--swagger-modal-border);
+}
