@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Route;
+
 use function in_array;
 use function is_array;
 
@@ -27,7 +28,7 @@ class RouteCollection
         self::$Routes[$scope] = [
             'scope' => $scope,
             'route' => $Route,
-            'description' => $description
+            'description' => $description,
         ];
         return self::$Routes;
     }
@@ -141,7 +142,7 @@ class RouteCollection
                     if ((!isset($definition[$key]['required']) || $definition[$key]['required']) && !isset($request[$key])) {
                         throw new Exception($key);
                     }
-                    if (!isset($request[$key])) {
+                    if (!isset($request[$key]) || '' === $request[$key]) {
                         $return[$key] = $definition[$key]['default'];
                     } else {
                         $return[$key] = rex_type::cast($request[$key], $definition[$key]['type']);
