@@ -5,6 +5,8 @@
     --swagger-unlock-fill: #49cc90;
     --swagger-bg-color: #fff;
     --swagger-border-color: #d9d9d9;
+    --swagger-scheme-container-bg: #fff;
+    --swagger-scheme-container-border: #d9d9d9;
 }
 
 /* Dark Mode Variables */
@@ -15,6 +17,8 @@
     --swagger-unlock-fill: #49cc90;
     --swagger-bg-color: #32363b;
     --swagger-border-color: #404448;
+    --swagger-scheme-container-bg: #32363b;
+    --swagger-scheme-container-border: #404448;
 }
 
 /* Apply variables to Swagger UI elements */
@@ -62,6 +66,11 @@ table {
 /* Optional: Add more styling for other Swagger UI elements */
 .swagger-ui .opblock {
     border-color: var(--swagger-border-color);
+}
+
+.swagger-ui .scheme-container {
+    background-color: var(--swagger-scheme-container-bg);
+    border-color: var(--swagger-scheme-container-border);
 }
 
 .swagger-ui input[type=text] {
