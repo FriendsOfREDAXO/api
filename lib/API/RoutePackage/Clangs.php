@@ -32,7 +32,7 @@ class Clangs extends RoutePackage
                         'filter' => [
                             'fields' => [
                                 'id' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
@@ -47,7 +47,7 @@ class Clangs extends RoutePackage
                                     'default' => null,
                                 ],
                                 'status' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
@@ -57,12 +57,12 @@ class Clangs extends RoutePackage
                             'default' => [],
                         ],
                         'page' => [
-                            'type' => 'int',
+                            'type' => 'integer',
                             'required' => false,
                             'default' => 1,
                         ],
                         'per_page' => [
-                            'type' => 'int',
+                            'type' => 'integer',
                             'required' => false,
                             'default' => 100,
                         ],
