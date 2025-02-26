@@ -17,7 +17,7 @@ use function count;
 use function is_array;
 use const JSON_PRETTY_PRINT;
 
-class ClangsAPI extends RoutePackage
+class Clangs extends RoutePackage
 {
     public function loadRoutes(): void
     {
@@ -27,7 +27,7 @@ class ClangsAPI extends RoutePackage
             new Route(
                 'system/clangs',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\ClangsAPI::handleClangsList',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleClangsList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -82,7 +82,7 @@ class ClangsAPI extends RoutePackage
             new Route(
                 'system/clangs/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\ClangsAPI::handleGetClang',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleGetClang',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -98,7 +98,7 @@ class ClangsAPI extends RoutePackage
             new Route(
                 'system/clangs',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\ClangsAPI::handleAddClang',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleAddClang',
                     'Body' => [
                         'code' => [
                             'type' => 'string',
@@ -134,7 +134,7 @@ class ClangsAPI extends RoutePackage
             new Route(
                 'system/clangs/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\ClangsAPI::handleUpdateClang',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleUpdateClang',
                     'Body' => [
                         'code' => [
                             'type' => 'string',
@@ -172,7 +172,7 @@ class ClangsAPI extends RoutePackage
             new Route(
                 'system/clangs/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\ClangsAPI::handleDeleteClang',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleDeleteClang',
                 ],
                 ['id' => '\d+'],
                 [],
