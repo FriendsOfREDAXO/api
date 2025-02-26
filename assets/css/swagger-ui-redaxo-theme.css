@@ -7,6 +7,10 @@
     --swagger-border-color: #d9d9d9;
     --swagger-scheme-container-bg: #fff;
     --swagger-scheme-container-border: #d9d9d9;
+    --swagger-modal-bg: #fff;
+    --swagger-modal-text: #3b4151;
+    --swagger-modal-border: #d9d9d9;
+    --swagger-modal-header-bg: #f7f7f7;
 }
 
 /* Dark Mode Variables */
@@ -19,6 +23,10 @@
     --swagger-border-color: #404448;
     --swagger-scheme-container-bg: #32363b;
     --swagger-scheme-container-border: #404448;
+    --swagger-modal-bg: #32363b;
+    --swagger-modal-text: rgba(255, 255, 255, 0.75);
+    --swagger-modal-border: #404448;
+    --swagger-modal-header-bg: #292c31;
 }
 
 /* Apply variables to Swagger UI elements */
@@ -86,4 +94,45 @@ table {
     background-color: var(--swagger-bg-color);
     color: var(--swagger-text-color);
     border-color: var(--swagger-border-color);
+}
+
+/* Modal styling */
+.swagger-ui .dialog-ux .modal-ux {
+    background-color: var(--swagger-modal-bg);
+    border-color: var(--swagger-modal-border);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header {
+    background-color: var(--swagger-modal-header-bg);
+    border-bottom-color: var(--swagger-modal-border);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header h3 {
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux-content {
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux-content h4,
+.swagger-ui .dialog-ux .modal-ux-content p,
+.swagger-ui .dialog-ux .modal-ux-content label {
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux button.btn-done {
+    background-color: var(--swagger-unlock-fill);
+    color: white;
+}
+
+.swagger-ui .dialog-ux .modal-ux button.btn {
+    border-color: var(--swagger-modal-border);
+    color: var(--swagger-modal-text);
+}
+
+.swagger-ui .dialog-ux .modal-ux input[type=text] {
+    background-color: var(--swagger-bg-color);
+    color: var(--swagger-modal-text);
+    border-color: var(--swagger-modal-border);
 }
