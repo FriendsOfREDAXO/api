@@ -18,9 +18,11 @@ use rex_sql;
 use rex_template;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
 use function count;
 use function in_array;
 use function is_array;
+
 use const JSON_PRETTY_PRINT;
 
 class Structure extends RoutePackage
@@ -135,7 +137,7 @@ class Structure extends RoutePackage
             new Route(
                 'structure/articles/{id}/slices',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleAddArticleSlice',
+                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleAddArticleSlices',
                     'Body' => array_merge(
                         [
                             'module_id' => [
@@ -420,7 +422,7 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddArticleSlice($Parameter): Response
+    public static function handleAddArticleSlices($Parameter): Response
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
