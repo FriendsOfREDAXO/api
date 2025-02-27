@@ -10,20 +10,19 @@ use rex_clang;
 use rex_clang_service;
 use rex_extension;
 use rex_extension_point;
-use rex_i18n;
-use rex_sql;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
 use function count;
 use function is_array;
+
 use const JSON_PRETTY_PRINT;
 
 class Clangs extends RoutePackage
 {
     public function loadRoutes(): void
     {
-        // Clangs List
+        // Clangs List ✅
         RouteCollection::registerRoute(
             'system/clangs/list',
             new Route(
@@ -33,11 +32,6 @@ class Clangs extends RoutePackage
                     'query' => [
                         'filter' => [
                             'fields' => [
-                                'id' => [
-                                    'type' => 'integer',
-                                    'required' => false,
-                                    'default' => null,
-                                ],
                                 'code' => [
                                     'type' => 'string',
                                     'required' => false,
@@ -58,16 +52,6 @@ class Clangs extends RoutePackage
                             'required' => false,
                             'default' => [],
                         ],
-                        'page' => [
-                            'type' => 'integer',
-                            'required' => false,
-                            'default' => 1,
-                        ],
-                        'per_page' => [
-                            'type' => 'integer',
-                            'required' => false,
-                            'default' => 100,
-                        ],
                     ],
                 ],
                 [],
@@ -78,7 +62,7 @@ class Clangs extends RoutePackage
             'Access to the list of languages',
         );
 
-        // Clang Get Details
+        // Clang Get Details ✅
         RouteCollection::registerRoute(
             'system/clangs/get',
             new Route(
@@ -94,7 +78,7 @@ class Clangs extends RoutePackage
             'Get language details',
         );
 
-        // Clang Add
+        // Clang Add ✅
         RouteCollection::registerRoute(
             'system/clangs/add',
             new Route(
@@ -116,7 +100,7 @@ class Clangs extends RoutePackage
                             'type' => 'integer',
                             'required' => false,
                             'default' => 0,
-                            'description' => 'Sort priority',
+                            'description' => 'Priority',
                         ],
                         'status' => [
                             'type' => 'integer',
@@ -125,7 +109,6 @@ class Clangs extends RoutePackage
                             'description' => 'Active status (1 = active, 0 = inactive)',
                         ],
                     ],
-                    'bodyContentType' => 'application/json'
                 ],
                 [],
                 [],
@@ -135,7 +118,7 @@ class Clangs extends RoutePackage
             'Add a language',
         );
 
-        // Clang Update
+        // Clang Update ✅
         RouteCollection::registerRoute(
             'system/clangs/update',
             new Route(
@@ -168,7 +151,7 @@ class Clangs extends RoutePackage
                             'description' => 'Active status (1 = active, 0 = inactive)',
                         ],
                     ],
-                    'bodyContentType' => 'application/json'
+                    'bodyContentType' => 'application/json',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -178,7 +161,7 @@ class Clangs extends RoutePackage
             'Update a language',
         );
 
-        // Clang Delete
+        // Clang Delete ✅
         RouteCollection::registerRoute(
             'system/clangs/delete',
             new Route(
@@ -207,38 +190,31 @@ class Clangs extends RoutePackage
         // Get all languages from rex_clang
         $allClangs = rex_clang::getAll();
         $filteredClangs = [];
-        
+
         // Apply filters manually
         foreach ($allClangs as $clang) {
-            // Filter by ID if specified
-            if (isset($Query['filter']['id']) && $Query['filter']['id'] !== null) {
-                if ($clang->getId() != $Query['filter']['id']) {
-                    continue;
-                }
-            }
-            
             // Filter by code if specified
-            if (isset($Query['filter']['code']) && $Query['filter']['code'] !== null) {
-                if (stripos($clang->getCode(), $Query['filter']['code']) === false) {
+            if (isset($Query['filter']['code']) && null !== $Query['filter']['code']) {
+                if (false === stripos($clang->getCode(), $Query['filter']['code'])) {
                     continue;
                 }
             }
-            
+
             // Filter by name if specified
-            if (isset($Query['filter']['name']) && $Query['filter']['name'] !== null) {
-                if (stripos($clang->getName(), $Query['filter']['name']) === false) {
+            if (isset($Query['filter']['name']) && null !== $Query['filter']['name']) {
+                if (false === stripos($clang->getName(), $Query['filter']['name'])) {
                     continue;
                 }
             }
-            
+
             // Filter by status if specified
-            if (isset($Query['filter']['status']) && $Query['filter']['status'] !== null) {
-                $isOnline = (bool)$Query['filter']['status'];
+            if (isset($Query['filter']['status']) && null !== $Query['filter']['status']) {
+                $isOnline = (bool) $Query['filter']['status'];
                 if ($clang->isOnline() !== $isOnline) {
                     continue;
                 }
             }
-            
+
             // Convert clang object to array with desired fields
             $filteredClangs[] = [
                 'id' => $clang->getId(),
@@ -246,41 +222,30 @@ class Clangs extends RoutePackage
                 'name' => $clang->getName(),
                 'priority' => $clang->getPriority(),
                 'status' => $clang->isOnline() ? 1 : 0,
-                'revision' => $clang->getValue('revision')
             ];
         }
-        
-        // Sort by priority (already done by rex_clang internally)
-        
-        // Apply pagination
-        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
-        $page = (1 > $Query['page']) ? 1 : $Query['page'];
-        $start = ($page - 1) * $per_page;
-        
-        $paginatedClangs = array_slice($filteredClangs, $start, $per_page);
 
-        return new Response(json_encode($paginatedClangs, JSON_PRETTY_PRINT));
+        // Sort by priority (already done by rex_clang internally)
+
+        return new Response(json_encode($filteredClangs, JSON_PRETTY_PRINT));
     }
 
     /** @api */
     public static function handleGetClang($Parameter): Response
     {
         $clangId = $Parameter['id'];
+        $clang = rex_clang::get($clangId);
 
-        // Check if clang exists
-        if (!rex_clang::exists($clangId)) {
+        if (!$clang) {
             return new Response(json_encode(['error' => 'Language not found']), 404);
         }
 
-        // Get clang object and convert to array
-        $clang = rex_clang::get($clangId);
         $clangData = [
             'id' => $clang->getId(),
             'code' => $clang->getCode(),
             'name' => $clang->getName(),
             'priority' => $clang->getPriority(),
             'status' => $clang->isOnline() ? 1 : 0,
-            'revision' => $clang->getValue('revision')
         ];
 
         return new Response(json_encode($clangData, JSON_PRETTY_PRINT));
@@ -301,11 +266,15 @@ class Clangs extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if code already exists using rex_clang objects
+        $Data['status'] = (1 == $Data['status']) ? 1 : 0;
+
         $allClangs = rex_clang::getAll();
         foreach ($allClangs as $clang) {
             if ($clang->getCode() === $Data['code']) {
                 return new Response(json_encode(['error' => 'Language code already exists']), 409);
+            }
+            if ($clang->getName() === $Data['name']) {
+                return new Response(json_encode(['error' => 'Language name already exists']), 409);
             }
         }
 
@@ -319,23 +288,17 @@ class Clangs extends RoutePackage
 
             // Add clang - this will trigger the CLANG_ADDED extension point internally
             rex_clang_service::addCLang($Data['code'], $Data['name'], $Data['priority'], $Data['status']);
-            
-            if ($clangId === null) {
+
+            if (null === $clangId) {
                 return new Response(json_encode(['error' => 'Failed to create language']), 500);
             }
-            
-            // Get the created clang
+
             rex_clang::reset(); // Ensure we get fresh data
             $clang = rex_clang::get($clangId);
-            
-            // Return the created clang data
+
             return new Response(json_encode([
-                'message' => 'Language created', 
+                'message' => 'Language created',
                 'id' => $clangId,
-                'code' => $clang->getCode(),
-                'name' => $clang->getName(),
-                'priority' => $clang->getPriority(),
-                'status' => $clang->isOnline() ? 1 : 0
             ]), 201);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -345,11 +308,14 @@ class Clangs extends RoutePackage
     /** @api */
     public static function handleUpdateClang($Parameter): Response
     {
-        $clangId = $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
-
         if (!is_array($Data)) {
             return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        $Clang = rex_clang::get($Parameter['id']);
+        if (!$Clang) {
+            return new Response(json_encode(['error' => 'Language not found']), 404);
         }
 
         try {
@@ -358,48 +324,47 @@ class Clangs extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if clang exists
-        if (!rex_clang::exists($clangId)) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+        foreach ($Data as $key => $value) {
+            if (null === $value) {
+                unset($Data[$key]);
+            }
         }
 
-        // Check if code already exists if code is being updated
-        if ($Data['code'] !== null) {
+        if (0 === count($Data)) {
+            return new Response(json_encode(['error' => 'No data provided']), 400);
+        }
+
+        if (null !== $Data['code']) {
             $allClangs = rex_clang::getAll();
-            foreach ($allClangs as $clang) {
-                if ($clang->getId() != $clangId && $clang->getCode() === $Data['code']) {
-                    return new Response(json_encode(['error' => 'Language code already exists']), 409);
+            foreach ($allClangs as $allClang) {
+                if ($allClang->getId() != $Parameter['id']) {
+                    if ($Data['code'] && $allClang->getCode() === $Data['code']) {
+                        return new Response(json_encode(['error' => 'Language code already exists']), 409);
+                    }
+                    if ($Data['name'] && $allClang->getName() === $Data['name']) {
+                        return new Response(json_encode(['error' => 'Language code already exists']), 409);
+                    }
                 }
             }
         }
 
-        // Get the current values for fields that weren't provided
-        $clang = rex_clang::get($clangId);
-        $code = $Data['code'] ?? $clang->getCode();
-        $name = $Data['name'] ?? $clang->getName();
-        $priority = $Data['priority'] ?? $clang->getPriority();
-        $status = $Data['status'] ?? ($clang->isOnline() ? 1 : 0);
+        $code = $Data['code'] ?? $Clang->getCode();
+        $name = $Data['name'] ?? $Clang->getName();
+        $priority = $Data['priority'] ?? $Clang->getPriority();
+        $status = $Data['status'] ?? ($Clang->isOnline() ? 1 : 0);
 
         try {
             // Update using the service which handles priorities and cache
             // This will trigger the CLANG_UPDATED extension point internally
-            $result = rex_clang_service::editCLang($clangId, $code, $name, $priority, $Data['status'] !== null ? $Data['status'] : null);
-            
-            if ($result === false) {
+            $result = rex_clang_service::editCLang($Parameter['id'], $code, $name, $priority, $status);
+
+            if (false === $result) {
                 return new Response(json_encode(['error' => 'Failed to update language']), 500);
             }
 
-            // Get updated clang
-            rex_clang::reset(); // Ensure we get fresh data
-            $updatedClang = rex_clang::get($clangId);
-            
             return new Response(json_encode([
                 'message' => 'Language updated',
-                'id' => $clangId,
-                'code' => $updatedClang->getCode(),
-                'name' => $updatedClang->getName(),
-                'priority' => $updatedClang->getPriority(),
-                'status' => $updatedClang->isOnline() ? 1 : 0
+                'id' => $Parameter['id'],
             ]), 200);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -409,39 +374,21 @@ class Clangs extends RoutePackage
     /** @api */
     public static function handleDeleteClang($Parameter): Response
     {
-        $clangId = $Parameter['id'];
+        $clang = rex_clang::get($Parameter['id']);
 
-        // Check if clang exists
-        if (!rex_clang::exists($clangId)) {
+        if (!$clang) {
             return new Response(json_encode(['error' => 'Language not found']), 404);
         }
 
-        // Don't allow deletion of the last language
         if (count(rex_clang::getAll()) <= 1) {
             return new Response(json_encode(['error' => 'Cannot delete the last language']), 409);
         }
 
-        // Store language details before deletion for the response
-        $clang = rex_clang::get($clangId);
-        $clangData = [
-            'id' => $clang->getId(),
-            'code' => $clang->getCode(),
-            'name' => $clang->getName(),
-            'priority' => $clang->getPriority(),
-            'status' => $clang->isOnline() ? 1 : 0
-        ];
-
         try {
-            // Delete the language - this will trigger the CLANG_DELETED extension point internally
-            rex_clang_service::deleteCLang($clangId);
-            
+            rex_clang_service::deleteCLang($Parameter['id']);
             return new Response(json_encode([
                 'message' => 'Language deleted',
-                'id' => $clangData['id'],
-                'name' => $clangData['name'],
-                'code' => $clangData['code'],
-                'priority' => $clangData['priority'],
-                'status' => $clangData['status']
+                'id' => $Parameter['id'],
             ]), 200);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
