@@ -8,10 +8,17 @@ Zunächst ist geplant die Basisfeatures von REDAXO abzubilden.
 
 ## Geplante und umgesetzte Endpunkte
 
+Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exakt so umgesetzt sind, wie sie in REDAXO/Core verwendet wurde. 
+
+* Passende Extension Points
+* Vorhandene Klassen wurden genutzt
+* Felder sind auf das Nötigste reduziert. Keine Felder von externen/anderen AddOns/PlugIns werden ausgegeben oder verarbeitet.
+* OpenAPI Spezifikationen sind vorhanden und richtig verwendet
+
 ### Endpunkte
 
-| Endpunkt                                       | Method    | Beschreibung                    | Status |
-|------------------------------------------------|-----------|---------------------------------|--------|
+| Endpunkt                                       | Method    | Beschreibung                    | Status | Test |
+|------------------------------------------------|-----------|---------------------------------|--------| ---- |
 | /api/structure/articles                        | GET       | Artikelliste                    | ✅      |
 | /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ❌      |
 | /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      |
@@ -53,10 +60,11 @@ Zunächst ist geplant die Basisfeatures von REDAXO abzubilden.
 | /api/users/roles                               | POST      | Rolle anlegen                   | ❌      |
 | /api/users/roles/{id}                          | DELETE    | Rolle löschen                   | ❌      |
 | /api/users/roles/{id}                          | PUT/PATCH | Rolle ändern                    | ❌      |
-| /api/system/clangs                             | GET       | Sprachenliste                   | ❌      |
-| /api/system/clangs                             | POST      | Sprache anlegen                 | ❌      |
-| /api/system/clangs/{id}                        | DELETE    | Sprache löschen                 | ❌      |
-| /api/system/clangs/{id}                        | PUT/PATCH | Sprache ändern                  | ❌      |
+| /api/system/clangs                             | GET       | Sprachenliste                   | ✅      | ✅ |
+| /api/system/clangs                             | POST      | Sprache anlegen                 | ✅      | ✅ |
+| /api/system/clangs/{id}                        | GET       | Sprache auslesen                | ✅      | ✅ |
+| /api/system/clangs/{id}                        | DELETE    | Sprache löschen                 | ✅      | ✅ |
+| /api/system/clangs/{id}                        | PUT/PATCH | Sprache ändern                  | ✅      | ✅ |
 
 ## Bei Problemen mit Authorization
 
@@ -75,6 +83,12 @@ Bitte zuerst einen API-Token im Backend anlegen und die ensprechenden Scopes (En
 ## API Struktur
 
 Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet.
+
+## Was funktioniert vielleicht nicht, und müssen AddOn Entwickler beachten
+
+Das API AddON funktioniert aus dem Frontend-User-Kontext heraus. Das heisst, sollte es registrierte Methoden an bestimmten
+ExtensionPoints geben, welche nur im Backend-User-Kontext gesetzt wurden, z.B. (rex::isBackend) -> registerEP, dann werden diese nicht in der dieser API ausgeführt.
+D.h. diese AddOns müssen entsprechend angepasst werden.
 
 ## Weitere noch nicht beachtete Usecases
 

@@ -6,6 +6,7 @@ use FriendsOfREDAXO\API\RouteCollection;
 use rex_i18n;
 use Symfony\Component\Routing\Route;
 
+use function count;
 use function is_array;
 
 class OpenAPIConfig
@@ -66,10 +67,11 @@ class OpenAPIConfig
             ];
 
             $Parameters = [];
+            $RequestBodyProperties = [];
+            $RequestBodyRequired = [];
 
             // inPath
             foreach ($Route->getRequirements() ?? [] as $Key => $Parameter) {
-                // TODO: Parameter im Pfad
                 // 'id' => '\d+',
                 $Parameters[] = [
                     'name' => $Key,
@@ -84,15 +86,14 @@ class OpenAPIConfig
 
             // in Body
             foreach ($Route->getDefault('Body') ?? [] as $Key => $Parameter) {
-                $Parameters[] = [
-                    'name' => $Key,
-                    'in' => 'body',
+                $RequestBodyProperties[$Key] = [
+                    'type' => $Parameter['type'],
                     'description' => $Parameter['description'] ?? '',
                     'required' => $Parameter['required'] ?? false,
-                    'schema' => [
-                        'type' => $Parameter['type'],
-                    ],
                 ];
+                if ($Parameter['required'] ?? false) {
+                    $RequestBodyRequired[] = '- ' . $Key;
+                }
             }
 
             // in URL
@@ -129,6 +130,21 @@ class OpenAPIConfig
                         'default' => $Parameter['default'] ?? null,
                     ];
                 }
+            }
+
+            if (0 < count($RequestBodyProperties)) {
+                $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['requestBody'] = [
+                    'required' => true,
+                    'content' => [
+                        'application/json' => [
+                            'schema' => [
+                                'type' => 'object',
+                                'properties' => $RequestBodyProperties,
+                                'required' => $RequestBodyRequired,
+                            ],
+                        ],
+                    ],
+                ];
             }
 
             $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['parameters'] = $Parameters;
