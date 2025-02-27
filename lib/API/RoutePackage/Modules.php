@@ -6,14 +6,15 @@ use Exception;
 use FriendsOfREDAXO\API\RouteCollection;
 use FriendsOfREDAXO\API\RoutePackage;
 use rex;
+use rex_article_cache;
 use rex_extension;
 use rex_extension_point;
 use rex_module_cache;
 use rex_sql;
+use rex_sql_exception;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
-use function array_key_exists;
 use function count;
 use function is_array;
 
@@ -25,7 +26,7 @@ class Modules extends RoutePackage
 
     public function loadRoutes(): void
     {
-        // Modules List
+        // Modules List ✅
         RouteCollection::registerRoute(
             'modules/list',
             new Route(
@@ -40,7 +41,7 @@ class Modules extends RoutePackage
                                     'required' => false,
                                     'default' => null,
                                 ],
-                                'key' => [  // Added key filter
+                                'key' => [
                                     'type' => 'string',
                                     'required' => false,
                                     'default' => null,
@@ -70,7 +71,7 @@ class Modules extends RoutePackage
             'Access to the list of modules',
         );
 
-        // Modules Add
+        // Modules Add ✅
         RouteCollection::registerRoute(
             'modules/add',
             new Route(
@@ -82,10 +83,10 @@ class Modules extends RoutePackage
                             'type' => 'string',
                             'required' => true,
                         ],
-                        'key' => [ // Added key field
+                        'key' => [
                             'type' => 'string',
-                            'required' => false,
-                            'default' => null,
+                            'required' => true,
+                            'default' => '',
                         ],
                         'input' => [
                             'type' => 'string',
@@ -95,7 +96,6 @@ class Modules extends RoutePackage
                             'type' => 'string',
                             'required' => true,
                         ],
-                        // Removed attributes
                     ],
                 ],
                 [],
@@ -106,7 +106,7 @@ class Modules extends RoutePackage
             'Add a module',
         );
 
-        // Modules Get Details
+        // Modules Get Details ✅
         RouteCollection::registerRoute(
             'modules/get',
             new Route(
@@ -122,7 +122,7 @@ class Modules extends RoutePackage
             'Get module details',
         );
 
-        // Modules Update
+        // Modules Update ✅
         RouteCollection::registerRoute(
             'modules/update',
             new Route(
@@ -161,7 +161,7 @@ class Modules extends RoutePackage
             'Update a module',
         );
 
-        // Modules Delete
+        // Modules Delete ✅
         RouteCollection::registerRoute(
             'modules/delete',
             new Route(
@@ -207,6 +207,9 @@ class Modules extends RoutePackage
 
         $SqlParameters[':per_page'] = $per_page;
         $SqlParameters[':start'] = $start;
+
+        // TODO
+        // - is_in_use
 
         $ModulesSQL = rex_sql::factory();
         $Modules = $ModulesSQL->getArray(
@@ -259,17 +262,15 @@ class Modules extends RoutePackage
         }
 
         try {
+            // from structure/content plugin modules.modules.php
+            // throws SQL Exception if key exists
+
             $sql = rex_sql::factory();
             $sql->setTable(rex::getTable('module'));
-            $sql->setValue('name', $Data['name']);
-            // Add 'key' to the insert
-            if (isset($Data['key'])) { // Check if 'key' is provided, even if it's null
-                $sql->setValue('key', $Data['key']);
-            }
-            $sql->setValue('input', $Data['input']);
-            $sql->setValue('output', $Data['output']);
-            // Removed attributes
-
+            $sql->setValue('name', $Data['name'] ?? '');
+            $sql->setValue('key', $Data['key'] ?? '');
+            $sql->setValue('input', $Data['input'] ?? '');
+            $sql->setValue('output', $Data['output'] ?? '');
             $sql->setValue('createdate', date('Y-m-d H:i:s'));
             $sql->setValue('createuser', 'API');
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
@@ -278,7 +279,17 @@ class Modules extends RoutePackage
             $sql->insert();
             $moduleId = $sql->getLastId();
 
+            rex_extension::registerPoint(new rex_extension_point('MODULE_ADDED', '', [
+                'id' => $moduleId,
+                'name' => $Data['name'],
+                'key' => $Data['key'],
+                'input' => $Data['input'],
+                'output' => $Data['output'],
+            ]));
+
             return new Response(json_encode(['message' => 'Module created', 'id' => $moduleId]), 201);
+        } catch (rex_sql_exception $e) {
+            return new Response(json_encode(['error' => 'conflict_key_already_exists']), 409);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
@@ -287,7 +298,6 @@ class Modules extends RoutePackage
     /** @api */
     public static function handleUpdateModules($Parameter): Response
     {
-        $moduleId = $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -300,44 +310,58 @@ class Modules extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        // Check if module exists
-        $checkSql = rex_sql::factory();
-        $checkSql->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $moduleId]);
+        $Module = rex_sql::factory();
+        $Module->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $Parameter['id']]);
 
-        if (0 === $checkSql->getRows()) {
+        if (0 === $Module->getRows()) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
+
+        $Data['name'] ??= $Module->getValue('name');
+        $Data['key'] ??= $Module->getValue('key');
+        $Data['input'] ??= $Module->getValue('input');
+        $Data['output'] ??= $Module->getValue('output');
 
         try {
             $sql = rex_sql::factory();
             $sql->setTable(rex::getTable('module'));
-            $sql->setWhere(['id' => $moduleId]);
-
-            // Only update fields that are provided
-            if (null !== $Data['name']) {
-                $sql->setValue('name', $Data['name']);
-            }
-
-            // Update 'key'
-            if (array_key_exists('key', $Data)) { // Use array_key_exists to allow updating to null
-                $sql->setValue('key', $Data['key']);
-            }
-
-            if (null !== $Data['input']) {
-                $sql->setValue('input', $Data['input']);
-            }
-
-            if (null !== $Data['output']) {
-                $sql->setValue('output', $Data['output']);
-            }
-            // Removed attributes
-
+            $sql->setWhere(['id' => $Parameter['id']]);
+            $sql->setValue('name', $Data['name']);
+            $sql->setValue('key', $Data['key']); // throws SQL Exception if new key exists
+            $sql->setValue('input', $Data['input']);
+            $sql->setValue('output', $Data['output']);
             $sql->setValue('updatedate', date('Y-m-d H:i:s'));
             $sql->setValue('updateuser', 'API');
-
             $sql->update();
 
-            return new Response(json_encode(['message' => 'Module updated', 'id' => $moduleId]), 200);
+            rex_module_cache::delete($Parameter['id']);
+
+            rex_extension::registerPoint(new rex_extension_point('MODULE_UPDATED', '', [
+                'id' => $Parameter['id'],
+                'name' => $Data['name'],
+                'key' => $Data['key'],
+                'input' => $Data['input'],
+                'output' => $Data['output'],
+            ]));
+
+            if ($Data['output'] != $Module->getValue('output')) {
+                $gc = rex_sql::factory();
+                $gc->setQuery(
+                    'SELECT DISTINCT(' . rex::getTablePrefix() . 'article.id) FROM ' . rex::getTablePrefix() . 'article
+                                LEFT JOIN ' . rex::getTablePrefix() . 'article_slice ON ' . rex::getTablePrefix(
+                    ) . 'article.id=' . rex::getTablePrefix() . 'article_slice.article_id
+                                WHERE ' . rex::getTablePrefix() . 'article_slice.module_id=?',
+                    [$Parameter['id']],
+                );
+                for ($i = 0; $i < $gc->getRows(); ++$i) {
+                    rex_article_cache::delete($gc->getValue(rex::getTablePrefix() . 'article.id'));
+                    $gc->next();
+                }
+            }
+
+            return new Response(json_encode(['message' => 'Module updated', 'id' => $Parameter['id']]), 200);
+        } catch (rex_sql_exception $e) {
+            return new Response(json_encode(['error' => 'conflict_key_already_exists']), 409);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
@@ -346,22 +370,18 @@ class Modules extends RoutePackage
     /** @api */
     public static function handleDeleteModules($Parameter): Response
     {
-        $moduleId = $Parameter['id'];
+        $Module = rex_sql::factory();
+        $Module->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $Parameter['id']]);
 
-        // Check if module exists
-        $checkSql = rex_sql::factory();
-        $checkSql->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $moduleId]);
-
-        if (0 === $checkSql->getRows()) {
+        if (0 === $Module->getRows()) {
             return new Response(json_encode(['error' => 'Module not found']), 404);
         }
 
         try {
-            // Check if module is in use
             $usageCheck = rex_sql::factory();
             $usageCheck->setQuery(
                 'SELECT id FROM ' . rex::getTable('article_slice') . ' WHERE module_id = :id LIMIT 1',
-                [':id' => $moduleId],
+                [':id' => $Parameter['id']],
             );
 
             if ($usageCheck->getRows() > 0) {
@@ -370,19 +390,23 @@ class Modules extends RoutePackage
                 ]), 409);
             }
 
-            // Delete module
             $sql = rex_sql::factory();
             $sql->setQuery(
                 'DELETE FROM ' . rex::getTable('module') . ' WHERE id = :id',
-                [':id' => $moduleId],
+                [':id' => $Parameter['id']],
             );
 
-            rex_module_cache::delete($moduleId);
+            $del = rex_sql::factory();
+            $del->setQuery(
+                'DELETE FROM ' . rex::getTable('module_action') . ' WHERE module_id= :id',
+                [':id' => $Parameter['id']]);
+
+            rex_module_cache::delete($Parameter['id']);
             rex_extension::registerPoint(new rex_extension_point('MODULE_DELETED', '', [
-                'id' => $moduleId,
+                'id' => $Parameter['id'],
             ]));
 
-            return new Response(json_encode(['message' => 'Module deleted', 'id' => $moduleId]), 200);
+            return new Response(json_encode(['message' => 'Module deleted', 'id' => $Parameter['id']]), 200);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }

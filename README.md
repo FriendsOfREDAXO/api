@@ -18,7 +18,7 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 ### Endpunkte
 
 | Endpunkt                                       | Method    | Beschreibung                    | Status | Test |
-|------------------------------------------------|-----------|---------------------------------|--------| ---- |
+|------------------------------------------------|-----------|---------------------------------|--------|------|
 | /api/structure/articles                        | GET       | Artikelliste                    | ✅      |
 | /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ❌      |
 | /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      |
@@ -40,10 +40,11 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 | /api/media/categories                          | POST      | Mediakategorie anlegen          | ❌      |
 | /api/media/categories/{id}                     | DELETE    | Mediakategorie löschen          | ❌      |
 | /api/media/categories/{id}                     | PUT/PATCH | Mediakategorie ändern           | ❌      |
-| /api/modules                                   | GET       | Modulliste                      | ✅      |
-| /api/modules                                   | POST      | Modul anlegen                   | ✅      |
-| /api/module/{id}                               | DELETE    | Modul löschen                   | ✅      |
-| /api/module/{id}                               | PUT/PATCH | Modul ändern                    | ✅      |
+| /api/modules                                   | GET       | Modulliste                      | ✅      | ✅    |
+| /api/modules                                   | POST      | Modul anlegen                   | ✅      | ✅    | 
+| /api/module/{id}                               | GET       | Modul auslesen                  | ✅      | ✅    |
+| /api/module/{id}                               | DELETE    | Modul löschen                   | ✅      | ✅    |
+| /api/module/{id}                               | PUT/PATCH | Modul ändern                    | ✅      | ✅    |
 | /api/templates                                 | GET       | Template Liste                  | ✅      |
 | /api/templates                                 | POST      | Template anlegen                | ✅      |
 | /api/templates/{id}                            | DELETE    | Template löschen                | ✅      |
@@ -60,11 +61,11 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 | /api/users/roles                               | POST      | Rolle anlegen                   | ❌      |
 | /api/users/roles/{id}                          | DELETE    | Rolle löschen                   | ❌      |
 | /api/users/roles/{id}                          | PUT/PATCH | Rolle ändern                    | ❌      |
-| /api/system/clangs                             | GET       | Sprachenliste                   | ✅      | ✅ |
-| /api/system/clangs                             | POST      | Sprache anlegen                 | ✅      | ✅ |
-| /api/system/clangs/{id}                        | GET       | Sprache auslesen                | ✅      | ✅ |
-| /api/system/clangs/{id}                        | DELETE    | Sprache löschen                 | ✅      | ✅ |
-| /api/system/clangs/{id}                        | PUT/PATCH | Sprache ändern                  | ✅      | ✅ |
+| /api/system/clangs                             | GET       | Sprachenliste                   | ✅      | ✅    |
+| /api/system/clangs                             | POST      | Sprache anlegen                 | ✅      | ✅    |
+| /api/system/clangs/{id}                        | GET       | Sprache auslesen                | ✅      | ✅    |
+| /api/system/clangs/{id}                        | DELETE    | Sprache löschen                 | ✅      | ✅    |
+| /api/system/clangs/{id}                        | PUT/PATCH | Sprache ändern                  | ✅      | ✅    |
 
 ## Bei Problemen mit Authorization
 
