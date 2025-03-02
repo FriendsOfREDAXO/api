@@ -19,16 +19,17 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 
 | Endpunkt                                       | Method    | Beschreibung                    | Status | Test |
 |------------------------------------------------|-----------|---------------------------------|--------|------|
-| /api/structure/articles                        | GET       | Artikelliste                    | ✅      |
+| /api/structure/articles                        | GET       | Artikelliste                    | ✅      | ✅    |
 | /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ❌      |
-| /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      |
+| /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      | ✅    |
 | /api/structure/articles/{id}/slices/{slice_id} | GET       | Slice eines Artikel anzeigen    | ❌      |
 | /api/structure/articles/{id}/slices/{slice_id} | PUT/PATCH | Slice eines Artikel ändern      | ❌      |
-| /api/structure/articles                        | POST      | Artikel anlegen                 | ✅      |
-| /api/structure/articles/{id}                   | DELETE    | Artikel löschen                 | ✅      |
+| /api/structure/articles                        | POST      | Artikel anlegen                 | ✅      | ✅    |
+| /api/structure/articles/{id}                   | GET       | Artikel anzeigen                | ❌      |
+| /api/structure/articles/{id}                   | DELETE    | Artikel löschen                 | ✅      | ✅    |
 | /api/structure/articles/{id}                   | PUT/PATCH | Artikel ändern                  | ❌      |
-| /api/structure/categories                      | POST      | Kategorie anlegen               | ✅      |
-| /api/structure/categories/{id}                 | DELETE    | Kategorie anzeigen              | ✅      |
+| /api/structure/categories                      | POST      | Kategorie anlegen               | ✅      | ✅    |
+| /api/structure/categories/{id}                 | DELETE    | Kategorie löschen               | ✅      | ✅    |
 | /api/structure/categories/{id}                 | PUT/PATCH | Kategorie ändern                | ❌      |
 | /api/media                                     | GET       | Medienliste                     | ✅      |
 | /api/media/{filename}                          | GET       | Mediametadaten                  | ✅      |
