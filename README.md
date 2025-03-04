@@ -105,3 +105,5 @@ D.h. diese AddOns müssen entsprechend angepasst werden.
 ### BE API (Wird hier noch nicht behandelt)
     - für alles mit BE-User-Rechten
 
+## Credits: 
+checked by: https://www.coderabbit.ai
