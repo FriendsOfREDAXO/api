@@ -1,7 +1,7 @@
 <?php
 
+use FriendsOfREDAXO\API\OpenAPIConfig;
 use FriendsOfREDAXO\API\RouteCollection;
-use Redaxo\Addons\Api\OpenAPIConfig;
 
 if ('1' === rex_request('load_config', 'string')) {
     $config = OpenAPIConfig::getByRoutes(RouteCollection::getRoutes());
