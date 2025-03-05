@@ -1,8 +1,7 @@
 <?php
 
-namespace Redaxo\Addons\Api;
+namespace FriendsOfREDAXO\API;
 
-use FriendsOfREDAXO\API\RouteCollection;
 use rex_i18n;
 use Symfony\Component\Routing\Route;
 
