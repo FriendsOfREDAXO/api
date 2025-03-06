@@ -38,26 +38,6 @@ class OpenAPIConfig
 
             $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])] = [
                 'summary' => $RouteArray['description'],
-                'responses' => [
-                    '200' => [
-                        'description' => 'successful operation',
-                    ],
-                    '400' => [
-                        'description' => 'Unvalid request',
-                    ],
-                    '401' => [
-                        'description' => 'Not authorized',
-                    ],
-                    '404' => [
-                        'description' => 'Not found',
-                    ],
-                    '409' => [
-                        'description' => 'Conflict',
-                    ],
-                    '500' => [
-                        'description' => 'Internal server error',
-                    ],
-                ],
                 'security' => [
                     [
                         'bearerAuth' => [],
@@ -68,6 +48,35 @@ class OpenAPIConfig
             $Parameters = [];
             $RequestBodyProperties = [];
             $RequestBodyRequired = [];
+            $Responses = [
+                '200' => [
+                    'description' => 'successful operation',
+                ],
+                '400' => [
+                    'description' => 'Unvalid request',
+                ],
+                '401' => [
+                    'description' => 'Not authorized',
+                ],
+                '404' => [
+                    'description' => 'Not found',
+                ],
+                '409' => [
+                    'description' => 'Conflict',
+                ],
+                '500' => [
+                    'description' => 'Internal server error',
+                ],
+            ];
+
+            // Responses
+            if (is_array($RouteArray['responses'])) {
+                foreach ($RouteArray['responses'] as $StatusCode => $Response) {
+                    $Responses[$StatusCode] = $Response;
+                }
+            }
+
+            $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['responses'] = $Responses;
 
             // inPath
             foreach ($Route->getRequirements() ?? [] as $Key => $Parameter) {

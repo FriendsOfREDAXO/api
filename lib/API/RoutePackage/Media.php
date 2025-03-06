@@ -10,6 +10,7 @@ use rex_media;
 use rex_media_category;
 use rex_media_service;
 use rex_mediapool;
+use rex_pager;
 use rex_path;
 use rex_sql;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,11 +22,13 @@ use const JSON_PRETTY_PRINT;
 
 class Media extends RoutePackage
 {
+    public const MediaFields = ['filename', 'category_id', 'filetype', 'originalname', 'filesize', 'width', 'height', 'title', 'createdate', 'createuser', 'updatedate', 'updateuser'];
+
     public function loadRoutes(): void
     {
         // TODO: Mediakategorie list/add/delete/update
 
-        // Media List
+        // Media List ✅
         RouteCollection::registerRoute(
             'media/list',
             new Route(
@@ -35,13 +38,8 @@ class Media extends RoutePackage
                     'query' => [
                         'filter' => [
                             'fields' => [
-                                'id' => [
-                                    'type' => 'int',
-                                    'required' => false,
-                                    'default' => null,
-                                ],
                                 'category_id' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
@@ -61,34 +59,34 @@ class Media extends RoutePackage
                                     'default' => null,
                                 ],
                                 'filesize_max' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
-                                    'default' => 10000000,
+                                    'default' => null,
                                 ],
                                 'filesize_min' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
                                 'height_min' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
                                 'height_max' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
-                                    'default' => 10000000,
+                                    'default' => null,
                                 ],
                                 'width_min' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
                                 'width_max' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
-                                    'default' => 10000000,
+                                    'default' => null,
                                 ],
                             ],
                             'type' => 'array',
@@ -115,13 +113,13 @@ class Media extends RoutePackage
             'Access to list of media (of a specific category)',
         );
 
-        // Media delete
+        // Media delete ✅
         RouteCollection::registerRoute(
             'media/delete',
             new Route(
                 'media/{filename}/delete',
                 ['_controller' => 'FriendsOfREDAXO\API\RoutePackage\Media::handleDeleteMedia'],
-                ['filename' => '[a-zA-Z0-9\-\_\.]+'],
+                ['filename' => '[a-zA-Z0-9\-\_\.\@]+'],
                 [],
                 '',
                 [],
@@ -129,7 +127,7 @@ class Media extends RoutePackage
             'Delete a media',
         );
 
-        // Media get
+        // Media get meta ✅
         RouteCollection::registerRoute(
             'media/get',
             new Route(
@@ -137,24 +135,15 @@ class Media extends RoutePackage
                 [
                     '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Media::handleGetMedia',
                 ],
-                ['filename' => '[a-zA-Z0-9\-\_\.]+'],
+                ['filename' => '[a-zA-Z0-9\-\_\.\@]+'],
                 [],
                 '',
                 [],
                 ['GET']),
-            'Get a media'
+            'Get a media',
         );
 
-        // responses:
-        // "200":
-        //   description: Erfolgreicher Datei-Download
-        //   content:
-        //     application/octet-stream:
-        //       schema:
-        //         type: string
-        //         format: binary
-
-        // Media get
+        // Media get file ✅
         RouteCollection::registerRoute(
             'media/get/file',
             new Route(
@@ -168,6 +157,19 @@ class Media extends RoutePackage
                 [],
                 ['GET']),
             'Get a mediafile',
+            [
+                '200' => [
+                    'description' => 'Erfolgreicher Datei-Download',
+                    'content' => [
+                        '*/*' => [
+                            'schema' => [
+                                'type' => 'string',
+                                'format' => 'binary',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
         );
     }
 
@@ -180,7 +182,8 @@ class Media extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        $fields = ['id', 'category_id', 'filetype', 'filename', 'originalname', 'filesize', 'width', 'height', 'title', 'createdate', 'createuser', 'updatedate', 'updateuser'];
+        // var_dump(rex::getRequest()->getHost()); exit;
+        // var_dump($Query);
 
         $SqlQueryWhere = [];
         $SqlParameters = [];
@@ -190,42 +193,53 @@ class Media extends RoutePackage
             if (!$MediaCategory) {
                 return new Response(json_encode(['error' => 'Category not found']), 404);
             }
-
             $SqlQueryWhere[':category_id'] = 'category_id = :category_id';
             $SqlParameters[':category_id'] = $Query['filter']['category_id'];
         }
 
-        if (null !== $Query['filter']['id'] && 0 < $Query['filter']['id']) {
-            $SqlQueryWhere[':id'] = 'id = :id';
-            $SqlParameters[':id'] = $Query['filter']['id'];
-        }
-
         if (null !== $Query['filter']['title'] && '' != $Query['filter']['title']) {
             $SqlQueryWhere[':title'] = 'title LIKE :title';
-            $SqlParameters[':title'] = $Query['filter']['title'];
+            $SqlParameters[':title'] = '%' . $Query['filter']['title'] . '%';
         }
 
         if (null !== $Query['filter']['filename'] && '' != $Query['filter']['filename']) {
-            $SqlQueryWhere[':filename'] = 'filename LIKE :filename';
+            $SqlQueryWhere[':filename'] = 'filename = :filename';
             $SqlParameters[':filename'] = $Query['filter']['filename'];
         }
 
         if (null !== $Query['filter']['filetype'] && '' != $Query['filter']['filetype']) {
-            $SqlQueryWhere[':filetype'] = 'filename LIKE :filetype';
+            $SqlQueryWhere[':filetype'] = 'filetype = :filetype';
             $SqlParameters[':filetype'] = $Query['filter']['filetype'];
         }
 
-        $SqlQueryWhere[':filesize_max'] = 'filesize <= :filesize_max';
-        $SqlParameters[':filesize_max'] = $Query['filter']['filesize_max'];
+        if (null !== $Query['filter']['filesize_max'] && '' != $Query['filter']['filesize_max']) {
+            $SqlQueryWhere[':filesize_max'] = 'filesize <= :filesize_max';
+            $SqlParameters[':filesize_max'] = $Query['filter']['filesize_max'];
+        }
+        if (null !== $Query['filter']['filesize_min'] && '' != $Query['filter']['filesize_min']) {
+            $SqlQueryWhere[':filesize_min'] = 'filesize >= :filesize_min';
+            $SqlParameters[':filesize_min'] = $Query['filter']['filesize_min'];
+        }
 
-        $SqlQueryWhere[':filesize_min'] = 'filesize >= :filesize_min';
-        $SqlParameters[':filesize_min'] = $Query['filter']['filesize_min'];
+        if (null !== $Query['filter']['width_max'] && '' != $Query['filter']['width_max']) {
+            $SqlQueryWhere[':width_max'] = 'width <= :width_max';
+            $SqlParameters[':width_max'] = $Query['filter']['width_max'];
+        }
 
-        $SqlQueryWhere[':width_max'] = 'width <= :width_max';
-        $SqlParameters[':width_max'] = $Query['filter']['width_max'];
+        if (null !== $Query['filter']['width_min'] && '' != $Query['filter']['width_min']) {
+            $SqlQueryWhere[':width_min'] = 'width >= :width_min';
+            $SqlParameters[':width_min'] = $Query['filter']['width_min'];
+        }
 
-        $SqlQueryWhere[':width_min'] = 'width >= :width_min';
-        $SqlParameters[':width_min'] = $Query['filter']['width_min'];
+        if (null !== $Query['filter']['height_max'] && '' != $Query['filter']['height_max']) {
+            $SqlQueryWhere[':height_max'] = 'height <= :height_max';
+            $SqlParameters[':height_max'] = $Query['filter']['height_max'];
+        }
+
+        if (null !== $Query['filter']['height_min'] && '' != $Query['filter']['height_min']) {
+            $SqlQueryWhere[':height_min'] = 'height >= :height_min';
+            $SqlParameters[':height_min'] = $Query['filter']['height_min'];
+        }
 
         $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
         $page = (1 > $Query['page']) ? 1 : $Query['page'];
@@ -234,21 +248,27 @@ class Media extends RoutePackage
         $SqlParameters[':per_page'] = $per_page;
         $SqlParameters[':start'] = $start;
 
-        $ArticlesSQL = rex_sql::factory();
-        $Articles = $ArticlesSQL->getArray(
-            '
+        // Leider nicht nutzbar. Da Pager über Parameter funktioniert.
+        // $pager = new rex_pager(5000);
+        // $items = rex_media_service::getList($filter, [], $pager);
+
+        $MediaSQL = rex_sql::factory();
+        $Medias = $MediaSQL->getArray('
             select
-                ' . implode(',', $fields) . '
+                ' . implode(',', self::MediaFields) . '
             from
-                ' . rex::getTablePrefix() . 'media
-            ' . (count($SqlQueryWhere) ? 'where ' . implode(' and ', $SqlQueryWhere) : '') . '
+                ' . rex::getTable('media') . '
+                ' . (count($SqlQueryWhere) ? 'where ' . implode(' and ', $SqlQueryWhere) : '') . '
 
             LIMIT :start, :per_page
                 ',
             $SqlParameters,
         );
 
-        return new Response(json_encode($Articles, JSON_PRETTY_PRINT));
+        // var_dump($SqlQueryWhere, $SqlParameters);
+        // exit;
+
+        return new Response(json_encode($Medias, JSON_PRETTY_PRINT));
     }
 
     /** @api */
@@ -321,6 +341,8 @@ class Media extends RoutePackage
         $Response->headers->set('Content-Type', $Media->getType());
         $Response->headers->set('Content-Disposition', 'inline; filename="' . $Media->getFileName() . '"');
         $Response->setContent(file_get_contents(rex_path::media($Media->getFileName())));
+
+        // var_dump($Media->getType());exit;
 
         return $Response;
     }

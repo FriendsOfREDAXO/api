@@ -23,12 +23,13 @@ class RouteCollection
     /** @var true */
     private static bool $packagesLoaded = false;
 
-    public static function registerRoute(string $scope, Route $Route, string $description = ''): array
+    public static function registerRoute(string $scope, Route $Route, string $description = '', ?array $Responses = null): array
     {
         self::$Routes[$scope] = [
             'scope' => $scope,
             'route' => $Route,
             'description' => $description,
+            'responses' => $Responses,
         ];
         return self::$Routes;
     }
@@ -127,7 +128,7 @@ class RouteCollection
 
         rex_response::setStatus($Response->getStatusCode());
         rex_response::cleanOutputBuffers();
-        rex_response::sendContentType('application/json');
+        rex_response::sendContentType($Response->headers->get('Content-Type') ?? 'application/json');
         rex_response::sendContent($Response->getContent());
     }
 
