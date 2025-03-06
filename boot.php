@@ -1,12 +1,12 @@
 <?php
 
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage\Clangs;
-use FriendsOfREDAXO\API\RoutePackage\Media;
-use FriendsOfREDAXO\API\RoutePackage\Modules;
-use FriendsOfREDAXO\API\RoutePackage\Structure;
-use FriendsOfREDAXO\API\RoutePackage\Templates;
-use FriendsOfREDAXO\API\RoutePackage\Users;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage\Clangs;
+use FriendsOfRedaxo\Api\RoutePackage\Media;
+use FriendsOfRedaxo\Api\RoutePackage\Modules;
+use FriendsOfRedaxo\Api\RoutePackage\Structure;
+use FriendsOfRedaxo\Api\RoutePackage\Templates;
+use FriendsOfRedaxo\Api\RoutePackage\Users;
 
 RouteCollection::registerRoutePackage(new Clangs());
 RouteCollection::registerRoutePackage(new Modules());

@@ -1,6 +1,6 @@
 <?php
 
-namespace FriendsOfREDAXO\API;
+namespace FriendsOfRedaxo\Api;
 
 use rex;
 use rex_sql;

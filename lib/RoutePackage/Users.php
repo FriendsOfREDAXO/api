@@ -1,10 +1,10 @@
 <?php
 
-namespace FriendsOfREDAXO\API\RoutePackage;
+namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_extension;
 use rex_extension_point;
@@ -42,7 +42,7 @@ class Users extends RoutePackage
             new Route(
                 'users',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Users::handleUsersList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleUsersList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -103,7 +103,7 @@ class Users extends RoutePackage
             new Route(
                 'users/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Users::handleGetUser',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleGetUser',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -120,7 +120,7 @@ class Users extends RoutePackage
             new Route(
                 'users/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Users::handleDeleteUser',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleDeleteUser',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -137,7 +137,7 @@ class Users extends RoutePackage
             new Route(
                 'users/roles',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Users::handleUserRolesList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleUserRolesList',
                     'query' => [
                         'filter' => [
                             'fields' => [

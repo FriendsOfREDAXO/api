@@ -1,10 +1,10 @@
 <?php
 
-namespace FriendsOfREDAXO\API\RoutePackage;
+namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_clang;
 use rex_clang_service;
@@ -28,7 +28,7 @@ class Clangs extends RoutePackage
             new Route(
                 'system/clangs',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleClangsList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Clangs::handleClangsList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -68,7 +68,7 @@ class Clangs extends RoutePackage
             new Route(
                 'system/clangs/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleGetClang',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Clangs::handleGetClang',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -84,7 +84,7 @@ class Clangs extends RoutePackage
             new Route(
                 'system/clangs',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleAddClang',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Clangs::handleAddClang',
                     'Body' => [
                         'code' => [
                             'type' => 'string',
@@ -124,7 +124,7 @@ class Clangs extends RoutePackage
             new Route(
                 'system/clangs/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleUpdateClang',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Clangs::handleUpdateClang',
                     'Body' => [
                         'code' => [
                             'type' => 'string',
@@ -167,7 +167,7 @@ class Clangs extends RoutePackage
             new Route(
                 'system/clangs/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Clangs::handleDeleteClang',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Clangs::handleDeleteClang',
                 ],
                 ['id' => '\d+'],
                 [],

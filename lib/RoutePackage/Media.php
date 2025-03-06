@@ -1,10 +1,10 @@
 <?php
 
-namespace FriendsOfREDAXO\API\RoutePackage;
+namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_media;
 use rex_media_category;
@@ -34,7 +34,7 @@ class Media extends RoutePackage
             new Route(
                 'media',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Media::handleMediaList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleMediaList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -118,7 +118,7 @@ class Media extends RoutePackage
             'media/delete',
             new Route(
                 'media/{filename}/delete',
-                ['_controller' => 'FriendsOfREDAXO\API\RoutePackage\Media::handleDeleteMedia'],
+                ['_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleDeleteMedia'],
                 ['filename' => '[a-zA-Z0-9\-\_\.\@]+'],
                 [],
                 '',
@@ -133,7 +133,7 @@ class Media extends RoutePackage
             new Route(
                 'media/{filename}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Media::handleGetMedia',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleGetMedia',
                 ],
                 ['filename' => '[a-zA-Z0-9\-\_\.\@]+'],
                 [],
@@ -149,7 +149,7 @@ class Media extends RoutePackage
             new Route(
                 'media/{filename}/file',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Media::handleGetMediaFile',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleGetMediaFile',
                 ],
                 ['filename' => '[a-zA-Z0-9\-\_\.]+'],
                 [],

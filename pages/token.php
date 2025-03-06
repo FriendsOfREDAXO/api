@@ -1,6 +1,6 @@
 <?php
 
-use FriendsOfREDAXO\API\RouteCollection;
+use FriendsOfRedaxo\Api\RouteCollection;
 
 $_csrf_key = 'api_token';
 
