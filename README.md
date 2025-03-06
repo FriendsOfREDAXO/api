@@ -31,11 +31,11 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 | /api/structure/categories                      | POST      | Kategorie anlegen               | ✅      | ✅    |
 | /api/structure/categories/{id}                 | DELETE    | Kategorie löschen               | ✅      | ✅    |
 | /api/structure/categories/{id}                 | PUT/PATCH | Kategorie ändern                | ❌      |
-| /api/media                                     | GET       | Medienliste                     | ✅      |
-| /api/media/{filename}                          | GET       | Mediametadaten                  | ✅      |
-| /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      |
+| /api/media                                     | GET       | Medienliste                     | ✅      | ✅    |
+| /api/media/{filename}                          | GET       | Mediametadaten                  | ✅      | ✅    |
+| /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      | ✅    |
 | /api/media                                     | POST      | Medium anlegen                  | ❌      |
-| /api/media/{id}                                | DELETE    | Medium löschen                  | ✅      |
+| /api/media/{id}                                | DELETE    | Medium löschen                  | ✅      | ✅    |
 | /api/media/{id}                                | PUT/PATCH | Medium ändern                   | ❌      |
 | /api/media/categories                          | GET       | Mediakategorienliste            | ❌      |
 | /api/media/categories                          | POST      | Mediakategorie anlegen          | ❌      |
