@@ -1,10 +1,10 @@
 <?php
 
-namespace FriendsOfREDAXO\API\RoutePackage;
+namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_sql;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +22,7 @@ class Templates extends RoutePackage
             new Route(
                 'templates',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Templates::handleTemplateList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Templates::handleTemplateList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -78,7 +78,7 @@ class Templates extends RoutePackage
             new Route(
                 'templates',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Templates::handleAddTemplate',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Templates::handleAddTemplate',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
@@ -115,7 +115,7 @@ class Templates extends RoutePackage
             new Route(
                 'templates/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Templates::handleGetTemplate',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Templates::handleGetTemplate',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -132,7 +132,7 @@ class Templates extends RoutePackage
             new Route(
                 'templates/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Templates::handleUpdateTemplate',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Templates::handleUpdateTemplate',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
@@ -171,7 +171,7 @@ class Templates extends RoutePackage
             new Route(
                 'templates/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Templates::handleDeleteTemplate',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Templates::handleDeleteTemplate',
                 ],
                 ['id' => '\d+'],
                 [],

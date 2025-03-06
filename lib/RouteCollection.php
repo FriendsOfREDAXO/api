@@ -1,6 +1,6 @@
 <?php
 
-namespace FriendsOfREDAXO\API;
+namespace FriendsOfRedaxo\Api;
 
 use Exception;
 use rex;

@@ -1,6 +1,6 @@
 <?php
 
-namespace FriendsOfREDAXO\API;
+namespace FriendsOfRedaxo\Api;
 
 use rex_i18n;
 use Symfony\Component\Routing\Route;

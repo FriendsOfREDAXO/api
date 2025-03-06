@@ -1,10 +1,10 @@
 <?php
 
-namespace FriendsOfREDAXO\API\RoutePackage;
+namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_article;
 use rex_article_service;
@@ -42,7 +42,7 @@ class Structure extends RoutePackage
             new Route(
                 'structure/articles',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleArticleList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleArticleList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -105,7 +105,7 @@ class Structure extends RoutePackage
             new Route(
                 'structure/articles/',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleAddArticle',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleAddArticle',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
@@ -147,7 +147,7 @@ class Structure extends RoutePackage
             new Route(
                 'structure/categories/',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleAddCategory',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleAddCategory',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
@@ -188,7 +188,7 @@ class Structure extends RoutePackage
             'structure/articles/delete',
             new Route(
                 'structure/articles/{id}',
-                ['_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleDeleteArticle'],
+                ['_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleDeleteArticle'],
                 ['id' => '\d+'],
                 [],
                 '',
@@ -202,7 +202,7 @@ class Structure extends RoutePackage
             'structure/categories/delete',
             new Route(
                 'structure/categories/{id}',
-                ['_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleDeleteCategory'],
+                ['_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleDeleteCategory'],
                 ['id' => '\d+'],
                 [],
                 '',
@@ -250,7 +250,7 @@ class Structure extends RoutePackage
             new Route(
                 'structure/articles/{id}/slices',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Structure::handleAddArticleSlices',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleAddArticleSlices',
                     'Body' => array_merge(
                         [
                             'module_id' => [

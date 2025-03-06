@@ -1,10 +1,10 @@
 <?php
 
-namespace FriendsOfREDAXO\API\RoutePackage;
+namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
-use FriendsOfREDAXO\API\RouteCollection;
-use FriendsOfREDAXO\API\RoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_article_cache;
 use rex_extension;
@@ -32,7 +32,7 @@ class Modules extends RoutePackage
             new Route(
                 'modules',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleModulesList',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Modules::handleModulesList',
                     'query' => [
                         'filter' => [
                             'fields' => [
@@ -77,7 +77,7 @@ class Modules extends RoutePackage
             new Route(
                 'modules',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleAddModules',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Modules::handleAddModules',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
@@ -112,7 +112,7 @@ class Modules extends RoutePackage
             new Route(
                 'modules/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleGetModules',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Modules::handleGetModules',
                 ],
                 ['id' => '\d+'],
                 [],
@@ -128,7 +128,7 @@ class Modules extends RoutePackage
             new Route(
                 'modules/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleUpdateModules',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Modules::handleUpdateModules',
                     'Body' => [
                         'name' => [
                             'type' => 'string',
@@ -167,7 +167,7 @@ class Modules extends RoutePackage
             new Route(
                 'modules/{id}',
                 [
-                    '_controller' => 'FriendsOfREDAXO\API\RoutePackage\Modules::handleDeleteModules',
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Modules::handleDeleteModules',
                 ],
                 ['id' => '\d+'],
                 [],
