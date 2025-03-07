@@ -110,7 +110,7 @@ class Templates extends RoutePackage
                 [],
                 ['POST'],
             ),
-            'Add a templates',
+            'Add a template',
         );
 
         // Templates Get Details ✅
@@ -166,7 +166,7 @@ class Templates extends RoutePackage
                 [],
                 ['PUT', 'PATCH'],
             ),
-            'Update a templates',
+            'Update a template',
         );
 
         // Templates Delete ✅
@@ -183,7 +183,7 @@ class Templates extends RoutePackage
                 [],
                 ['DELETE'],
             ),
-            'Delete a templates',
+            'Delete a template',
         );
     }
 

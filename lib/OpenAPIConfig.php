@@ -53,7 +53,7 @@ class OpenAPIConfig
                     'description' => 'successful operation',
                 ],
                 '400' => [
-                    'description' => 'Unvalid request',
+                    'description' => 'Invalid request',
                 ],
                 '401' => [
                     'description' => 'Not authorized',
