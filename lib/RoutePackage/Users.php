@@ -24,6 +24,7 @@ use const PASSWORD_DEFAULT;
 class Users extends RoutePackage
 {
     public const UsersFields = ['id', 'name', 'description', 'login', 'email', 'status', 'admin', 'language', 'startpage', 'login_tries', 'createdate', 'createuser', 'updatedate', 'updateuser', 'password_changed', 'password_change_required', 'lasttrydate', 'lastlogin'];
+    public const RolesFields = ['id', 'name', 'description', 'createdate', 'createuser', 'updatedate', 'updateuser'];
 
     public function loadRoutes(): void
     {
@@ -62,12 +63,12 @@ class Users extends RoutePackage
                                     'default' => null,
                                 ],
                                 'status' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
                                 'admin' => [
-                                    'type' => 'int',
+                                    'type' => 'integer',
                                     'required' => false,
                                     'default' => null,
                                 ],
@@ -75,16 +76,6 @@ class Users extends RoutePackage
                             'type' => 'array',
                             'required' => false,
                             'default' => [],
-                        ],
-                        'page' => [
-                            'type' => 'int',
-                            'required' => false,
-                            'default' => 1,
-                        ],
-                        'per_page' => [
-                            'type' => 'int',
-                            'required' => false,
-                            'default' => 100,
                         ],
                     ],
                 ],
@@ -151,16 +142,6 @@ class Users extends RoutePackage
                             'required' => false,
                             'default' => [],
                         ],
-                        'page' => [
-                            'type' => 'int',
-                            'required' => false,
-                            'default' => 1,
-                        ],
-                        'per_page' => [
-                            'type' => 'int',
-                            'required' => false,
-                            'default' => 100,
-                        ],
                     ],
                 ],
                 [],
@@ -186,36 +167,31 @@ class Users extends RoutePackage
         $SqlParameters = [];
 
         if (null !== $Query['filter']['name']) {
-            $SqlQueryWhere[':name'] = 'name LIKE :name';
-            $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
+            $SqlQueryWhere[':name'] = 'name = :name';
+            $SqlParameters[':name'] = $Query['filter']['name'];
         }
 
         if (null !== $Query['filter']['login']) {
-            $SqlQueryWhere[':login'] = 'login LIKE :login';
-            $SqlParameters[':login'] = '%' . $Query['filter']['login'] . '%';
+            $SqlQueryWhere[':login'] = 'login = :login';
+            $SqlParameters[':login'] = $Query['filter']['login'];
         }
 
         if (null !== $Query['filter']['email'] && is_string($Query['filter']['email'])) {
-            $SqlQueryWhere[':email'] = 'email LIKE :email';
-            $SqlParameters[':email'] = '%' . $Query['filter']['email'] . '%';
+            $SqlQueryWhere[':email'] = 'email = :email';
+            $SqlParameters[':email'] = $Query['filter']['email'];
         }
 
         if (isset($Query['filter']['status']) && null !== $Query['filter']['status']) {
+            $Query['filter']['status'] = (1 === (int) $Query['filter']['status']) ? 1 : 0;
             $SqlQueryWhere[':status'] = 'status = :status';
             $SqlParameters[':status'] = $Query['filter']['status'];
         }
 
         if (isset($Query['filter']['admin']) && null !== $Query['filter']['admin']) {
+            $Query['filter']['admin'] = (1 === (int) $Query['filter']['admin']) ? 1 : 0;
             $SqlQueryWhere[':admin'] = 'admin = :admin';
             $SqlParameters[':admin'] = $Query['filter']['admin'];
         }
-
-        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
-        $page = (1 > $Query['page']) ? 1 : $Query['page'];
-        $start = ($page - 1) * $per_page;
-
-        $SqlParameters[':per_page'] = $per_page;
-        $SqlParameters[':start'] = $start;
 
         $UsersSQL = rex_sql::factory();
         $Users = $UsersSQL->getArray(
@@ -226,7 +202,6 @@ class Users extends RoutePackage
                 ' . rex::getTable('user') . '
             ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
             ORDER BY name ASC
-            LIMIT :start, :per_page
             ',
             $SqlParameters,
         );
@@ -409,7 +384,7 @@ class Users extends RoutePackage
 
         try {
             $deleteuser = rex_sql::factory();
-            $deleteuser->setQuery('DELETE FROM ' . rex::getTablePrefix() . 'user WHERE id = ? LIMIT 1', [$User->getId()]);
+            $deleteuser->setQuery('DELETE FROM ' . rex::getTable('user') . ' WHERE id = ? LIMIT 1', [$User->getId()]);
 
             rex_user::clearInstance($User->getId());
 
@@ -437,27 +412,19 @@ class Users extends RoutePackage
         $SqlParameters = [];
 
         if (isset($Query['filter']['name']) && null !== $Query['filter']['name']) {
-            $SqlQueryWhere[':name'] = 'name LIKE :name';
-            $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
+            $SqlQueryWhere[':name'] = 'name = :name';
+            $SqlParameters[':name'] = $Query['filter']['name'];
         }
-
-        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
-        $page = (1 > $Query['page']) ? 1 : $Query['page'];
-        $start = ($page - 1) * $per_page;
-
-        $SqlParameters[':per_page'] = $per_page;
-        $SqlParameters[':start'] = $start;
 
         $RolesSQL = rex_sql::factory();
         $Roles = $RolesSQL->getArray(
             '
             SELECT
-                id, name, description
+                ' . implode(',', self::RolesFields) . '
             FROM
                 ' . rex::getTable('user_role') . '
-            ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
+                ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
             ORDER BY name
-            LIMIT :start, :per_page
             ',
             $SqlParameters,
         );
