@@ -144,7 +144,7 @@ class RouteCollection
                         throw new Exception($key);
                     }
                     if (!isset($request[$key]) || '' === $request[$key]) {
-                        $return[$key] = $definition[$key]['default'];
+                        $return[$key] = $definition[$key]['default'] ?? null;
                     } else {
                         $return[$key] = rex_type::cast($request[$key], $definition[$key]['type']);
                     }
