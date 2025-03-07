@@ -46,10 +46,10 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 | /api/module/{id}                               | GET       | Modul auslesen                  | ✅      | ✅    |
 | /api/module/{id}                               | DELETE    | Modul löschen                   | ✅      | ✅    |
 | /api/module/{id}                               | PUT/PATCH | Modul ändern                    | ✅      | ✅    |
-| /api/templates                                 | GET       | Template Liste                  | ✅      |
-| /api/templates                                 | POST      | Template anlegen                | ✅      |
-| /api/templates/{id}                            | DELETE    | Template löschen                | ✅      |
-| /api/templates/{id}                            | PUT/PATCH | Template ändern                 | ✅      |
+| /api/templates                                 | GET       | Template Liste                  | ✅      | ✅    |
+| /api/templates                                 | POST      | Template anlegen                | ✅      | ✅    |
+| /api/templates/{id}                            | DELETE    | Template löschen                | ✅      | ✅    | 
+| /api/templates/{id}                            | PUT/PATCH | Template ändern                 | ✅      | ✅    | 
 | /api/users                                     | GET       | Userliste                       | ✅      |
 | /api/users                                     | POST      | User anlegen                    | ❌      |
 | /api/users/{id}                                | GET       | User holen                      | ✅      |
