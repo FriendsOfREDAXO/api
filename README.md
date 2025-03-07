@@ -50,15 +50,15 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 | /api/templates                                 | POST      | Template anlegen                | ✅      | ✅    |
 | /api/templates/{id}                            | DELETE    | Template löschen                | ✅      | ✅    | 
 | /api/templates/{id}                            | PUT/PATCH | Template ändern                 | ✅      | ✅    | 
-| /api/users                                     | GET       | Userliste                       | ✅      |
+| /api/users                                     | GET       | Userliste                       | ✅      | ✅    |
 | /api/users                                     | POST      | User anlegen                    | ❌      |
-| /api/users/{id}                                | GET       | User holen                      | ✅      |
+| /api/users/{id}                                | GET       | User holen                      | ✅      | ✅    |
 | /api/users/{id}/role                           | GET       | Userrolen eines Users auflisten | ❌      |
 | /api/users/{id}/role                           | POST      | Userrole einem Users hinzufügen | ❌      |
 | /api/users/{id}/role                           | DELETE    | Userrole eines Users löschen    | ❌      |
-| /api/users/{id}                                | DELETE    | User löschen                    | ✅      |
+| /api/users/{id}                                | DELETE    | User löschen                    | ✅      | ✅    |
 | /api/users/{id}                                | PUT/PATCH | User ändern                     | ❌      |
-| /api/users/roles                               | GET       | Rollenliste                     | ✅      |
+| /api/users/roles                               | GET       | Rollenliste                     | ✅      | ✅    |
 | /api/users/roles                               | POST      | Rolle anlegen                   | ❌      |
 | /api/users/roles/{id}                          | DELETE    | Rolle löschen                   | ❌      |
 | /api/users/roles/{id}                          | PUT/PATCH | Rolle ändern                    | ❌      |
