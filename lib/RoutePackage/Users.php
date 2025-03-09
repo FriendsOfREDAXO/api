@@ -26,6 +26,13 @@ class Users extends RoutePackage
     public const UsersFields = ['id', 'name', 'description', 'login', 'email', 'status', 'admin', 'language', 'startpage', 'login_tries', 'createdate', 'createuser', 'updatedate', 'updateuser', 'password_changed', 'password_change_required', 'lasttrydate', 'lastlogin'];
     public const RolesFields = ['id', 'name', 'description', 'createdate', 'createuser', 'updatedate', 'updateuser'];
 
+    /**
+     * Registers API routes for user and role management.
+     *
+     * Sets up endpoints for listing users with filters (name, login, email, status, admin), fetching user details by ID,
+     * deleting a user, and listing user roles with an optional name filter. Future enhancements include routes for creating,
+     * updating, and managing user roles.
+     */
     public function loadRoutes(): void
     {
         // TODO:
@@ -154,7 +161,18 @@ class Users extends RoutePackage
         );
     }
 
-    /** @api */
+    /**
+     * Retrieves a list of users based on provided query filters.
+     *
+     * This method extracts filter parameters from the request using the routing configuration and builds an SQL
+     * query with exact matching conditions for the user's name, login, email, status, and admin fields. It then
+     * returns a JSON response containing the list of users. If the mandatory query field is missing or invalid,
+     * an error response with a 400 HTTP status code is returned.
+     *
+     * @api
+     * @param array $Parameter Routing parameters that must include a 'query' key for filter configuration.
+     * @return Response JSON response containing an array of user records or an error message.
+     */
     public static function handleUsersList($Parameter): Response
     {
         try {
@@ -363,7 +381,19 @@ class Users extends RoutePackage
         }
     }
 
-    /** @api */
+    /**
+     * Deletes a user based on the provided ID while ensuring that at least one admin remains.
+     *
+     * This function retrieves the user using the ID from the $Parameter array. If the user is not found,
+     * it returns a 404 error response. If the user is an admin, it verifies that deleting the user will not
+     * remove the last active admin, returning a 409 error if it would. Upon successful deletion, the user's
+     * cached instance is cleared and a 'USER_DELETED' event is triggered, returning a JSON response confirming
+     * the deletion.
+     *
+     * @api
+     * @param array $Parameter An associative array containing the user ID under the key 'id'.
+     * @return Response A response object with a JSON message indicating success or the specific error encountered.
+     */
     public static function handleDeleteUser($Parameter): Response
     {
         $userId = $Parameter['id'];
@@ -399,7 +429,18 @@ class Users extends RoutePackage
         }
     }
 
-    /** @api */
+    /**
+     * Handles the API request to list user roles.
+     *
+     * Extracts query parameters from the incoming request and applies an exact name filter if provided. It fetches roles using
+     * the fields defined in the RolesFields constant from the user_role table, orders them by name, and returns the result as a
+     * JSON response. If a required query parameter is missing, an error response with a 400 status code is returned.
+     *
+     * @api
+     *
+     * @param array $Parameter An associative array containing query parameters under the 'query' key.
+     * @return Response JSON response with a list of user roles or an error message.
+     */
     public static function handleUserRolesList($Parameter): Response
     {
         try {
