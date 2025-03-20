@@ -4,7 +4,6 @@ version: 0.1.0
 page:
     title: 'translate:api-title'
     icon: rex-icon fa-exchange
-    perm: api[]
     subpages:
         token:
             title: 'translate:api_token'
