@@ -111,7 +111,7 @@ class MeinRoutePackage extends RoutePackage
 }
 ```
 
-### 2. Registrieren Sie Ihr RoutePackage
+### 2. Registrieren des RoutePackage
 
 ```php
 <?php
