@@ -6,6 +6,173 @@ Dieses AddOn ermöglich es, APIs in REDAXO zu nutzen. Dabei geht es vor allem um
 
 Zunächst ist geplant die Basisfeatures von REDAXO abzubilden. 
 
+## Allgemeine Verwendung der APIs
+
+### API-Token erstellen
+
+Bevor die API verwendet werden kann, muss zuerst ein API-Token im REDAXO-Backend erstellt werden:
+
+1. Im Backend zu "API" > "Token" navigieren
+2. Auf das "+" Symbol klicken, um einen neuen Token zu erstellen
+3. Einen Namen für den Token eingeben
+4. Den generierten Token kopieren oder einen eigenen eingeben
+5. Die benötigten Scopes (Zugriffsrechte) für den Token auswählen
+6. Den Token speichern
+
+### API verwenden
+
+Alle API-Anfragen müssen den API-Token im `Authorization`-Header mit dem Prefix `Bearer` enthalten:
+
+```
+Authorization: Bearer TokenHier
+```
+
+### Beispiele
+
+#### Beispiel 1: Artikelliste abfragen
+
+```bash
+curl -X GET "https://example.com/api/structure/articles" \
+     -H "Authorization: Bearer TokenHier"
+```
+
+#### Beispiel 2: Einen neuen Artikel anlegen
+
+```bash
+curl -X POST "https://example.com/api/structure/articles/" \
+     -H "Authorization: Bearer TokenHier" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "name": "Mein neuer Artikel",
+           "category_id": 1,
+           "status": 1,
+           "template_id": 1
+         }'
+```
+
+### Swagger UI - API-Dokumentation und Test-Tool
+
+Das AddOn bietet eine integrierte Swagger UI-Oberfläche, die eine vollständige Dokumentation aller verfügbaren API-Endpunkte bereitstellt. Damit kann man:
+
+- Alle verfügbaren Endpunkte einsehen
+- Die benötigten Parameter für jeden Endpunkt anzeigen
+- Die API direkt im Browser testen
+
+Um die Swagger UI zu öffnen:
+1. Im REDAXO-Backend zu "API" > "OpenAPI" navigieren
+2. Mit dem Token autorisieren (durch Klick auf den "Authorize"-Button)
+3. Den gewünschten Endpunkt auswählen und Anfragen direkt aus der Oberfläche ausführen
+
+## Eigene API-Endpunkte entwickeln
+
+Entwickler können eigene API-Endpunkte erstellen und in das vorhandene API-System integrieren. Hier ist ein grundlegendes Beispiel:
+
+### 1. Erstellen Sie ein RoutePackage
+
+```php
+<?php
+// in einem eigenen AddOn: lib/MeinRoutePackage.php
+
+namespace MeinAddOn\Api;
+
+use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Route;
+
+class MeinRoutePackage extends RoutePackage
+{
+    public function loadRoutes(): void
+    {
+        // Registrieren eines neuen Endpunkts
+        RouteCollection::registerRoute(
+            'mein_addon/beispiel',  // Scope-Name für Berechtigungen
+            new Route(
+                'mein_addon/beispiel',  // URL-Pfad wird zu: /api/mein_addon/beispiel
+                [
+                    '_controller' => 'MeinAddOn\Api\MeinRoutePackage::handleBeispiel',
+                ],
+                [],  // Requirements
+                [],  // Options
+                '',  // Host
+                [],  // Schemes
+                ['GET']  // Methods
+            ),
+            'Beschreibung dieses Endpunkts'  // Beschreibung für OpenAPI
+        );
+    }
+
+    /** @api */
+    public static function handleBeispiel($Parameter): Response
+    {
+        // Implementierung des Endpunkts
+        return new Response(json_encode(['erfolg' => true, 'nachricht' => 'Es funktioniert!']), 200);
+    }
+}
+```
+
+### 2. Registrieren Sie Ihr RoutePackage
+
+```php
+<?php
+// in Ihrem boot.php des AddOns
+
+use MeinAddOn\Api\MeinRoutePackage;
+use FriendsOfRedaxo\Api\RouteCollection;
+
+// Registrieren Sie Ihr RoutePackage
+RouteCollection::registerRoutePackage(new MeinRoutePackage());
+```
+
+### 3. Parameter validieren und verarbeiten
+
+Bei komplexeren Endpunkten können Sie Query-Parameter oder Body-Daten definieren und validieren:
+
+```php
+RouteCollection::registerRoute(
+    'mein_addon/beispiel_mit_parametern',
+    new Route(
+        'mein_addon/beispiel_mit_parametern',
+        [
+            '_controller' => 'MeinAddOn\Api\MeinRoutePackage::handleBeispielMitParametern',
+            'query' => [
+                'filter' => [
+                    'fields' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                    'type' => 'array',
+                    'required' => false,
+                    'default' => [],
+                ],
+            ],
+        ],
+        [],
+        [],
+        '',
+        [],
+        ['GET']
+    ),
+    'Beispiel mit Parametern'
+);
+
+/** @api */
+public static function handleBeispielMitParametern($Parameter): Response
+{
+    try {
+        $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
+        // Verarbeiten der validierten Parameter...
+    } catch (Exception $e) {
+        return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+    }
+    
+    // Weitere Verarbeitung...
+}
+```
+
 ## Geplante und umgesetzte Endpunkte
 
 Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exakt so umgesetzt sind, wie sie in REDAXO/Core verwendet wurde. 
@@ -91,6 +258,49 @@ Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren
 Das API AddON funktioniert aus dem Frontend-User-Kontext heraus. Das heisst, sollte es registrierte Methoden an bestimmten
 ExtensionPoints geben, welche nur im Backend-User-Kontext gesetzt wurden, z.B. (rex::isBackend) -> registerEP, dann werden diese nicht in der dieser API ausgeführt.
 D.h. diese AddOns müssen entsprechend angepasst werden.
+
+## Best Practices für API-Entwicklung
+
+Bei der Entwicklung eigener API-Endpunkte sollten folgende Best Practices beachtet werden:
+
+1. **Wiederverwendung bestehender REDAXO-Funktionen**:
+   - Nutzen Sie vorhandene REDAXO-Klassen und Methoden (z.B. `rex_article_service`, `rex_media_service`)
+   - Lösen Sie die passenden Extension Points aus, um Kompatibilität mit anderen AddOns zu gewährleisten
+
+2. **Sicherheit**:
+   - Validieren Sie alle Eingaben und Parameter gründlich
+   - Verwenden Sie `rex_escape()` für die Ausgabe von Variablen in Fehlermeldungen
+   - Prüfen Sie Berechtigungen vor Ausführung kritischer Operationen
+
+3. **Struktur und Standards**:
+   - Folgen Sie dem bestehenden API-Design-Muster für Konsistenz
+   - Liefern Sie immer passende HTTP-Statuscodes zurück (200, 201, 400, 401, 404, etc.)
+   - Verwenden Sie die JSON-Struktur konsistent (z.B. `{"error": "Fehlermeldung"}` bei Fehlern)
+
+4. **Dokumentation**:
+   - Dokumentieren Sie die API-Endpunkte mit aussagekräftigen Beschreibungen
+   - Nutzen Sie den OpenAPI-Standard für Parameterdeklarationen
+
+5. **Performance**:
+   - Nutzen Sie QuerySets für Datenbankabfragen
+   - Implementieren Sie Paginierung bei Listen-Endpunkten
+
+## Weiterführende Informationen und Ressourcen
+
+### Nützliche Referenzen im Quellcode
+
+Um eigene API-Endpunkte zu entwickeln, lohnt sich ein Blick in die bestehenden Implementierungen:
+
+- [Structure.php](https://github.com/FriendsOfREDAXO/api/blob/main/lib/RoutePackage/Structure.php) - Artikelstruktur API
+- [Media.php](https://github.com/FriendsOfREDAXO/api/blob/main/lib/RoutePackage/Media.php) - Medien API
+- [Templates.php](https://github.com/FriendsOfREDAXO/api/blob/main/lib/RoutePackage/Templates.php) - Templates API
+
+### Externe Ressourcen
+
+- [REDAXO API-Dokumentation](https://redaxo.org/doku/main) - Offizielle REDAXO-Dokumentation
+- [Symfony Routing Komponente](https://symfony.com/doc/current/routing.html) - Dokumentation der verwendeten Routing-Komponente
+- [OpenAPI-Spezifikation](https://swagger.io/specification/) - Dokumentation der OpenAPI-Spezifikation
+- [RESTful API Design Best Practices](https://restfulapi.net/) - Allgemeine Best Practices für RESTful APIs
 
 ## Weitere noch nicht beachtete Usecases
 
