@@ -2,8 +2,10 @@
 
 namespace FriendsOfRedaxo\Api;
 
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use rex;
 use rex_sql;
+
 use function count;
 
 class Token
@@ -76,5 +78,16 @@ class Token
         }
 
         return self::getByToken($BearerToken);
+    }
+
+    public static function getAvailableScopes(): array
+    {
+        $Scopes = [];
+        foreach (RouteCollection::getRoutes() as $RouteScope => $Route) {
+            if ($Route['authorization'] instanceof BearerAuth) {
+                $Scopes[] = $Route['scope'];
+            }
+        }
+        return $Scopes;
     }
 }

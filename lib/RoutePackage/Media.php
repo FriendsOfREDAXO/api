@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -13,6 +14,7 @@ use rex_mediapool;
 use rex_pager;
 use rex_path;
 use rex_sql;
+use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -26,8 +28,6 @@ class Media extends RoutePackage
 
     public function loadRoutes(): void
     {
-        // TODO: Mediakategorie list/add/delete/update
-
         // Media List ✅
         RouteCollection::registerRoute(
             'media/list',
@@ -111,6 +111,8 @@ class Media extends RoutePackage
                 [],
                 ['GET']),
             'Access to list of media (of a specific category)',
+            null,
+            new BearerAuth(),
         );
 
         // Media delete ✅
@@ -125,13 +127,15 @@ class Media extends RoutePackage
                 [],
                 ['DELETE']),
             'Delete a media',
+            null,
+            new BearerAuth(),
         );
 
         // Media get meta ✅
         RouteCollection::registerRoute(
             'media/get',
             new Route(
-                'media/{filename}',
+                'media/{filename}/info',
                 [
                     '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleGetMedia',
                 ],
@@ -141,6 +145,8 @@ class Media extends RoutePackage
                 [],
                 ['GET']),
             'Get a media',
+            null,
+            new BearerAuth(),
         );
 
         // Media get file ✅
@@ -170,8 +176,164 @@ class Media extends RoutePackage
                     ],
                 ],
             ],
+            new BearerAuth(),
+        );
+
+        // Media List ❌
+        RouteCollection::registerRoute(
+            'media/category/list',
+            new Route(
+                'media/category',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleCategoryList',
+                    'query' => [
+                        'filter' => [
+                            'fields' => [
+                                'category_id' => [
+                                    'type' => 'integer',
+                                    'required' => false,
+                                    'default' => null,
+                                ],
+                            ],
+                            'type' => 'array',
+                            'required' => true,
+                            'default' => [],
+                        ],
+                    ],
+                ],
+                [],
+                [],
+                '',
+                [],
+                ['GET']),
+            'Access to list of mediacategories',
+            null,
+            new BearerAuth(),
         );
     }
+
+    /** @api */
+    public static function handleCategoryList($Parameter, array $Route): Response
+    {
+        try {
+            $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+        }
+
+        $Authorization = $Route['authorization'] ?? null;
+        /** @var rex_user $AuthorizationObject|null */
+        $AuthorizationObject = null;
+        if (null !== $Authorization->getAuthorizationObject()) {
+            $AuthorizationObject = $Authorization->getAuthorizationObject();
+        }
+
+        if (null !== $Query['filter']['category_id'] && 0 < $Query['filter']['category_id']) {
+            $MediaCategory = null;
+            if ($AuthorizationObject) {
+                $perm = $AuthorizationObject->getComplexPerm('media');
+                if ($perm->hasCategoryPerm($Query['filter']['category_id'])) {
+                    $MediaCategory = rex_media_category::get($Query['filter']['category_id']);
+                }
+            } else {
+                $MediaCategory = rex_media_category::get($Query['filter']['category_id']);
+            }
+
+            if (null === $MediaCategory) {
+                return new Response(json_encode(['error' => 'Category not found or no permission']), 404);
+            }
+            $CategoriesCollection = $MediaCategory->getChildren();
+        } else {
+            $CategoriesCollection = [];
+            if ($AuthorizationObject) {
+                $perm = $AuthorizationObject->getComplexPerm('media');
+                if ($perm->hasAll()) {
+                    $CategoriesCollection = rex_media_category::getRootCategories();
+                }
+            } else {
+                $CategoriesCollection = rex_media_category::getRootCategories();
+            }
+        }
+
+        $Categories = [];
+        foreach ($CategoriesCollection as $Category) {
+            $Categories[] = [
+                'id' => $Category->getId(),
+                'name' => $Category->getName(),
+                'hasChildren' => $Category->getChildren() ? true : false,
+                'parent_id' => $Category->getParentId(),
+            ];
+        }
+
+        return new Response(json_encode($Categories, JSON_PRETTY_PRINT));
+    }
+
+    /** @api */
+    // public static function handleAddCategory($Parameter)
+    // {
+    //     $Data = json_decode(rex::getRequest()->getContent(), true);
+    //
+    //     if (!is_array($Data)) {
+    //         return new Response(json_encode(['error' => 'Invalid input']), 400);
+    //     }
+    //
+    //     try {
+    //         $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+    //     } catch (Exception $e) {
+    //         return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+    //     }
+    //
+    //     if (0 !== $Data['category_id'] && !rex_category::get($Data['category_id'])) {
+    //         return new Response(json_encode(['error' => 'Valid category_id is required']), 400);
+    //     }
+    //
+    //     try {
+    //         $CategoryId = null;
+    //         rex_extension::register('CAT_ADDED', static function (rex_extension_point $ep) use (&$CategoryId) {
+    //             $Params = $ep->getParams();
+    //             $CategoryId = $Params['id'];
+    //         });
+    //
+    //         rex_category_service::addCategory($Data['category_id'], [
+    //             'catname' => $Data['name'],
+    //             'catpriority' => $Data['priority'],
+    //             'template_id' => $Data['template_id'],
+    //             'status' => $Data['status'],
+    //         ]);
+    //
+    //         $Category = rex_category::get($CategoryId);
+    //         if (!$Category) {
+    //             return new Response(json_encode(['error' => 'Category not created - reason unknown']), 500);
+    //         }
+    //
+    //         return new Response(json_encode([
+    //             'message' => 'Category created',
+    //             'id' => $CategoryId,
+    //         ],
+    //         ), 201);
+    //     } catch (Exception $e) {
+    //         return new Response(json_encode(['error' => $e->getMessage()]), 500);
+    //     }
+    // }
+    //
+    // /** @api */
+    // public static function handleDeleteCategory($Parameter): Response
+    // {
+    //     $Category = rex_category::get($Parameter['id']);
+    //     if (!$Category) {
+    //         return new Response(json_encode(['error' => 'Category not found']), 404);
+    //     }
+    //
+    //     $CategoryId = $Category->getId();
+    //
+    //     try {
+    //         rex_category_service::deleteCategory($CategoryId);
+    //     } catch (Exception $e) {
+    //         return new Response(json_encode(['error' => $e->getMessage(), 'id' => $CategoryId]), 500);
+    //     }
+    //
+    //     return new Response(json_encode(['message' => 'Category deleted', 'id' => $CategoryId]), 200);
+    // }
 
     /** @api */
     public static function handleMediaList($Parameter): Response
@@ -299,7 +461,7 @@ class Media extends RoutePackage
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
-            return new Response(json_encode(['error' => 'Media not found']), 404);
+            return new Response(json_encode(['error' => 'Get specific media - not found']), 404);
         }
 
         $Return = [

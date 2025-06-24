@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth as ApiAuth;
 use rex;
 use rex_response;
 use rex_type;
@@ -11,7 +12,7 @@ use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Route;
 
-use function in_array;
+use function count;
 use function is_array;
 
 class RouteCollection
@@ -23,13 +24,15 @@ class RouteCollection
     /** @var true */
     private static bool $packagesLoaded = false;
 
-    public static function registerRoute(string $scope, Route $Route, string $description = '', ?array $Responses = null): array
+    public static function registerRoute(string $scope, Route $Route, string $description = '', ?array $Responses = null, ?ApiAuth $Auth = null, array $tags = []): array
     {
         self::$Routes[$scope] = [
             'scope' => $scope,
             'route' => $Route,
             'description' => $description,
             'responses' => $Responses,
+            'authorization' => $Auth,
+            'tags' => 0 == count($tags) ? ['default'] : $tags,
         ];
         return self::$Routes;
     }
@@ -56,36 +59,6 @@ class RouteCollection
         return self::$Routes;
     }
 
-    public static function getRoutesByToken(Token $Token)
-    {
-        $Scopes = array_intersect($Token->getScopes(), self::getScopes());
-
-        $Routes = [];
-        foreach (self::getRoutes() as $RouteScope => $Route) {
-            if (in_array($RouteScope, $Scopes)) {
-                $Routes[$RouteScope] = $Route;
-            }
-        }
-
-        return $Routes;
-    }
-
-    public static function getScopes(): array
-    {
-        if (!self::$packagesLoaded) {
-            self::loadPackageRoutes();
-        }
-
-        $Scopes = [];
-
-        /** @var Route $Route */
-        foreach (self::$Routes as $RouteScope => $Route) {
-            $Scopes[] = $Route['scope'];
-        }
-
-        return $Scopes;
-    }
-
     public static function handle(): void
     {
         // IS REST_API_CALL ?
@@ -95,35 +68,35 @@ class RouteCollection
 
         try {
             self::loadPackageRoutes();
+            $routes = new \Symfony\Component\Routing\RouteCollection();
+            $RegisterdRoutes = self::getRoutes();
 
-            $Token = Token::getFromBearerToken();
-            if (null === $Token) {
-                $Response = new Response(json_encode(['error' => 'Token not found or token is not active']), 401);
+            foreach ($RegisterdRoutes as $AddedRouteScope => $AddedRoute) {
+                $AddedRoute['route']->setPath('/' . self::$preRoute . $AddedRoute['route']->getPath());
+                $routes->add($AddedRouteScope, $AddedRoute['route']);
+            }
+
+            $context = new RequestContext();
+            $context->fromRequest(rex::getRequest());
+            $matcher = new UrlMatcher($routes, $context);
+
+            $parameters = $matcher->match(rex::getRequest()->getPathInfo());
+
+            if (!isset($parameters['_controller'])) {
+                $Response = new Response(json_encode(['error' => 'Controller Not found']), 404);
             } else {
-                $routes = new \Symfony\Component\Routing\RouteCollection();
+                $controller = $parameters['_controller'];
+                $AuthObject = $RegisterdRoutes[$parameters['_route']]['authorization'] ?? null;
 
-                $Routes = self::getRoutesByToken($Token);
-
-                foreach ($Routes as $AddedRouteScope => $AddedRoute) {
-                    $AddedRoute['route']->setPath('/' . self::$preRoute . $AddedRoute['route']->getPath());
-                    $routes->add($AddedRouteScope, $AddedRoute['route']);
-                }
-
-                $context = new RequestContext();
-                $context->fromRequest(rex::getRequest());
-                $matcher = new UrlMatcher($routes, $context);
-
-                $parameters = $matcher->match(rex::getRequest()->getPathInfo());
-
-                if (isset($parameters['_controller'])) {
-                    $controller = $parameters['_controller'];
-                    $Response = $controller($parameters);
+                // if no AuthObject is set, we assume that the route is public
+                if ($AuthObject && !$AuthObject->isAuthorized($parameters)) {
+                    $Response = new Response(json_encode(['error' => 'Authorization failed']), 401);
                 } else {
-                    $Response = new Response(json_encode(['error' => 'Controller Not found']), 404);
+                    $Response = $controller($parameters, $RegisterdRoutes[$parameters['_route']]);
                 }
             }
         } catch (Exception $e) {
-            $Response = new Response(json_encode(['error' => 'Route with method not found or no token has no access']), 401);
+            $Response = new Response(json_encode(['error' => 'Route with method not found or no access']), 401);
         }
 
         rex_response::setStatus($Response->getStatusCode());

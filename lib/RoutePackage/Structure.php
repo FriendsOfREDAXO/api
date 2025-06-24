@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -92,8 +93,11 @@ class Structure extends RoutePackage
                 [],
                 '',
                 [],
-                ['GET']),
+                ['GET'],
+            ),
             'Access to the list of articles',
+            null,
+            new BearerAuth()
         );
 
         // Article anzeigen ❌
@@ -139,6 +143,8 @@ class Structure extends RoutePackage
                 [],
                 ['POST']),
             'Add an article',
+            null,
+            new BearerAuth()
         );
 
         // Category add ✅
@@ -181,6 +187,8 @@ class Structure extends RoutePackage
                 [],
                 ['POST']),
             'Add a category',
+            null,
+            new BearerAuth()
         );
 
         // Article delete ✅
@@ -195,6 +203,8 @@ class Structure extends RoutePackage
                 [],
                 ['DELETE']),
             'Delete an article',
+            null,
+            new BearerAuth()
         );
 
         // Category delete ✅
@@ -209,6 +219,8 @@ class Structure extends RoutePackage
                 [],
                 ['DELETE']),
             'Delete a category',
+            null,
+            new BearerAuth()
         );
 
         for ($i = 1; $i <= 19; ++$i) {
@@ -284,6 +296,8 @@ class Structure extends RoutePackage
                 [],
                 ['POST']),
             'Add a slice to an article',
+            null,
+            new BearerAuth()
         );
 
         // Article Slice anzeigen ❌
