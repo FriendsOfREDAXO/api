@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -69,6 +70,8 @@ class Modules extends RoutePackage
                 [],
                 ['GET']),
             'Access to the list of modules',
+            null,
+            new BearerAuth()
         );
 
         // Modules Add ✅
@@ -104,6 +107,8 @@ class Modules extends RoutePackage
                 [],
                 ['POST']),
             'Add a module',
+            null,
+            new BearerAuth()
         );
 
         // Modules Get Details ✅
@@ -120,6 +125,8 @@ class Modules extends RoutePackage
                 [],
                 ['GET']),
             'Get module details',
+            null,
+            new BearerAuth()
         );
 
         // Modules Update ✅
@@ -159,6 +166,8 @@ class Modules extends RoutePackage
                 [],
                 ['PUT', 'PATCH']),
             'Update a module',
+            null,
+            new BearerAuth()
         );
 
         // Modules Delete ✅
@@ -175,6 +184,8 @@ class Modules extends RoutePackage
                 [],
                 ['DELETE']),
             'Delete a module',
+            null,
+            new BearerAuth()
         );
     }
 

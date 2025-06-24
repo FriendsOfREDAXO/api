@@ -12,6 +12,31 @@ class OpenAPIConfig
 {
     public static function getByRoutes(array $Routes): array
     {
+        $securitySchemes = [];
+        $tags = [];
+        foreach ($Routes as $Scope => $RouteArray) {
+            foreach ($RouteArray['tags'] ?? [] as $Tag) {
+                if (!isset($tags[$Tag])) {
+                    $tags[$Tag] = [
+                        'name' => $Tag,
+                        'description' => rex_i18n::msg('api_openapi_tag_' . $Tag . '_description'),
+                    ];
+                }
+            }
+
+            if (!isset($RouteArray['authorization']) || null === $RouteArray['authorization']) {
+                continue;
+            }
+
+            $Authorization = $RouteArray['authorization']->getOpenApiConfig();
+            if (null === $Authorization) {
+                continue;
+            }
+            if (!isset($securitySchemes[$Authorization['securityScheme']])) {
+                $securitySchemes[$Authorization['securityScheme']] = $Authorization;
+            }
+        }
+
         $config = [
             'openapi' => '3.0.0',
             'info' => [
@@ -19,30 +44,34 @@ class OpenAPIConfig
                 'description' => rex_i18n::msg('api_openapi_description'),
                 'version' => '1.0.0',
             ],
+            'tags' => $tags,
             'servers' => [
                 [
                     'url' => '/' . RouteCollection::$preRoute,
                 ],
             ],
-        ];
-
-        $config['components']['securitySchemes']['bearerAuth'] = [
-            'type' => 'http',
-            'scheme' => 'bearer',
-            'bearerFormat' => 'JWT',
+            'components' => [
+                'securitySchemes' => $securitySchemes,
+            ],
         ];
 
         foreach ($Routes as $Scope => $RouteArray) {
             /** @var Route $Route */
             $Route = $RouteArray['route'];
+            $security = [];
+            if (isset($RouteArray['authorization']) && null !== $RouteArray['authorization']) {
+                $Authorization = $RouteArray['authorization']->getOpenApiConfig();
+                if (null !== $Authorization) {
+                    $security[] = [
+                        $Authorization['securityScheme'] => [],
+                    ];
+                }
+            }
 
             $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])] = [
                 'summary' => $RouteArray['description'],
-                'security' => [
-                    [
-                        'bearerAuth' => [],
-                    ],
-                ],
+                'security' => $security,
+                'tags' => $RouteArray['tags'] ?? ['default'],
             ];
 
             $Parameters = [];

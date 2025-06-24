@@ -1,6 +1,7 @@
 <?php
 
 use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\RoutePackage\Backend\Media as BackendMedia;
 use FriendsOfRedaxo\Api\RoutePackage\Clangs;
 use FriendsOfRedaxo\Api\RoutePackage\Media;
 use FriendsOfRedaxo\Api\RoutePackage\Modules;
@@ -14,6 +15,7 @@ RouteCollection::registerRoutePackage(new Structure());
 RouteCollection::registerRoutePackage(new Templates());
 RouteCollection::registerRoutePackage(new Media());
 RouteCollection::registerRoutePackage(new Users());
+RouteCollection::registerRoutePackage(new BackendMedia());
 
 if (!rex::getConsole()) {
     rex_extension::register('YREWRITE_PREPARE', static function (rex_extension_point $ep) {

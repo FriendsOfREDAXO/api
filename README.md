@@ -17,8 +17,8 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 
 ### Endpunkte
 
-| Endpunkt                                       | Method    | Beschreibung                    | Status | Test |
-|------------------------------------------------|-----------|---------------------------------|--------|------|
+| Endpunkt                                       | Method    | Beschreibung                    | Status | Test | Backend |
+|------------------------------------------------|-----------|---------------------------------|--------|------| ------- |
 | /api/structure/articles                        | GET       | Artikelliste                    | ✅      | ✅    |
 | /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ❌      |
 | /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      | ✅    |
@@ -37,7 +37,7 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 | /api/media                                     | POST      | Medium anlegen                  | ❌      |
 | /api/media/{id}                                | DELETE    | Medium löschen                  | ✅      | ✅    |
 | /api/media/{id}                                | PUT/PATCH | Medium ändern                   | ❌      |
-| /api/media/categories                          | GET       | Mediakategorienliste            | ❌      |
+| /api/media/categories                          | GET       | Mediakategorienliste            | ✅      | ✅    |  ✅  |
 | /api/media/categories                          | POST      | Mediakategorie anlegen          | ❌      |
 | /api/media/categories/{id}                     | DELETE    | Mediakategorie löschen          | ❌      |
 | /api/media/categories/{id}                     | PUT/PATCH | Mediakategorie ändern           | ❌      |
@@ -70,7 +70,7 @@ Wenn getestet, dann wurde explicit nochmal geprüft, ob die Funktionalität exak
 
 ## Bei Problemen mit Authorization
 
-Es kann sein, dass der Apache nicht alle Header weitergibt. In diesem Fall kann es helfen, die folgenden Zeilen in die .htaccess zu schreiben:
+Es kann sein, dass Apache nicht alle Header weitergibt. In diesem Fall kann es helfen, die folgenden Zeilen in die .htaccess zu schreiben:
 
 ```
 # Sets the HTTP_AUTHORIZATION header removed by Apache
@@ -78,9 +78,10 @@ RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 ```
 
-## Ohne API-Token geht nichts
+## Authentifizierung beachten
 
-Bitte zuerst einen API-Token im Backend anlegen und die ensprechenden Scopes (Endpunkt) freigeben.
+Die meisten APIs haben Authentifizierung. Das heisst, es muss ein API-Token im Backend angelegt werden, um die Endpunkte nutzen zu können, wie auch der entsprechende Scope gesetzt werden.
+Andere APIs haben eine Backend-Authentifizierung, die dann über den Backend-User läuft, d.h. es kann der Session Cookie verwendet werden, um die Endpunkte zu nutzen.
 
 ## API Struktur
 
@@ -102,8 +103,9 @@ D.h. diese AddOns müssen entsprechend angepasst werden.
         - für YForm
         - Für Sonsiges
 
-### BE API (Wird hier noch nicht behandelt)
-    - für alles mit BE-User-Rechten
+### Backend API
+
+Authentifizierung läuft über den PHP Session Cookie, d.h. es muss ein Backend-User angemeldet sein, um die Endpunkte nutzen zu können. Diese Endpunkte beachten die Rechte des einzelnen Users und ist dafür gedacht, dass man diese nur aus dem Backend heraus aufrufen kann. Z.B. wenn man eine alternative Anzeige oder Verwaltung nutzen oder aufbauen möchte.
 
 ## Credits: 
 checked by: https://www.coderabbit.ai

@@ -1,6 +1,7 @@
 <?php
 
 use FriendsOfRedaxo\Api\RouteCollection;
+use FriendsOfRedaxo\Api\Token;
 
 $_csrf_key = 'api_token';
 
@@ -26,7 +27,7 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $form_data[] = 'validate|empty|name|translate:api_token_name_validate';
     $form_data[] = 'text|token|translate:api_token_token|#notice:' . rex_i18n::msg('api_token_token_notice', bin2hex(random_bytes((32 - (32 % 2)) / 2)));
     $form_data[] = 'validate|empty|token|translate:api_token_token_validate';
-    $form_data[] = 'choice|scopes|translate:api_token_token_scopes|' . implode(',', RouteCollection::getScopes()) . '||1';
+    $form_data[] = 'choice|scopes|translate:api_token_token_scopes|' . implode(',', Token::getAvailableScopes()) . '||1';
 
     $yform = rex_yform::factory();
     $yform->setObjectparams('form_action', 'index.php?page=api/token');

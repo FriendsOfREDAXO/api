@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -60,6 +61,8 @@ class Clangs extends RoutePackage
                 [],
                 ['GET']),
             'Access to the list of languages',
+            null,
+            new BearerAuth(),
         );
 
         // Clang Get Details ✅
@@ -76,6 +79,8 @@ class Clangs extends RoutePackage
                 [],
                 ['GET']),
             'Get language details',
+            null,
+            new BearerAuth(),
         );
 
         // Clang Add ✅
@@ -116,6 +121,8 @@ class Clangs extends RoutePackage
                 [],
                 ['POST']),
             'Add a language',
+            null,
+            new BearerAuth(),
         );
 
         // Clang Update ✅
@@ -159,6 +166,8 @@ class Clangs extends RoutePackage
                 [],
                 ['PUT', 'PATCH']),
             'Update a language',
+            null,
+            new BearerAuth(),
         );
 
         // Clang Delete ✅
@@ -175,6 +184,8 @@ class Clangs extends RoutePackage
                 [],
                 ['DELETE']),
             'Delete a language',
+            null,
+            new BearerAuth(),
         );
     }
 

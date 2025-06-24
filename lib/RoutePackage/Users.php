@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -86,6 +87,8 @@ class Users extends RoutePackage
                 ['GET'],
             ),
             'Access to the list of users',
+            null,
+            new BearerAuth()
         );
 
         // User Get Details ✅
@@ -103,6 +106,8 @@ class Users extends RoutePackage
                 ['GET'],
             ),
             'Get user details',
+            null,
+            new BearerAuth()
         );
 
         // User Delete ✅
@@ -120,6 +125,8 @@ class Users extends RoutePackage
                 ['DELETE'],
             ),
             'Delete a user',
+            null,
+            new BearerAuth()
         );
 
         // User Roles List ✅
@@ -151,6 +158,8 @@ class Users extends RoutePackage
                 ['GET'],
             ),
             'Access to the list of user roles',
+            null,
+            new BearerAuth()
         );
     }
 

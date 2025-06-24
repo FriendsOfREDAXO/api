@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -73,6 +74,8 @@ class Templates extends RoutePackage
                 ['GET'],
             ),
             'Access to the list of templates',
+            null,
+            new BearerAuth()
         );
 
         // Templates Add ✅
@@ -111,6 +114,8 @@ class Templates extends RoutePackage
                 ['POST'],
             ),
             'Add a template',
+            null,
+            new BearerAuth()
         );
 
         // Templates Get Details ✅
@@ -128,6 +133,8 @@ class Templates extends RoutePackage
                 ['GET'],
             ),
             'Get templates details',
+            null,
+            new BearerAuth()
         );
 
         // Templates Update ✅
@@ -167,6 +174,8 @@ class Templates extends RoutePackage
                 ['PUT', 'PATCH'],
             ),
             'Update a template',
+            null,
+            new BearerAuth()
         );
 
         // Templates Delete ✅
@@ -184,6 +193,8 @@ class Templates extends RoutePackage
                 ['DELETE'],
             ),
             'Delete a template',
+            null,
+            new BearerAuth()
         );
     }
 
