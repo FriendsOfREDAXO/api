@@ -14,7 +14,7 @@ if ('1' === rex_request('load_config', 'string')) {
 <div id="swagger-ui"></div>
 
 <!-- Swagger UI Script -->
-<script nonce="' . rex_response::getNonce() . '">
+<script nonce="<?php echo rex_response::getNonce(); ?>">
     // Configuration for Swagger UI
     window.onload = () => {
         SwaggerUIBundle({
