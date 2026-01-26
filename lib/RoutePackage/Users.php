@@ -7,10 +7,13 @@ use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
+use rex_api_exception;
 use rex_extension;
 use rex_extension_point;
 use rex_sql;
 use rex_user;
+use rex_user_role_service;
+use rex_user_service;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -29,15 +32,6 @@ class Users extends RoutePackage
 
     public function loadRoutes(): void
     {
-        // TODO:
-        // - Add user
-        // - Update user
-        // - AddRoleToUser
-        // - DeleteRolefromUser
-        // - AddRole
-        // - UpdateRole
-        // - DeleteRole
-
         // Users List ✅
         RouteCollection::registerRoute(
             'users/list',
@@ -161,6 +155,260 @@ class Users extends RoutePackage
             null,
             new BearerAuth()
         );
+
+        // User Add ✅
+        RouteCollection::registerRoute(
+            'users/add',
+            new Route(
+                'users',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleAddUser',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => true,
+                        ],
+                        'login' => [
+                            'type' => 'string',
+                            'required' => true,
+                        ],
+                        'password' => [
+                            'type' => 'string',
+                            'required' => true,
+                        ],
+                        'email' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => '',
+                        ],
+                        'status' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'admin' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => 0,
+                        ],
+                        'language' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => 'de_de',
+                        ],
+                        'startpage' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => 'structure',
+                        ],
+                        'role' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'description' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                [],
+                [],
+                '',
+                [],
+                ['POST'],
+            ),
+            'Add a user',
+            null,
+            new BearerAuth()
+        );
+
+        // User Update ✅
+        RouteCollection::registerRoute(
+            'users/update',
+            new Route(
+                'users/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleUpdateUser',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'login' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'status' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'language' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'startpage' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'description' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH'],
+            ),
+            'Update a user',
+            null,
+            new BearerAuth()
+        );
+
+        // User Role Get Details ✅
+        RouteCollection::registerRoute(
+            'users/roles/get',
+            new Route(
+                'users/roles/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleGetUserRole',
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['GET'],
+            ),
+            'Get user role details',
+            null,
+            new BearerAuth()
+        );
+
+        // User Role Add ✅
+        RouteCollection::registerRoute(
+            'users/roles/add',
+            new Route(
+                'users/roles',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleAddUserRole',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => true,
+                        ],
+                        'description' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => '',
+                        ],
+                        'perms' => [
+                            'type' => 'array',
+                            'required' => false,
+                            'default' => [],
+                        ],
+                    ],
+                ],
+                [],
+                [],
+                '',
+                [],
+                ['POST'],
+            ),
+            'Add a user role',
+            null,
+            new BearerAuth()
+        );
+
+        // User Role Update ✅
+        RouteCollection::registerRoute(
+            'users/roles/update',
+            new Route(
+                'users/roles/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleUpdateUserRole',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'description' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'perms' => [
+                            'type' => 'array',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH'],
+            ),
+            'Update a user role',
+            null,
+            new BearerAuth()
+        );
+
+        // User Role Delete ✅
+        RouteCollection::registerRoute(
+            'users/roles/delete',
+            new Route(
+                'users/roles/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleDeleteUserRole',
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['DELETE'],
+            ),
+            'Delete a user role',
+            null,
+            new BearerAuth()
+        );
+
+        // User Role Duplicate ✅
+        RouteCollection::registerRoute(
+            'users/roles/duplicate',
+            new Route(
+                'users/roles/{id}/duplicate',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleDuplicateUserRole',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['POST'],
+            ),
+            'Duplicate a user role',
+            null,
+            new BearerAuth()
+        );
     }
 
     /** @api */
@@ -172,68 +420,39 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        $SqlQueryWhere = [];
-        $SqlParameters = [];
-
+        $filter = [];
         if (null !== $Query['filter']['name']) {
-            $SqlQueryWhere[':name'] = 'name = :name';
-            $SqlParameters[':name'] = $Query['filter']['name'];
+            $filter['name'] = $Query['filter']['name'];
         }
-
         if (null !== $Query['filter']['login']) {
-            $SqlQueryWhere[':login'] = 'login = :login';
-            $SqlParameters[':login'] = $Query['filter']['login'];
+            $filter['login'] = $Query['filter']['login'];
         }
-
         if (null !== $Query['filter']['email'] && is_string($Query['filter']['email'])) {
-            $SqlQueryWhere[':email'] = 'email = :email';
-            $SqlParameters[':email'] = $Query['filter']['email'];
+            $filter['email'] = $Query['filter']['email'];
         }
-
         if (isset($Query['filter']['status']) && null !== $Query['filter']['status']) {
-            $Query['filter']['status'] = (1 === (int) $Query['filter']['status']) ? 1 : 0;
-            $SqlQueryWhere[':status'] = 'status = :status';
-            $SqlParameters[':status'] = $Query['filter']['status'];
+            $filter['status'] = (1 === (int) $Query['filter']['status']) ? 1 : 0;
         }
-
         if (isset($Query['filter']['admin']) && null !== $Query['filter']['admin']) {
-            $Query['filter']['admin'] = (1 === (int) $Query['filter']['admin']) ? 1 : 0;
-            $SqlQueryWhere[':admin'] = 'admin = :admin';
-            $SqlParameters[':admin'] = $Query['filter']['admin'];
+            $filter['admin'] = (1 === (int) $Query['filter']['admin']) ? 1 : 0;
         }
 
-        $UsersSQL = rex_sql::factory();
-        $Users = $UsersSQL->getArray(
-            '
-            SELECT
-                ' . implode(',', self::UsersFields) . '
-            FROM
-                ' . rex::getTable('user') . '
-            ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
-            ORDER BY name ASC
-            ',
-            $SqlParameters,
-        );
+        $users = rex_user_service::getList($filter);
 
-        return new Response(json_encode($Users, JSON_PRETTY_PRINT));
+        return new Response(json_encode($users, JSON_PRETTY_PRINT));
     }
 
     /** @api */
     public static function handleGetUser($Parameter): Response
     {
-        $userId = $Parameter['id'];
+        $userId = (int) $Parameter['id'];
 
-        $UserSQL = rex_sql::factory();
-        $UserData = $UserSQL->getArray(
-            'SELECT ' . implode(',', self::UsersFields) . ' FROM ' . rex::getTable('user') . ' WHERE id = :id',
-            [':id' => $userId],
-        );
-
-        if (empty($UserData)) {
-            return new Response(json_encode(['error' => 'User not found']), 404);
+        try {
+            $user = rex_user_service::getUser($userId);
+            return new Response(json_encode($user, JSON_PRETTY_PRINT));
+        } catch (rex_api_exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 404);
         }
-
-        return new Response(json_encode($UserData[0], JSON_PRETTY_PRINT));
     }
 
     /** @api */
@@ -251,50 +470,24 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        $checkSql = rex_sql::factory();
-        $checkSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE login = :login', [':login' => $Data['login']]);
-
-        if ($checkSql->getRows() > 0) {
-            return new Response(json_encode(['error' => 'Login already exists']), 409);
-        }
-
         try {
-            $sql = rex_sql::factory();
-            $sql->setTable(rex::getTable('user'));
-            $sql->setValue('name', $Data['name']);
-            $sql->setValue('login', $Data['login']);
+            $result = rex_user_service::addUser([
+                'login' => $Data['login'],
+                'password' => $Data['password'],
+                'name' => $Data['name'] ?? '',
+                'email' => $Data['email'] ?? '',
+                'description' => $Data['description'] ?? '',
+                'status' => $Data['status'] ?? 1,
+                'admin' => $Data['admin'] ?? 0,
+                'language' => $Data['language'] ?? 'de_de',
+                'startpage' => $Data['startpage'] ?? 'structure',
+                'role' => $Data['role'] ?? '',
+            ]);
 
-            if (method_exists('rex_login', 'passwordHash')) {
-                $sql->setValue('password', rex_login::passwordHash($Data['password']));
-            } else {
-                $sql->setValue('password', password_hash($Data['password'], PASSWORD_DEFAULT));
-            }
-
-            $sql->setValue('email', $Data['email']);
-            $sql->setValue('status', $Data['status']);
-            $sql->setValue('admin', $Data['admin']);
-            $sql->setValue('language', $Data['language']);
-            $sql->setValue('startpage', $Data['startpage']);
-
-            if (null !== $Data['role']) {
-                $sql->setValue('role', $Data['role']);
-            }
-
-            if (null !== $Data['description']) {
-                $sql->setValue('description', $Data['description']);
-            }
-
-            $sql->setValue('createdate', date('Y-m-d H:i:s'));
-            $sql->setValue('createuser', 'API');
-            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
-            $sql->setValue('updateuser', 'API');
-            $sql->setValue('password_changed', date('Y-m-d H:i:s'));
-            $sql->setValue('login_tries', 0);
-
-            $sql->insert();
-            $userId = $sql->getLastId();
-
-            return new Response(json_encode(['message' => 'User created', 'id' => $userId]), 201);
+            return new Response(json_encode($result), 201);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'exists') ? 409 : 400;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
@@ -303,7 +496,7 @@ class Users extends RoutePackage
     /** @api */
     public static function handleUpdateUser($Parameter): Response
     {
-        $userId = $Parameter['id'];
+        $userId = (int) $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -316,57 +509,30 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        $User = rex_user::get($userId);
-
-        if (!$User) {
-            return new Response(json_encode(['error' => 'User not found']), 404);
+        // Build update data array with only set values
+        $updateData = [];
+        if (null !== $Data['name']) {
+            $updateData['name'] = $Data['name'];
         }
-
-        if (null !== $Data['login']) {
-            $loginSql = rex_sql::factory();
-            $loginSql->setQuery('SELECT id FROM ' . rex::getTable('user') . ' WHERE login = :login AND id != :id',
-                [':login' => $Data['login'], ':id' => $userId]);
-
-            if ($loginSql->getRows() > 0) {
-                return new Response(json_encode(['error' => 'Login already exists']), 409);
-            }
+        if (null !== $Data['status']) {
+            $updateData['status'] = $Data['status'];
+        }
+        if (null !== $Data['language']) {
+            $updateData['language'] = $Data['language'];
+        }
+        if (null !== $Data['startpage']) {
+            $updateData['startpage'] = $Data['startpage'];
+        }
+        if (array_key_exists('description', $Data) && null !== $Data['description']) {
+            $updateData['description'] = $Data['description'];
         }
 
         try {
-            $sql = rex_sql::factory();
-            $sql->setTable(rex::getTable('user'));
-            $sql->setWhere(['id' => $userId]);
-
-            if (null !== $Data['name']) {
-                $sql->setValue('name', $Data['name']);
-            }
-
-            if (null !== $Data['status']) {
-                $sql->setValue('status', $Data['status']);
-            }
-
-            if (null !== $Data['language']) {
-                $sql->setValue('language', $Data['language']);
-            }
-
-            if (null !== $Data['startpage']) {
-                $sql->setValue('startpage', $Data['startpage']);
-            }
-
-            if (array_key_exists('description', $Data)) {
-                $sql->setValue('description', $Data['description']);
-            }
-
-            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
-            $sql->setValue('updateuser', 'API');
-
-            $sql->update();
-
-            if (method_exists('rex_user', 'clearInstance')) {
-                rex_user::clearInstance($userId);
-            }
-
-            return new Response(json_encode(['message' => 'User updated', 'id' => $userId]), 200);
+            $result = rex_user_service::updateUser($userId, $updateData);
+            return new Response(json_encode($result), 200);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'not found') ? 404 : 400;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
@@ -375,34 +541,14 @@ class Users extends RoutePackage
     /** @api */
     public static function handleDeleteUser($Parameter): Response
     {
-        $userId = $Parameter['id'];
-
-        $User = rex_user::get($userId);
-        if (!$User) {
-            return new Response(json_encode(['error' => 'User not found']), 404);
-        }
-
-        if ($User->isAdmin()) {
-            $adminSql = rex_sql::factory();
-            $adminSql->setQuery('SELECT COUNT(*) as admin_count FROM ' . rex::getTable('user') . ' WHERE admin = 1 and status = 1');
-            $adminCount = $adminSql->getValue('admin_count');
-            if ($adminCount <= 1) {
-                return new Response(json_encode(['error' => 'Cannot delete the last admin user']), 409);
-            }
-        }
+        $userId = (int) $Parameter['id'];
 
         try {
-            $deleteuser = rex_sql::factory();
-            $deleteuser->setQuery('DELETE FROM ' . rex::getTable('user') . ' WHERE id = ? LIMIT 1', [$User->getId()]);
-
-            rex_user::clearInstance($User->getId());
-
-            rex_extension::registerPoint(new rex_extension_point('USER_DELETED', '', [
-                'id' => $User->getId(),
-                'user' => $User,
-            ], true));
-
-            return new Response(json_encode(['message' => 'User deleted', 'id' => $User->getId()]), 200);
+            $result = rex_user_service::deleteUser($userId);
+            return new Response(json_encode($result), 200);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'not found') ? 404 : 409;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
@@ -417,27 +563,139 @@ class Users extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        $SqlQueryWhere = [];
-        $SqlParameters = [];
-
+        $filter = [];
         if (isset($Query['filter']['name']) && null !== $Query['filter']['name']) {
-            $SqlQueryWhere[':name'] = 'name = :name';
-            $SqlParameters[':name'] = $Query['filter']['name'];
+            $filter['name'] = $Query['filter']['name'];
         }
 
-        $RolesSQL = rex_sql::factory();
-        $Roles = $RolesSQL->getArray(
-            '
-            SELECT
-                ' . implode(',', self::RolesFields) . '
-            FROM
-                ' . rex::getTable('user_role') . '
-                ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
-            ORDER BY name
-            ',
-            $SqlParameters,
-        );
+        $roles = rex_user_role_service::getList($filter);
 
-        return new Response(json_encode($Roles, JSON_PRETTY_PRINT));
+        return new Response(json_encode($roles, JSON_PRETTY_PRINT));
+    }
+
+    /** @api */
+    public static function handleGetUserRole($Parameter): Response
+    {
+        $roleId = (int) $Parameter['id'];
+
+        try {
+            $role = rex_user_role_service::getRole($roleId);
+            return new Response(json_encode($role, JSON_PRETTY_PRINT));
+        } catch (rex_api_exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 404);
+        }
+    }
+
+    /** @api */
+    public static function handleAddUserRole($Parameter): Response
+    {
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        try {
+            $result = rex_user_role_service::addRole([
+                'name' => $Data['name'],
+                'description' => $Data['description'] ?? '',
+                'perms' => $Data['perms'] ?? [],
+            ]);
+
+            return new Response(json_encode($result), 201);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'exists') ? 409 : 400;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleUpdateUserRole($Parameter): Response
+    {
+        $roleId = (int) $Parameter['id'];
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        // Build update data array with only set values
+        $updateData = [];
+        if (null !== $Data['name']) {
+            $updateData['name'] = $Data['name'];
+        }
+        if (null !== $Data['description']) {
+            $updateData['description'] = $Data['description'];
+        }
+        if (null !== $Data['perms']) {
+            $updateData['perms'] = $Data['perms'];
+        }
+
+        try {
+            $result = rex_user_role_service::updateRole($roleId, $updateData);
+            return new Response(json_encode($result), 200);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'not found') ? 404 : 400;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleDeleteUserRole($Parameter): Response
+    {
+        $roleId = (int) $Parameter['id'];
+
+        try {
+            $result = rex_user_role_service::deleteRole($roleId);
+            return new Response(json_encode($result), 200);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'not found') ? 404 : 409;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleDuplicateUserRole($Parameter): Response
+    {
+        $roleId = (int) $Parameter['id'];
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        $newName = null;
+        if (is_array($Data) && isset($Parameter['Body'])) {
+            try {
+                $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+                $newName = $Data['name'] ?? null;
+            } catch (Exception $e) {
+                // Optional body, ignore errors
+            }
+        }
+
+        try {
+            $result = rex_user_role_service::duplicateRole($roleId, $newName);
+            return new Response(json_encode($result), 201);
+        } catch (rex_api_exception $e) {
+            $code = str_contains($e->getMessage(), 'not found') ? 404 : 400;
+            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
     }
 }

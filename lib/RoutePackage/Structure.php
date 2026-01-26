@@ -100,8 +100,23 @@ class Structure extends RoutePackage
             new BearerAuth()
         );
 
-        // Article anzeigen ❌
-        // /api/structure/articles/{id}
+        // Article anzeigen ✅
+        RouteCollection::registerRoute(
+            'structure/articles/get',
+            new Route(
+                'structure/articles/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleGetArticle',
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['GET']),
+            'Get an article',
+            null,
+            new BearerAuth()
+        );
 
         // Article add ✅
         RouteCollection::registerRoute(
@@ -223,6 +238,86 @@ class Structure extends RoutePackage
             new BearerAuth()
         );
 
+        // Article update ✅
+        RouteCollection::registerRoute(
+            'structure/articles/update',
+            new Route(
+                'structure/articles/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleUpdateArticle',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'priority' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'status' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'template_id' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH']),
+            'Update an article',
+            null,
+            new BearerAuth()
+        );
+
+        // Category update ✅
+        RouteCollection::registerRoute(
+            'structure/categories/update',
+            new Route(
+                'structure/categories/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleUpdateCategory',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'priority' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'status' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'template_id' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH']),
+            'Update a category',
+            null,
+            new BearerAuth()
+        );
+
         for ($i = 1; $i <= 19; ++$i) {
             $Values['value' . $i] = [
                 'type' => 'string',
@@ -253,8 +348,40 @@ class Structure extends RoutePackage
             }
         }
 
-        // Article Slices anzeigen ❌
-        // /api/structure/articles/{id}/slices
+        // Article Slices anzeigen ✅
+        RouteCollection::registerRoute(
+            'structure/articles/slices/list',
+            new Route(
+                'structure/articles/{id}/slices',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleGetArticleSlices',
+                    'query' => [
+                        'clang_id' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'ctype_id' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'revision' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 0,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['GET']),
+            'Get slices of an article',
+            null,
+            new BearerAuth()
+        );
 
         // Article Add Slice ✅
         RouteCollection::registerRoute(
@@ -300,11 +427,61 @@ class Structure extends RoutePackage
             new BearerAuth()
         );
 
-        // Article Slice anzeigen ❌
-        // /api/structure/articles/{id}/slices/{slice_id}
+        // Article Slice anzeigen ✅
+        RouteCollection::registerRoute(
+            'structure/articles/slices/get',
+            new Route(
+                'structure/articles/{id}/slices/{slice_id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleGetArticleSlice',
+                ],
+                [
+                    'id' => '\d+',
+                    'slice_id' => '\d+',
+                ],
+                [],
+                '',
+                [],
+                ['GET']),
+            'Get a specific slice of an article',
+            null,
+            new BearerAuth()
+        );
 
-        // Slice eines Artikel ändern ❌
-        // /api/structure/articles/{id}/slices/{slice_id}
+        // Slice eines Artikel ändern ✅
+        RouteCollection::registerRoute(
+            'structure/articles/slices/update',
+            new Route(
+                'structure/articles/{id}/slices/{slice_id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleUpdateArticleSlice',
+                    'Body' => array_merge(
+                        [
+                            'clang_id' => [
+                                'type' => 'int',
+                                'required' => false,
+                                'default' => null,
+                            ],
+                        ],
+                        $Values,
+                        $Medias,
+                        $Medialists,
+                        $Links,
+                        $Linklists,
+                    ),
+                ],
+                [
+                    'id' => '\d+',
+                    'slice_id' => '\d+',
+                ],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH']),
+            'Update a slice of an article',
+            null,
+            new BearerAuth()
+        );
     }
 
     /** @api */
@@ -642,6 +819,280 @@ class Structure extends RoutePackage
             return new Response(json_encode([
                 'error' => $e->getMessage(),
             ]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleGetArticle($Parameter): Response
+    {
+        $Article = rex_article::get($Parameter['id']);
+
+        if (!$Article) {
+            return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $Return = [
+            'id' => $Article->getId(),
+            'pid' => $Article->getValue('pid'),
+            'name' => $Article->getName(),
+            'catname' => $Article->getValue('catname'),
+            'catpriority' => $Article->getValue('catpriority'),
+            'clang_id' => $Article->getClangId(),
+            'parent_id' => $Article->getParentId(),
+            'priority' => $Article->getPriority(),
+            'startarticle' => $Article->isStartArticle() ? 1 : 0,
+            'status' => $Article->isOnline() ? 1 : 0,
+            'template_id' => $Article->getTemplateId(),
+            'createdate' => $Article->getCreateDate(),
+            'createuser' => $Article->getCreateUser(),
+            'updatedate' => $Article->getUpdateDate(),
+            'updateuser' => $Article->getUpdateUser(),
+            'revision' => $Article->getValue('revision'),
+        ];
+
+        return new Response(json_encode($Return, JSON_PRETTY_PRINT));
+    }
+
+    /** @api */
+    public static function handleUpdateArticle($Parameter): Response
+    {
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        $Article = rex_article::get($Parameter['id']);
+        if (!$Article) {
+            return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        if ($Article->isStartArticle()) {
+            return new Response(json_encode(['error' => 'Article is a start article. Please use category route to update.']), 403);
+        }
+
+        try {
+            $updateData = [];
+
+            if (null !== $Data['name']) {
+                $updateData['name'] = $Data['name'];
+            }
+            if (null !== $Data['priority']) {
+                $updateData['priority'] = $Data['priority'];
+            }
+            if (null !== $Data['template_id']) {
+                $updateData['template_id'] = $Data['template_id'];
+            }
+
+            if (!empty($updateData)) {
+                rex_article_service::editArticle($Parameter['id'], $Article->getClangId(), $updateData);
+            }
+
+            if (null !== $Data['status']) {
+                $currentStatus = $Article->isOnline() ? 1 : 0;
+                if ($currentStatus !== $Data['status']) {
+                    rex_article_service::changeStatus($Parameter['id'], $Article->getClangId(), $Data['status']);
+                }
+            }
+
+            return new Response(json_encode([
+                'message' => 'Article updated',
+                'id' => $Parameter['id'],
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleUpdateCategory($Parameter): Response
+    {
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        $Category = rex_category::get($Parameter['id']);
+        if (!$Category) {
+            return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        try {
+            $updateData = [];
+
+            if (null !== $Data['name']) {
+                $updateData['catname'] = $Data['name'];
+            }
+            if (null !== $Data['priority']) {
+                $updateData['catpriority'] = $Data['priority'];
+            }
+            if (null !== $Data['template_id']) {
+                $updateData['template_id'] = $Data['template_id'];
+            }
+
+            if (!empty($updateData)) {
+                rex_category_service::editCategory($Parameter['id'], $Category->getClangId(), $updateData);
+            }
+
+            if (null !== $Data['status']) {
+                $currentStatus = $Category->isOnline() ? 1 : 0;
+                if ($currentStatus !== $Data['status']) {
+                    rex_category_service::changeStatus($Parameter['id'], $Category->getClangId(), $Data['status']);
+                }
+            }
+
+            return new Response(json_encode([
+                'message' => 'Category updated',
+                'id' => $Parameter['id'],
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleGetArticleSlices($Parameter): Response
+    {
+        try {
+            $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+        }
+
+        $Article = rex_article::get($Parameter['id']);
+        if (!$Article) {
+            return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $SqlQueryWhere = ['article_id = :article_id'];
+        $SqlParameters = [':article_id' => $Parameter['id']];
+
+        if (null !== $Query['clang_id']) {
+            $SqlQueryWhere[] = 'clang_id = :clang_id';
+            $SqlParameters[':clang_id'] = $Query['clang_id'];
+        }
+
+        if (null !== $Query['ctype_id']) {
+            $SqlQueryWhere[] = 'ctype_id = :ctype_id';
+            $SqlParameters[':ctype_id'] = $Query['ctype_id'];
+        }
+
+        $SqlQueryWhere[] = 'revision = :revision';
+        $SqlParameters[':revision'] = $Query['revision'] ?? 0;
+
+        $SlicesSQL = rex_sql::factory();
+        $Slices = $SlicesSQL->getArray(
+            'SELECT id, article_id, clang_id, ctype_id, module_id, priority, status, createdate, createuser, updatedate, updateuser, revision
+            FROM ' . rex::getTable('article_slice') . '
+            WHERE ' . implode(' AND ', $SqlQueryWhere) . '
+            ORDER BY ctype_id, priority',
+            $SqlParameters,
+        );
+
+        return new Response(json_encode($Slices, JSON_PRETTY_PRINT));
+    }
+
+    /** @api */
+    public static function handleGetArticleSlice($Parameter): Response
+    {
+        $Article = rex_article::get($Parameter['id']);
+        if (!$Article) {
+            return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $SliceSQL = rex_sql::factory();
+        $SliceData = $SliceSQL->getArray(
+            'SELECT * FROM ' . rex::getTable('article_slice') . ' WHERE id = :slice_id AND article_id = :article_id',
+            [':slice_id' => $Parameter['slice_id'], ':article_id' => $Parameter['id']],
+        );
+
+        if (empty($SliceData)) {
+            return new Response(json_encode(['error' => 'Slice not found']), 404);
+        }
+
+        return new Response(json_encode($SliceData[0], JSON_PRETTY_PRINT));
+    }
+
+    /** @api */
+    public static function handleUpdateArticleSlice($Parameter): Response
+    {
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        $Article = rex_article::get($Parameter['id']);
+        if (!$Article) {
+            return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $SliceSQL = rex_sql::factory();
+        $SliceData = $SliceSQL->getArray(
+            'SELECT * FROM ' . rex::getTable('article_slice') . ' WHERE id = :slice_id AND article_id = :article_id',
+            [':slice_id' => $Parameter['slice_id'], ':article_id' => $Parameter['id']],
+        );
+
+        if (empty($SliceData)) {
+            return new Response(json_encode(['error' => 'Slice not found']), 404);
+        }
+
+        $Slice = $SliceData[0];
+        $clangId = $Data['clang_id'] ?? $Slice['clang_id'];
+
+        $UpdateData = [];
+        for ($i = 1; $i <= 19; ++$i) {
+            if (null !== $Data['value' . $i]) {
+                $UpdateData['value' . $i] = $Data['value' . $i];
+            }
+            if ($i <= 10) {
+                if (null !== $Data['media' . $i]) {
+                    $UpdateData['media' . $i] = $Data['media' . $i];
+                }
+                if (null !== $Data['medialist' . $i]) {
+                    $UpdateData['medialist' . $i] = $Data['medialist' . $i];
+                }
+                if (null !== $Data['link' . $i]) {
+                    $UpdateData['link' . $i] = $Data['link' . $i];
+                }
+                if (null !== $Data['linklist' . $i]) {
+                    $UpdateData['linklist' . $i] = $Data['linklist' . $i];
+                }
+            }
+        }
+
+        try {
+            rex_content_service::editSlice(
+                $Parameter['slice_id'],
+                $clangId,
+                $UpdateData,
+            );
+
+            return new Response(json_encode([
+                'message' => 'Slice updated',
+                'slice_id' => $Parameter['slice_id'],
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
     }
 }

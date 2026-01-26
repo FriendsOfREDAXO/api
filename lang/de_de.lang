@@ -1,6 +1,17 @@
 
 api-title = API
 api_token = Token
+
+# User Service
+user_not_found = Benutzer nicht gefunden
+user_admin_delete_notallowed = Der letzte Admin-Benutzer kann nicht gelöscht werden
+
+# User Role Service
+user_role_not_found = Rolle nicht gefunden
+user_role_name_required = Der Rollenname ist erforderlich
+user_role_name_exists = Rollenname existiert bereits
+user_role_in_use = Rolle wird noch verwendet und kann nicht gelöscht werden
+user_role_updated = Rolle wurde aktualisiert
 api_token_caption = Tokens
 api_token_name = Name/Beschreibung
 api_token_token = Token

@@ -8,6 +8,7 @@ use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_media;
+use rex_media_cache;
 use rex_media_category;
 use rex_media_service;
 use rex_mediapool;
@@ -15,6 +16,8 @@ use rex_pager;
 use rex_path;
 use rex_sql;
 use rex_user;
+
+use function is_array;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -179,7 +182,67 @@ class Media extends RoutePackage
             new BearerAuth(),
         );
 
-        // Media List ❌
+        // Media add ✅
+        RouteCollection::registerRoute(
+            'media/add',
+            new Route(
+                'media',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleAddMedia',
+                    'Body' => [
+                        'category_id' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => 0,
+                        ],
+                        'title' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => '',
+                        ],
+                    ],
+                ],
+                [],
+                [],
+                '',
+                [],
+                ['POST']),
+            'Add a media file (multipart/form-data with file field)',
+            null,
+            new BearerAuth(),
+        );
+
+        // Media update ✅
+        RouteCollection::registerRoute(
+            'media/update',
+            new Route(
+                'media/{filename}/update',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleUpdateMedia',
+                    'Body' => [
+                        'category_id' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'title' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['filename' => '[a-zA-Z0-9\-\_\.\@]+'],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH']),
+            'Update a media',
+            null,
+            new BearerAuth(),
+        );
+
+        // Media Category List ✅
         RouteCollection::registerRoute(
             'media/category/list',
             new Route(
@@ -207,6 +270,81 @@ class Media extends RoutePackage
                 [],
                 ['GET']),
             'Access to list of mediacategories',
+            null,
+            new BearerAuth(),
+        );
+
+        // Media Category add ✅
+        RouteCollection::registerRoute(
+            'media/category/add',
+            new Route(
+                'media/category',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleAddCategory',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => true,
+                        ],
+                        'parent_id' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => 0,
+                        ],
+                    ],
+                ],
+                [],
+                [],
+                '',
+                [],
+                ['POST']),
+            'Add a media category',
+            null,
+            new BearerAuth(),
+        );
+
+        // Media Category delete ✅
+        RouteCollection::registerRoute(
+            'media/category/delete',
+            new Route(
+                'media/category/{id}',
+                ['_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleDeleteCategory'],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['DELETE']),
+            'Delete a media category',
+            null,
+            new BearerAuth(),
+        );
+
+        // Media Category update ✅
+        RouteCollection::registerRoute(
+            'media/category/update',
+            new Route(
+                'media/category/{id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleUpdateCategory',
+                    'Body' => [
+                        'name' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                        'parent_id' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['PUT', 'PATCH']),
+            'Update a media category',
             null,
             new BearerAuth(),
         );
@@ -507,5 +645,231 @@ class Media extends RoutePackage
         // var_dump($Media->getType());exit;
 
         return $Response;
+    }
+
+    /** @api */
+    public static function handleAddMedia($Parameter): Response
+    {
+        $request = rex::getRequest();
+
+        if (!isset($_FILES['file']) || UPLOAD_ERR_OK !== $_FILES['file']['error']) {
+            return new Response(json_encode(['error' => 'No file uploaded or upload error']), 400);
+        }
+
+        $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0);
+        $title = $request->request->get('title') ?? $request->query->get('title') ?? '';
+
+        if (0 !== $categoryId && !rex_media_category::get($categoryId)) {
+            return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        try {
+            $result = rex_mediapool_saveMedia(
+                $_FILES['file'],
+                $categoryId,
+                [
+                    'title' => $title,
+                ],
+                'API',
+                true,
+            );
+
+            if ($result['ok']) {
+                return new Response(json_encode([
+                    'message' => 'Media created',
+                    'filename' => $result['filename'],
+                ]), 201);
+            }
+
+            return new Response(json_encode(['error' => $result['msg'] ?? 'Unknown error']), 400);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleUpdateMedia($Parameter): Response
+    {
+        $Media = rex_media::get($Parameter['filename']);
+
+        if (!$Media) {
+            return new Response(json_encode(['error' => 'Media not found']), 404);
+        }
+
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            $Data = [];
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        try {
+            $sql = rex_sql::factory();
+            $sql->setTable(rex::getTable('media'));
+            $sql->setWhere(['filename' => $Parameter['filename']]);
+
+            if (null !== $Data['category_id']) {
+                if (0 !== $Data['category_id'] && !rex_media_category::get($Data['category_id'])) {
+                    return new Response(json_encode(['error' => 'Category not found']), 404);
+                }
+                $sql->setValue('category_id', $Data['category_id']);
+            }
+
+            if (null !== $Data['title']) {
+                $sql->setValue('title', $Data['title']);
+            }
+
+            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
+            $sql->setValue('updateuser', 'API');
+            $sql->update();
+
+            rex_media_cache::delete($Parameter['filename']);
+
+            return new Response(json_encode([
+                'message' => 'Media updated',
+                'filename' => $Parameter['filename'],
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleAddCategory($Parameter): Response
+    {
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        if (0 !== $Data['parent_id'] && !rex_media_category::get($Data['parent_id'])) {
+            return new Response(json_encode(['error' => 'Parent category not found']), 404);
+        }
+
+        try {
+            $sql = rex_sql::factory();
+            $sql->setTable(rex::getTable('media_category'));
+            $sql->setValue('name', $Data['name']);
+            $sql->setValue('parent_id', $Data['parent_id']);
+            $sql->setValue('path', $Data['parent_id'] ? rex_media_category::get($Data['parent_id'])->getPath() . $Data['parent_id'] . '|' : '|');
+            $sql->setValue('createdate', date('Y-m-d H:i:s'));
+            $sql->setValue('createuser', 'API');
+            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
+            $sql->setValue('updateuser', 'API');
+            $sql->insert();
+
+            $categoryId = $sql->getLastId();
+
+            rex_media_cache::deleteCategoryList($Data['parent_id']);
+
+            return new Response(json_encode([
+                'message' => 'Media category created',
+                'id' => $categoryId,
+            ]), 201);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleDeleteCategory($Parameter): Response
+    {
+        $Category = rex_media_category::get($Parameter['id']);
+
+        if (!$Category) {
+            return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        if (count($Category->getChildren()) > 0) {
+            return new Response(json_encode(['error' => 'Category has subcategories']), 409);
+        }
+
+        if (count($Category->getMedia()) > 0) {
+            return new Response(json_encode(['error' => 'Category contains media files']), 409);
+        }
+
+        try {
+            $sql = rex_sql::factory();
+            $sql->setQuery('DELETE FROM ' . rex::getTable('media_category') . ' WHERE id = ? LIMIT 1', [$Parameter['id']]);
+
+            rex_media_cache::deleteCategory($Parameter['id']);
+            rex_media_cache::deleteCategoryList($Category->getParentId());
+
+            return new Response(json_encode([
+                'message' => 'Media category deleted',
+                'id' => $Parameter['id'],
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /** @api */
+    public static function handleUpdateCategory($Parameter): Response
+    {
+        $Category = rex_media_category::get($Parameter['id']);
+
+        if (!$Category) {
+            return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new Response(json_encode(['error' => 'Invalid input']), 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+        }
+
+        try {
+            $sql = rex_sql::factory();
+            $sql->setTable(rex::getTable('media_category'));
+            $sql->setWhere(['id' => $Parameter['id']]);
+
+            if (null !== $Data['name']) {
+                $sql->setValue('name', $Data['name']);
+            }
+
+            if (null !== $Data['parent_id']) {
+                if ($Data['parent_id'] === $Parameter['id']) {
+                    return new Response(json_encode(['error' => 'Category cannot be its own parent']), 400);
+                }
+                if (0 !== $Data['parent_id'] && !rex_media_category::get($Data['parent_id'])) {
+                    return new Response(json_encode(['error' => 'Parent category not found']), 404);
+                }
+                $sql->setValue('parent_id', $Data['parent_id']);
+                $sql->setValue('path', $Data['parent_id'] ? rex_media_category::get($Data['parent_id'])->getPath() . $Data['parent_id'] . '|' : '|');
+            }
+
+            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
+            $sql->setValue('updateuser', 'API');
+            $sql->update();
+
+            rex_media_cache::deleteCategory($Parameter['id']);
+            rex_media_cache::deleteCategoryList($Category->getParentId());
+
+            return new Response(json_encode([
+                'message' => 'Media category updated',
+                'id' => $Parameter['id'],
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
     }
 }
