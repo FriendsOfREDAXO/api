@@ -63,8 +63,8 @@ final class rex_user_service
         $sql->setDateTimeValue('password_changed', time());
         $sql->setArrayValue('previous_passwords', $passwordPolicy->updatePreviousPasswords(null, $passwordHash));
         $sql->setValue('login_tries', 0);
-        $sql->addGlobalCreateFields(self::getUser());
-        $sql->addGlobalUpdateFields(self::getUser());
+        $sql->addGlobalCreateFields(self::getCurrentUserLogin());
+        $sql->addGlobalUpdateFields(self::getCurrentUserLogin());
 
         $sql->insert();
         $userId = (int) $sql->getLastId();
@@ -164,7 +164,7 @@ final class rex_user_service
             $sql->setValue('login_tries', 0);
         }
 
-        $sql->addGlobalUpdateFields(self::getUser());
+        $sql->addGlobalUpdateFields(self::getCurrentUserLogin());
         $sql->update();
 
         rex_user::clearInstance($userId);
@@ -312,7 +312,7 @@ final class rex_user_service
     /**
      * @return string
      */
-    private static function getUser(): string
+    private static function getCurrentUserLogin(): string
     {
         return rex::getUser()?->getLogin() ?? rex::getEnvironment();
     }
