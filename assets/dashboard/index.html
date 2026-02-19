@@ -1046,6 +1046,7 @@ const STATE = {
     clangs: [],
     apiLog: [],
     mediaCategories: [],
+    currentClang: 1,
 };
 
 // ==================== API CLIENT ====================
@@ -1308,6 +1309,11 @@ async function loadDashboard() {
         STATE.users = users || [];
         STATE.clangs = clangs || [];
 
+        // Set default clang
+        if (STATE.clangs.length > 0) {
+            STATE.currentClang = STATE.clangs[0].id;
+        }
+
         // Update stats
         const setVal = (id, val) => { document.getElementById(id).textContent = val; };
         setVal('statArticles', STATE.articles.length);
@@ -1468,12 +1474,15 @@ async function handleCreate(e) {
     // structure/articles/add -> { name, category_id, priority, status, template_id }
     // structure/categories/add -> { name, category_id, priority, status, template_id }
 
-    const endpoint = type === 'article' ? 'structure/articles' : 'structure/categories';
+    // IMPORTANT: The API routes for adding articles/categories are defined with a trailing slash!
+    // 'structure/articles/' and 'structure/categories/'
+    const endpoint = type === 'article' ? 'structure/articles/' : 'structure/categories/';
 
     try {
         await apiRequest('POST', endpoint, payload);
         closeModal();
-        // Refresh structure
+        // Clear cache and refresh structure
+        STATE.articles = [];
         loadStructure();
         // Show success toast (simple alert for now)
         // alert(`${type === 'article' ? 'Artikel' : 'Kategorie'} erstellt!`);
@@ -1502,6 +1511,9 @@ function renderTree(container, articles) {
     // Build tree from flat list
     const byParent = {};
     articles.forEach(a => {
+        // Filter by current Clang if available
+        if (STATE.currentClang && a.clang_id != STATE.currentClang) return;
+
         const pid = a.parent_id || 0;
         if (!byParent[pid]) byParent[pid] = [];
         byParent[pid].push(a);
