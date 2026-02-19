@@ -44,6 +44,92 @@
             --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
             --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.5);
         }
+        [data-theme="midnight"] {
+            --bg: #0f172a;
+            --bg-card: #1e293b;
+            --bg-card-hover: #334155;
+            --bg-sidebar: #020617;
+            --bg-input: #334155;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --text-sidebar: #64748b;
+            --text-sidebar-active: #bae6fd;
+            --border: #1e293b;
+            --primary: #38bdf8;
+            --primary-light: #0c4a6e;
+            --primary-dark: #0284c7;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        [data-theme="forest"] {
+            --bg: #1c1c1c;
+            --bg-card: #2a2a2a;
+            --bg-card-hover: #333;
+            --bg-sidebar: #181818;
+            --bg-input: #333;
+            --text: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --text-sidebar: #888;
+            --border: #333;
+            --primary: #10b981;
+            --primary-light: #064e3b;
+            --primary-dark: #047857;
+        }
+        [data-theme="coffee"] {
+            --bg: #fdf6e3;
+            --bg-card: #eee8d5;
+            --bg-card-hover: #e4ddc8;
+            --bg-sidebar: #073642;
+            --bg-input: #fdf6e3;
+            --text: #586e75;
+            --text-muted: #93a1a1;
+            --text-sidebar: #839496;
+            --text-sidebar-active: #fdf6e3;
+            --border: #d3d7cf;
+            --primary: #2aa198;
+            --primary-light: #d6f2ef;
+            --primary-dark: #20756d;
+        }
+
+        /* Theme Selector Styles */
+        .theme-selector {
+            position: relative;
+            display: inline-block;
+        }
+        .theme-menu {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            box-shadow: var(--shadow-lg);
+            min-width: 150px;
+            margin-bottom: 8px;
+        }
+        .theme-menu.active { display: flex; }
+        .theme-option {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px 10px;
+            text-align: left; 
+            color: var(--text);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        .theme-option:hover { background: var(--bg-card-hover); }
+        .theme-color-preview {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+        }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -784,7 +870,20 @@
                 </div>
             </nav>
             <div class="sidebar-footer">
-                <button onclick="disconnect()" title="Abmelden">
+                <div class="theme-selector">
+                    <button id="themeBtn" title="Theme ändern" onclick="toggleThemeMenu()" style="background:none; border:none; color:var(--text-sidebar); cursor:pointer;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    </button>
+                    <div class="theme-menu" id="themeMenu">
+                        <button class="theme-option" onclick="setTheme('light')"><span class="theme-color-preview" style="background:#f0f2f5;"></span> Light</button>
+                        <button class="theme-option" onclick="setTheme('dark')"><span class="theme-color-preview" style="background:#151b23;"></span> Dark</button>
+                        <button class="theme-option" onclick="setTheme('midnight')"><span class="theme-color-preview" style="background:#0f172a;"></span> Midnight</button>
+                        <button class="theme-option" onclick="setTheme('forest')"><span class="theme-color-preview" style="background:#1c1c1c;"></span> Forest</button>
+                        <button class="theme-option" onclick="setTheme('coffee')"><span class="theme-color-preview" style="background:#fdf6e3;"></span> Coffee</button>
+                    </div>
+                </div>
+                <div style="flex:1"></div>
+                <button onclick="disconnect()" title="Abmelden" style="background:none; border:none; color:var(--text-sidebar); cursor:pointer;">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </button>
             </div>
@@ -1049,7 +1148,35 @@ const STATE = {
     apiLog: [],
     mediaCategories: [],
     currentClang: 1,
+    currentTheme: localStorage.getItem('rex_api_theme') || 'light',
 };
+
+// ==================== THEME MANAGER ====================
+function setTheme(themeName) {
+    document.documentElement.setAttribute('data-theme', themeName);
+    STATE.currentTheme = themeName;
+    localStorage.setItem('rex_api_theme', themeName);
+    
+    // Close menu if open
+    document.getElementById('themeMenu').classList.remove('active');
+}
+
+function toggleThemeMenu() {
+    document.getElementById('themeMenu').classList.toggle('active');
+}
+
+// Close theme menu when clicking outside
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('themeMenu');
+    const btn = document.getElementById('themeBtn');
+    if (menu.classList.contains('active') && !menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.classList.remove('active');
+    }
+});
+
+// Init theme
+setTheme(STATE.currentTheme);
+
 
 // ==================== API CLIENT ====================
 
@@ -1438,6 +1565,7 @@ async function showCreateModal(parentId = 0) {
 
     // Create a unique ID for the select to update it
     const prioSelectId = 'prioSelect_' + Date.now();
+    const typeSelectId = 'typeSelect_' + Date.now();
 
     const html = `
     <form onsubmit="handleCreate(event)">
@@ -1450,7 +1578,7 @@ async function showCreateModal(parentId = 0) {
 
         <div class="form-group">
             <label>Typ</label>
-            <select name="type" required onchange="updatePrioOptions(this.value)">
+            <select name="type" id="${typeSelectId}" required>
                 <option value="article">Artikel</option>
                 <option value="category">Kategorie</option>
             </select>
@@ -1489,24 +1617,21 @@ async function showCreateModal(parentId = 0) {
             <button type="submit" class="btn-primary">Erstellen</button>
         </div>
     </form>
-    <script>
-        // Store options globally or in closure scope isn't easy with inline HTML string
-        // We'll attach them to the form element or window for the onchange handler
-        window._prioOptions = {
-            article: \`${articleOptions}\`,
-            category: \`${categoryOptions}\`
-        };
-        
-        function updatePrioOptions(val) {
-            const sel = document.getElementById('${prioSelectId}');
-            if(sel) sel.innerHTML = window._prioOptions[val];
-        }
-        // Init
-        updatePrioOptions('article');
-    <\/script>
     `;
 
     showModal(`Neu erstellen in ${parentName}`, html);
+
+    // Initial population and event binding (since script tags in innerHTML don't execute)
+    const typeSelect = document.getElementById(typeSelectId);
+    const prioSelect = document.getElementById(prioSelectId);
+    
+    const updatePrio = () => {
+        const val = typeSelect.value;
+        prioSelect.innerHTML = val === 'article' ? articleOptions : categoryOptions;
+    };
+    
+    typeSelect.addEventListener('change', updatePrio);
+    updatePrio(); // Run once
 }
 
 async function handleCreate(e) {
@@ -1548,6 +1673,11 @@ async function handleCreate(e) {
     }
 }
 
+// ==================== STRUCTURE VIEW ====================
+
+// Add to STATE
+STATE.currentStructureId = 0;
+
 async function loadStructure() {
     const container = document.getElementById('structureTree');
     if (STATE.articles.length === 0) {
@@ -1559,86 +1689,127 @@ async function loadStructure() {
             return;
         }
     }
-    renderTree(container, STATE.articles);
+    renderStructureView(container);
 }
 
-function renderTree(container, articles) {
-    // Ensure currentClang is set if possible
-    if (!STATE.currentClang && STATE.clangs.length > 0) {
-        STATE.currentClang = STATE.clangs[0].id;
-    }
+function renderStructureView(container) {
+    if (!container) container = document.getElementById('structureTree');
+    
+    const parentId = STATE.currentStructureId || 0;
+    const currentClang = STATE.currentClang || (STATE.clangs[0] ? STATE.clangs[0].id : 1);
 
-    // Deduplicate articles by ID + filter by clang
-    const uniqueMap = new Map();
-    articles.forEach(a => {
-        // Filter by current Clang if available
-        if (STATE.currentClang && a.clang_id != STATE.currentClang) return;
+    // Get current parent name for breadcrumb
+    let parentName = 'Root';
+    let path = [];
+    if (parentId > 0) {
+        // Find article across all valid articles, ignoring clang filter for parent lookup might be safer 
+        // but typically parents exist in the same clang.
+        let curr = STATE.articles.find(a => a.id == parentId && (!a.clang_id || a.clang_id == currentClang));
         
-        // Use String ID to ensure uniqueness despite type coercion
-        uniqueMap.set(String(a.id), a);
-    });
-
-    // Build tree
-    const byParent = {};
-    uniqueMap.forEach(a => {
-        const pid = a.parent_id || 0;
-        if (!byParent[pid]) byParent[pid] = [];
-        byParent[pid].push(a);
-    });
-
-    function buildNodeHtml(article) {
-        const children = byParent[article.id] || [];
-        const isCat = article.startarticle === 1 || article.catpriority > 0;
-        const hasChildren = children.length > 0;
-        const iconClass = article.startarticle ? 'start' : (isCat ? 'cat' : 'art');
-
-        const iconSvg = article.startarticle
-            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>'
-            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-
-        const toggleClass = hasChildren ? '' : ' empty';
-        const addBtn = (article.startarticle == 1) 
-            ? `<button class="btn-tree-add" onclick="event.stopPropagation(); showCreateModal(${article.id})" title="Unterobjekt erstellen">+</button>` 
-            : '';
-
-        return `<div class="tree-node">
-            <div class="tree-node-content" onclick="toggleTreeNode(this)">
-                <span class="tree-toggle${toggleClass}">▶</span>
-                <span class="tree-icon ${iconClass}">${iconSvg}</span>
-                <span class="tree-name">${escHtml(article.name)}</span>
-                <span class="tree-actions">${addBtn}</span>
-                <span class="tree-meta">ID: ${article.id} ${article.status ? '●' : '○'}</span>
-            </div>
-            ${hasChildren ? `<div class="tree-children">${children.map(c => buildNodeHtml(c)).join('')}</div>` : ''}
-        </div>`;
-    }
-
-    const roots = byParent[0] || [];
-    if (roots.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p>Keine Artikel in der Struktur gefunden</p></div>';
-        return;
-    }
-
-    container.innerHTML = `<div class="tree">${roots.map(r => buildNodeHtml(r)).join('')}</div>`;
-
-    // Auto-open first level
-    container.querySelectorAll('.tree > .tree-node > .tree-node-content').forEach(el => {
-        const children = el.nextElementSibling;
-        const toggle = el.querySelector('.tree-toggle');
-        if (children && toggle && !toggle.classList.contains('empty')) {
-            children.classList.add('open');
-            toggle.classList.add('open');
+        if (curr) {
+            parentName = curr.name;
+            // Build simple path by walking up
+            let loopId = curr.parent_id;
+            let safety = 0;
+            while(loopId > 0 && safety < 20) {
+                let p = STATE.articles.find(a => a.id == loopId && (!a.clang_id || a.clang_id == currentClang));
+                if (p) {
+                    path.unshift({id: p.id, name: p.name});
+                    loopId = p.parent_id;
+                } else {
+                    break;
+                }
+                safety++;
+            }
+            path.push({id: curr.id, name: curr.name});
         }
+    }
+
+    // Deduplicate and Filter Items
+    // Use a Map to ensure unique ID per functionality if needed, but here simple filter is enough
+    const items = STATE.articles.filter(a => {
+        if (a.clang_id && a.clang_id != currentClang) return false;
+        return (a.parent_id || 0) == parentId;
     });
+
+    // Split Categories and Articles
+    // Categories: startarticle = 1
+    // Articles: startarticle = 0
+    const categories = items.filter(a => a.startarticle == 1).sort((a,b) => (a.catpriority||0) - (b.catpriority||0));
+    const articles = items.filter(a => a.startarticle == 0).sort((a,b) => (a.priority||0) - (b.priority||0));
+
+    // Breadcrumb HTML
+    const breadcrumbHtml = `
+    <div class="structure-path" style="margin-bottom:15px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:var(--bg-card); padding:8px 12px; border-radius:6px; border:1px solid var(--border);">
+        <button class="btn-sm" style="background:none; border:none; padding:4px 8px; cursor:pointer; color:var(--text-accent);" onclick="navigateToCategory(0)">🏠 Root</button>
+        ${path.map(p => `
+            <span style="color:var(--text-muted)">/</span>
+            <button class="btn-sm" style="background:none; border:none; padding:4px 8px; cursor:pointer;" onclick="navigateToCategory(${p.id})">${escHtml(p.name)}</button>
+        `).join('')}
+    </div>`;
+
+    const renderRow = (item, isCat) => {
+        const icon = isCat 
+            ? `<div style="color:var(--text-accent); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>`
+            : `<div style="color:var(--text-muted); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
+            
+        const action = isCat ? `navigateToCategory(${item.id})` : `alert('Edit Article ${item.id} (Todo)')`;
+        const prio = isCat ? (item.catpriority||0) : (item.priority||0);
+        
+        return `
+        <tr class="structure-row ${isCat ? 'is-category' : 'is-article'}" 
+            onclick="${action}"
+            style="cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.2s;">
+            <td style="width:40px; padding:8px; text-align:center;">${icon}</td>
+            <td style="padding:8px; font-weight:500;">
+                ${escHtml(item.name)}
+                ${item.startarticle ? '<span style="opacity:0.5; font-size:0.8em; margin-left:6px;">(Start)</span>' : ''}
+            </td>
+            <td style="width:50px; padding:8px; text-align:right; opacity:0.6; font-variant-numeric:tabular-nums;">${prio}</td>
+            <td style="width:60px; padding:8px; text-align:right; opacity:0.6; font-size:0.9em;">#${item.id}</td>
+            <td style="width:60px; padding:8px; text-align:center;">${item.status ? '<span style="color:var(--success)">●</span>' : '<span style="color:var(--text-muted)">○</span>'}</td>
+            <td style="width:50px; padding:8px; text-align:right;">
+                ${isCat ? `<button class="btn-icon" onclick="event.stopPropagation(); showCreateModal(${item.id})" title="Neu in ${escHtml(item.name)}" style="border:none; background:none; cursor:pointer;">➕</button>` : ''}
+            </td>
+        </tr>`;
+    };
+
+    let html = breadcrumbHtml;
+    
+    // Categories Panel
+    html += `<div style="display:flex; flex-direction:column; gap:20px;">
+        <div class="panel-cats" style="background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <div style="background:var(--bg-header); padding:8px 12px; border-bottom:1px solid var(--border); font-weight:600; display:flex; justify-content:space-between;">
+                <span>Kategorien</span>
+                <span class="badge" style="background:var(--bg-input); padding:2px 6px; border-radius:4px; font-size:0.8em">${categories.length}</span>
+            </div>
+            <table style="width:100%; border-collapse:collapse;">
+                ${categories.length > 0 ? categories.map(c => renderRow(c, true)).join('') : '<tr><td style="padding:15px; text-align:center; color:var(--text-muted)">Keine Kategorien</td></tr>'}
+            </table>
+        </div>
+        
+        <div class="panel-arts" style="background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+            <div style="background:var(--bg-header); padding:8px 12px; border-bottom:1px solid var(--border); font-weight:600; display:flex; justify-content:space-between;">
+                <span>Artikel</span>
+                <span class="badge" style="background:var(--bg-input); padding:2px 6px; border-radius:4px; font-size:0.8em">${articles.length}</span>
+            </div>
+            <table style="width:100%; border-collapse:collapse;">
+                ${articles.length > 0 ? articles.map(a => renderRow(a, false)).join('') : '<tr><td style="padding:15px; text-align:center; color:var(--text-muted)">Keine Artikel</td></tr>'}
+            </table>
+        </div>
+    </div>
+    
+    <div style="margin-top:20px; text-align:right;">
+        <button class="btn-primary" onclick="showCreateModal(${parentId})">Neues Objekt hier erstellen</button>
+    </div>
+    `;
+
+    container.innerHTML = html;
 }
 
-function toggleTreeNode(el) {
-    const children = el.nextElementSibling;
-    const toggle = el.querySelector('.tree-toggle');
-    if (children && toggle && !toggle.classList.contains('empty')) {
-        children.classList.toggle('open');
-        toggle.classList.toggle('open');
-    }
+function navigateToCategory(id) {
+    STATE.currentStructureId = id;
+    renderStructureView();
 }
 
 // ==================== MEDIA ====================
