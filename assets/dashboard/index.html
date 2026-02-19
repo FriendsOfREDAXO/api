@@ -430,6 +430,7 @@
             font-size: 13px;
         }
         .tree-node-content:hover { background: var(--bg-card-hover); }
+        .tree-node-content:hover .tree-actions { opacity: 1; }
         .tree-toggle {
             width: 18px;
             height: 18px;
@@ -442,12 +443,18 @@
         }
         .tree-toggle.open { transform: rotate(90deg); }
         .tree-toggle.empty { visibility: hidden; }
-        .tree-icon { flex-shrink: 0; width: 18px; height: 18px; }
+        .tree-icon { flex-shrink: 1; width: 18px; height: 18px; }
         .tree-icon.cat { color: var(--warning); }
         .tree-icon.art { color: var(--info); }
         .tree-icon.start { color: var(--primary); }
         .tree-name { flex: 1; }
         .tree-meta { font-size: 11px; color: var(--text-muted); }
+        .tree-actions { opacity: 0; transition: opacity 0.2s; margin-left: auto; }
+        .btn-tree-add {
+            background: none; border: none; cursor: pointer; color: var(--text-muted);
+            padding: 2px 6px; border-radius: 4px; font-size: 14px; font-weight: bold;
+        }
+        .btn-tree-add:hover { background: var(--bg-input); color: var(--primary); }
         .tree-children { margin-left: 26px; display: none; }
         .tree-children.open { display: block; }
 
@@ -863,6 +870,10 @@
                         <div class="card-header">
                             <h3>Seitenstruktur</h3>
                             <div class="filter-bar">
+                                <button class="btn-icon" onclick="showCreateModal(0)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                                    Neu
+                                </button>
                                 <button class="btn-icon" onclick="loadStructure()">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
                                     Aktualisieren
@@ -1372,6 +1383,107 @@ function renderRecentMedia() {
 
 // ==================== STRUCTURE ====================
 
+async function showCreateModal(parentId = 0) {
+    // Ensure templates are loaded for selection
+    if (STATE.templates.length === 0) {
+        try {
+            await loadTemplates();
+        } catch (e) {
+            console.error('Could not load templates', e);
+        }
+    }
+
+    const parentName = parentId === 0 ? 'Root' : (STATE.articles.find(a => a.id === parentId)?.name || `ID ${parentId}`);
+
+    const html = `
+    <form onsubmit="handleCreate(event)">
+        <input type="hidden" name="parent_id" value="${parentId}">
+        
+        <div class="form-group">
+            <label>Eltern-Kategorie</label>
+            <input type="text" value="${escHtml(parentName)}" disabled style="opacity:0.7">
+        </div>
+
+        <div class="form-group">
+            <label>Typ</label>
+            <select name="type" required onchange="this.form.priority.value = this.value === 'category' ? 1 : 1">
+                <option value="article">Artikel</option>
+                <option value="category">Kategorie</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" name="name" required placeholder="Titel des Artikels/Kategorie" autofocus>
+        </div>
+
+        <div class="form-group">
+            <label>Template</label>
+            <select name="template_id">
+                <option value="">(Kein Template)</option>
+                ${STATE.templates.map(t => `<option value="${t.id}">${escHtml(t.name)} [${t.id}]</option>`).join('')}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Priorität</label>
+            <input type="number" name="priority" value="1" min="1">
+        </div>
+
+        <div class="form-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="0">Offline</option>
+                <option value="1" selected>Online</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:24px;">
+            <button type="button" class="btn-primary" style="background:var(--bg-input); color:var(--text); border:1px solid var(--border);" onclick="closeModal()">Abbrechen</button>
+            <button type="submit" class="btn-primary">Erstellen</button>
+        </div>
+    </form>
+    `;
+
+    showModal(`Neu erstellen in ${parentName}`, html);
+}
+
+async function handleCreate(e) {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Speichert…';
+
+    const type = form.type.value; // 'article' or 'category'
+    const payload = {
+        name: form.name.value,
+        category_id: parseInt(form.parent_id.value, 10),
+        priority: parseInt(form.priority.value, 10),
+        status: parseInt(form.status.value, 10),
+        template_id: form.template_id.value ? parseInt(form.template_id.value, 10) : 0
+    };
+
+    // Correct payload keys for API
+    // structure/articles/add -> { name, category_id, priority, status, template_id }
+    // structure/categories/add -> { name, category_id, priority, status, template_id }
+
+    const endpoint = type === 'article' ? 'structure/articles' : 'structure/categories';
+
+    try {
+        await apiRequest('POST', endpoint, payload);
+        closeModal();
+        // Refresh structure
+        loadStructure();
+        // Show success toast (simple alert for now)
+        // alert(`${type === 'article' ? 'Artikel' : 'Kategorie'} erstellt!`);
+    } catch (err) {
+        alert(`Fehler beim Erstellen: ${err.message}`);
+        btn.disabled = false;
+        btn.textContent = 'Erstellen';
+    }
+}
+
 async function loadStructure() {
     const container = document.getElementById('structureTree');
     if (STATE.articles.length === 0) {
@@ -1406,13 +1518,17 @@ function renderTree(container, articles) {
             : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
 
         const toggleClass = hasChildren ? '' : ' empty';
+        const addBtn = (article.startarticle == 1) 
+            ? `<button class="btn-tree-add" onclick="event.stopPropagation(); showCreateModal(${article.id})" title="Unterobjekt erstellen">+</button>` 
+            : '';
 
         return `<div class="tree-node">
             <div class="tree-node-content" onclick="toggleTreeNode(this)">
                 <span class="tree-toggle${toggleClass}">▶</span>
                 <span class="tree-icon ${iconClass}">${iconSvg}</span>
                 <span class="tree-name">${escHtml(article.name)}</span>
-                <span class="tree-meta">ID: ${article.id} ${article.status ? '● online' : '○ offline'}</span>
+                <span class="tree-actions">${addBtn}</span>
+                <span class="tree-meta">ID: ${article.id} ${article.status ? '●' : '○'}</span>
             </div>
             ${hasChildren ? `<div class="tree-children">${children.map(c => buildNodeHtml(c)).join('')}</div>` : ''}
         </div>`;
