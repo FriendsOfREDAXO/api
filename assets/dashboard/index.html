@@ -1403,6 +1403,42 @@ async function showCreateModal(parentId = 0) {
 
     const parentName = parentId === 0 ? 'Root' : (STATE.articles.find(a => a.id === parentId)?.name || `ID ${parentId}`);
 
+    // Pre-calculate siblings for priority dropdown
+    const currentClang = STATE.currentClang || 1;
+    const siblings = STATE.articles.filter(a => {
+        // Only items in same parent and same clang
+        if (a.clang_id && a.clang_id != currentClang) return false;
+        return (a.parent_id || 0) == parentId;
+    });
+
+    // Helper to generate options
+    const getPrioOptions = (type) => { // 'article' or 'category'
+        const isCat = type === 'category';
+        // Filter siblings by type
+        // Categories have startarticle=1, Articles have startarticle=0
+        const filtered = siblings.filter(a => isCat ? a.startarticle == 1 : a.startarticle == 0);
+        
+        // Sort by existing priority
+        filtered.sort((a,b) => {
+            const pA = isCat ? (a.catpriority || 0) : (a.priority || 0);
+            const pB = isCat ? (b.catpriority || 0) : (b.priority || 0);
+            return pA - pB;
+        });
+
+        let opts = `<option value="1">Am Anfang</option>`;
+        filtered.forEach(s => {
+            const prio = isCat ? (s.catpriority || 0) : (s.priority || 0);
+            opts += `<option value="${prio + 1}">Nach: ${escHtml(s.name)}</option>`;
+        });
+        return opts;
+    };
+
+    const articleOptions = getPrioOptions('article');
+    const categoryOptions = getPrioOptions('category');
+
+    // Create a unique ID for the select to update it
+    const prioSelectId = 'prioSelect_' + Date.now();
+
     const html = `
     <form onsubmit="handleCreate(event)">
         <input type="hidden" name="parent_id" value="${parentId}">
@@ -1414,7 +1450,7 @@ async function showCreateModal(parentId = 0) {
 
         <div class="form-group">
             <label>Typ</label>
-            <select name="type" required onchange="this.form.priority.value = this.value === 'category' ? 1 : 1">
+            <select name="type" required onchange="updatePrioOptions(this.value)">
                 <option value="article">Artikel</option>
                 <option value="category">Kategorie</option>
             </select>
@@ -1434,8 +1470,10 @@ async function showCreateModal(parentId = 0) {
         </div>
 
         <div class="form-group">
-            <label>Priorität</label>
-            <input type="number" name="priority" value="1" min="1">
+            <label>Position / Priorität</label>
+            <select name="priority" id="${prioSelectId}">
+                <!-- Populated by JS -->
+            </select>
         </div>
 
         <div class="form-group">
@@ -1451,6 +1489,21 @@ async function showCreateModal(parentId = 0) {
             <button type="submit" class="btn-primary">Erstellen</button>
         </div>
     </form>
+    <script>
+        // Store options globally or in closure scope isn't easy with inline HTML string
+        // We'll attach them to the form element or window for the onchange handler
+        window._prioOptions = {
+            article: \`${articleOptions}\`,
+            category: \`${categoryOptions}\`
+        };
+        
+        function updatePrioOptions(val) {
+            const sel = document.getElementById('${prioSelectId}');
+            if(sel) sel.innerHTML = window._prioOptions[val];
+        }
+        // Init
+        updatePrioOptions('article');
+    <\/script>
     `;
 
     showModal(`Neu erstellen in ${parentName}`, html);
