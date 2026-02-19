@@ -1,0 +1,1966 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REDAXO Content Pilot — API Dashboard</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f8f9fa;
+            --bg-sidebar: #1a1d23;
+            --bg-input: #f5f6f8;
+            --text: #1a1d23;
+            --text-muted: #6b7280;
+            --text-sidebar: #94a3b8;
+            --text-sidebar-active: #ffffff;
+            --border: #e5e7eb;
+            --primary: #e8453c;
+            --primary-light: #fef2f2;
+            --primary-dark: #c53030;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.1);
+            --radius: 12px;
+            --radius-sm: 8px;
+            --transition: 0.2s ease;
+        }
+        [data-theme="dark"] {
+            --bg: #0f1117;
+            --bg-card: #1a1d26;
+            --bg-card-hover: #22252e;
+            --bg-input: #22252e;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #2d3140;
+            --primary-light: #2d1b1b;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.3);
+            --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ==================== LOGIN ==================== */
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1d23 0%, #2d3140 50%, #e8453c 100%);
+        }
+        .login-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 48px;
+            width: 100%;
+            max-width: 460px;
+            box-shadow: var(--shadow-lg);
+        }
+        .login-logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .login-logo svg { width: 56px; height: 56px; }
+        .login-logo h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 12px;
+            color: var(--text);
+        }
+        .login-logo p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            color: var(--text);
+            transition: border-color var(--transition);
+            outline: none;
+        }
+        .form-group input:focus { border-color: var(--primary); }
+        .form-group input::placeholder { color: var(--text-muted); opacity: 0.6; }
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background var(--transition), transform var(--transition);
+        }
+        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .login-error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 12px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+            border: 1px solid #fecaca;
+        }
+        .login-hint {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--bg-input);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .login-hint code {
+            background: var(--border);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        /* ==================== LAYOUT ==================== */
+        .app { display: none; min-height: 100vh; }
+        .app.active { display: flex; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--bg-sidebar);
+            color: var(--text-sidebar);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-header h2 {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar-header h2 svg { width: 28px; height: 28px; flex-shrink: 0; }
+        .sidebar-header .instance-url {
+            font-size: 11px;
+            color: var(--text-sidebar);
+            margin-top: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sidebar-nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+        .nav-section {
+            padding: 8px 20px 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(148,163,184,0.5);
+            font-weight: 700;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 20px;
+            color: var(--text-sidebar);
+            text-decoration: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all var(--transition);
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-item.active {
+            color: var(--text-sidebar-active);
+            background: rgba(232,69,60,0.12);
+            border-left-color: var(--primary);
+        }
+        .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+        .nav-item.active svg { opacity: 1; }
+        .nav-item .badge {
+            margin-left: auto;
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .nav-item.active .badge { background: var(--primary); color: white; }
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-footer button {
+            background: none;
+            border: none;
+            color: var(--text-sidebar);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            transition: all var(--transition);
+        }
+        .sidebar-footer button:hover { color: white; background: rgba(255,255,255,0.1); }
+
+        /* Main */
+        .main { flex: 1; margin-left: 260px; min-height: 100vh; }
+        .topbar {
+            height: 64px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-left h1 { font-size: 20px; font-weight: 700; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .topbar-search {
+            position: relative;
+        }
+        .topbar-search input {
+            padding: 8px 12px 8px 36px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text);
+            width: 240px;
+            outline: none;
+            transition: border-color var(--transition);
+        }
+        .topbar-search input:focus { border-color: var(--primary); }
+        .topbar-search svg {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+        }
+        .theme-toggle {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all var(--transition);
+        }
+        .theme-toggle:hover { color: var(--text); border-color: var(--primary); }
+
+        .content { padding: 32px; }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* ==================== STATS CARDS ==================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            transition: all var(--transition);
+            cursor: pointer;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary);
+        }
+        .stat-card .stat-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .stat-card .stat-icon svg { width: 22px; height: 22px; }
+        .stat-card .stat-icon.red { background: #fef2f2; color: #e8453c; }
+        .stat-card .stat-icon.blue { background: #eff6ff; color: #3b82f6; }
+        .stat-card .stat-icon.green { background: #f0fdf4; color: #10b981; }
+        .stat-card .stat-icon.amber { background: #fffbeb; color: #f59e0b; }
+        .stat-card .stat-icon.purple { background: #faf5ff; color: #8b5cf6; }
+        .stat-card .stat-icon.teal { background: #f0fdfa; color: #14b8a6; }
+        [data-theme="dark"] .stat-card .stat-icon.red { background: #2d1b1b; }
+        [data-theme="dark"] .stat-card .stat-icon.blue { background: #1b2338; }
+        [data-theme="dark"] .stat-card .stat-icon.green { background: #1b2d1f; }
+        [data-theme="dark"] .stat-card .stat-icon.amber { background: #2d2a1b; }
+        [data-theme="dark"] .stat-card .stat-icon.purple { background: #261b2d; }
+        [data-theme="dark"] .stat-card .stat-icon.teal { background: #1b2d2a; }
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .stat-card .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* ==================== DATA TABLE ==================== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-header h3 { font-size: 16px; font-weight: 700; }
+        .card-body { padding: 0; }
+        .card-body.padded { padding: 24px; }
+
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            font-weight: 700;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table td {
+            padding: 12px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tr:hover td { background: var(--bg-card-hover); }
+        .data-table .id-col { font-weight: 700; color: var(--primary); width: 60px; }
+        .data-table .status-online { color: var(--success); font-weight: 600; }
+        .data-table .status-offline { color: var(--text-muted); }
+        .data-table .date-col { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+        .data-table .truncate { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .pill.online { background: #d1fae5; color: #065f46; }
+        .pill.offline { background: #f3f4f6; color: #6b7280; }
+        .pill.admin { background: #fef3c7; color: #92400e; }
+        [data-theme="dark"] .pill.online { background: #065f46; color: #d1fae5; }
+        [data-theme="dark"] .pill.offline { background: #374151; color: #9ca3af; }
+        [data-theme="dark"] .pill.admin { background: #78350f; color: #fef3c7; }
+
+        /* ==================== TREE ==================== */
+        .tree { padding: 16px; }
+        .tree-node { margin-bottom: 2px; }
+        .tree-node-content {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background var(--transition);
+            font-size: 13px;
+        }
+        .tree-node-content:hover { background: var(--bg-card-hover); }
+        .tree-toggle {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+            flex-shrink: 0;
+        }
+        .tree-toggle.open { transform: rotate(90deg); }
+        .tree-toggle.empty { visibility: hidden; }
+        .tree-icon { flex-shrink: 0; width: 18px; height: 18px; }
+        .tree-icon.cat { color: var(--warning); }
+        .tree-icon.art { color: var(--info); }
+        .tree-icon.start { color: var(--primary); }
+        .tree-name { flex: 1; }
+        .tree-meta { font-size: 11px; color: var(--text-muted); }
+        .tree-children { margin-left: 26px; display: none; }
+        .tree-children.open { display: block; }
+
+        /* ==================== MEDIA GALLERY ==================== */
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            padding: 24px;
+        }
+        .media-item {
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: all var(--transition);
+            cursor: pointer;
+            background: var(--bg-card);
+        }
+        .media-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary);
+        }
+        .media-thumb {
+            aspect-ratio: 1;
+            background: var(--bg-input);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .media-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .media-thumb .file-icon {
+            font-size: 32px;
+            color: var(--text-muted);
+        }
+        .media-info {
+            padding: 10px 12px;
+        }
+        .media-info .filename {
+            font-size: 12px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .media-info .filedetails {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* ==================== LOADING ==================== */
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-overlay {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 60px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+        .empty-state p { font-size: 14px; }
+
+        /* ==================== MEDIA DETAIL MODAL ==================== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 24px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: var(--bg-card);
+            border-radius: var(--radius);
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 { font-size: 16px; font-weight: 700; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 20px;
+        }
+        .modal-body { padding: 24px; }
+        .detail-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label {
+            width: 140px;
+            font-weight: 600;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        .detail-value { flex: 1; word-break: break-all; }
+
+        /* ==================== RESPONSIVE ==================== */
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text);
+            cursor: pointer;
+            padding: 8px;
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .mobile-menu-btn { display: block; }
+            .content { padding: 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .media-grid { grid-template-columns: repeat(2, 1fr); }
+            .topbar-search { display: none; }
+        }
+
+        /* ==================== CODE BLOCK ==================== */
+        .code-block {
+            background: #1e1e2e;
+            color: #cdd6f4;
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Filters bar */
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filter-bar select, .filter-bar input {
+            padding: 8px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            color: var(--text);
+            outline: none;
+        }
+        .filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
+
+        /* Refresh btn */
+        .btn-icon {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 7px 10px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: all var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        .btn-icon:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-icon svg { width: 14px; height: 14px; }
+
+        /* ==================== API LOG ==================== */
+        .api-log {
+            padding: 16px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .api-log-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 4px;
+            font-size: 12px;
+            font-family: 'SF Mono', monospace;
+        }
+        .api-log-entry:hover { background: var(--bg-card-hover); }
+        .api-log-method {
+            font-weight: 700;
+            width: 40px;
+            flex-shrink: 0;
+        }
+        .api-log-method.GET { color: var(--success); }
+        .api-log-method.POST { color: var(--info); }
+        .api-log-method.DELETE { color: var(--primary); }
+        .api-log-url { color: var(--text); flex: 1; }
+        .api-log-status { font-weight: 600; }
+        .api-log-status.ok { color: var(--success); }
+        .api-log-status.err { color: var(--primary); }
+        .api-log-time { color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <!-- ====== LOGIN SCREEN ====== -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <div class="login-logo">
+                <svg viewBox="0 0 56 56" fill="none"><rect width="56" height="56" rx="14" fill="#e8453c"/><path d="M16 20h8v4h-8zm0 6h12v4H16zm0 6h16v4H16zm20-12h4v16h-4z" fill="white" opacity="0.9"/><path d="M28 14l10 6v16l-10 6-10-6V20l10-6z" stroke="white" stroke-width="1.5" fill="none" opacity="0.3"/></svg>
+                <h1>Content Pilot</h1>
+                <p>REDAXO API Dashboard</p>
+            </div>
+            <div class="login-error" id="loginError"></div>
+            <form id="loginForm" novalidate>
+                <div class="form-group">
+                    <label>REDAXO URL</label>
+                    <input type="text" id="inputUrl" placeholder="https://localhost:8443" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>API Token</label>
+                    <input type="text" id="inputToken" placeholder="Dein API-Token" autocomplete="off">                </div>
+                <button type="submit" class="btn-primary" id="btnConnect">
+                    Verbinden
+                </button>
+            </form>
+            <div class="login-hint">
+                <strong>Hinweis:</strong> Erstelle einen API-Token im REDAXO-Backend unter
+                <code>API → Token</code>. Stelle sicher, dass alle benötigten Scopes aktiviert sind.
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== APP ====== -->
+    <div class="app" id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>
+                    <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="#e8453c"/><path d="M8 10h4v2H8zm0 3h6v2H8zm0 3h8v2H8zm10-6h2v8h-2z" fill="white" opacity="0.9"/></svg>
+                    Content Pilot
+                </h2>
+                <div class="instance-url" id="instanceUrl"></div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section">Übersicht</div>
+                <div class="nav-item active" data-page="dashboard" onclick="navigateTo('dashboard')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    Dashboard
+                </div>
+                <div class="nav-section">Inhalte</div>
+                <div class="nav-item" data-page="structure" onclick="navigateTo('structure')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Struktur
+                    <span class="badge" id="badgeArticles">–</span>
+                </div>
+                <div class="nav-item" data-page="media" onclick="navigateTo('media')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    Medien
+                    <span class="badge" id="badgeMedia">–</span>
+                </div>
+                <div class="nav-section">System</div>
+                <div class="nav-item" data-page="templates" onclick="navigateTo('templates')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Templates
+                    <span class="badge" id="badgeTemplates">–</span>
+                </div>
+                <div class="nav-item" data-page="modules" onclick="navigateTo('modules')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    Module
+                    <span class="badge" id="badgeModules">–</span>
+                </div>
+                <div class="nav-item" data-page="users" onclick="navigateTo('users')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    Benutzer
+                    <span class="badge" id="badgeUsers">–</span>
+                </div>
+                <div class="nav-item" data-page="clangs" onclick="navigateTo('clangs')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                    Sprachen
+                    <span class="badge" id="badgeClangs">–</span>
+                </div>
+                <div class="nav-section">Debug</div>
+                <div class="nav-item" data-page="apilog" onclick="navigateTo('apilog')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    API Log
+                    <span class="badge" id="badgeLog">0</span>
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <button onclick="disconnect()" title="Abmelden">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main">
+            <div class="topbar">
+                <div class="topbar-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <h1 id="pageTitle">Dashboard</h1>
+                </div>
+                <div class="topbar-right">
+                    <div class="topbar-search">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" placeholder="Artikel suchen…" id="globalSearch" oninput="handleGlobalSearch(this.value)">
+                    </div>
+                    <button class="theme-toggle" onclick="toggleTheme()" title="Theme wechseln">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="content">
+                <!-- ====== DASHBOARD PAGE ====== -->
+                <div class="page active" id="page-dashboard">
+                    <div class="stats-grid" id="statsGrid">
+                        <div class="stat-card" onclick="navigateTo('structure')">
+                            <div class="stat-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+                            <div class="stat-value" id="statArticles"><span class="spinner"></span></div>
+                            <div class="stat-label">Artikel</div>
+                        </div>
+                        <div class="stat-card" onclick="navigateTo('media')">
+                            <div class="stat-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                            <div class="stat-value" id="statMedia"><span class="spinner"></span></div>
+                            <div class="stat-label">Medien</div>
+                        </div>
+                        <div class="stat-card" onclick="navigateTo('templates')">
+                            <div class="stat-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                            <div class="stat-value" id="statTemplates"><span class="spinner"></span></div>
+                            <div class="stat-label">Templates</div>
+                        </div>
+                        <div class="stat-card" onclick="navigateTo('modules')">
+                            <div class="stat-icon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+                            <div class="stat-value" id="statModules"><span class="spinner"></span></div>
+                            <div class="stat-label">Module</div>
+                        </div>
+                        <div class="stat-card" onclick="navigateTo('users')">
+                            <div class="stat-icon purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+                            <div class="stat-value" id="statUsers"><span class="spinner"></span></div>
+                            <div class="stat-label">Benutzer</div>
+                        </div>
+                        <div class="stat-card" onclick="navigateTo('clangs')">
+                            <div class="stat-icon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></div>
+                            <div class="stat-value" id="statClangs"><span class="spinner"></span></div>
+                            <div class="stat-label">Sprachen</div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Neueste Artikel</h3>
+                            </div>
+                            <div class="card-body" id="recentArticles">
+                                <div class="loading-overlay"><span class="spinner"></span> Lade…</div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>Neueste Medien</h3>
+                            </div>
+                            <div class="card-body" id="recentMedia">
+                                <div class="loading-overlay"><span class="spinner"></span> Lade…</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== STRUCTURE PAGE ====== -->
+                <div class="page" id="page-structure">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Seitenstruktur</h3>
+                            <div class="filter-bar">
+                                <button class="btn-icon" onclick="loadStructure()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                    Aktualisieren
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body" id="structureTree">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Struktur…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== MEDIA PAGE ====== -->
+                <div class="page" id="page-media">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Medienpool</h3>
+                            <div class="filter-bar">
+                                <select id="mediaTypeFilter" onchange="filterMedia()">
+                                    <option value="">Alle Typen</option>
+                                    <option value="image">Bilder</option>
+                                    <option value="application/pdf">PDF</option>
+                                    <option value="video">Videos</option>
+                                    <option value="audio">Audio</option>
+                                </select>
+                                <input type="text" placeholder="Dateiname filtern…" id="mediaSearchInput" oninput="filterMedia()">
+                                <button class="btn-icon" onclick="loadMedia()">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body" id="mediaGallery">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Medien…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== TEMPLATES PAGE ====== -->
+                <div class="page" id="page-templates">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Templates</h3>
+                            <button class="btn-icon" onclick="loadTemplates()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                Aktualisieren
+                            </button>
+                        </div>
+                        <div class="card-body" id="templatesTable">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Templates…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== MODULES PAGE ====== -->
+                <div class="page" id="page-modules">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Module</h3>
+                            <button class="btn-icon" onclick="loadModules()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                Aktualisieren
+                            </button>
+                        </div>
+                        <div class="card-body" id="modulesTable">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Module…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== USERS PAGE ====== -->
+                <div class="page" id="page-users">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Benutzer</h3>
+                            <button class="btn-icon" onclick="loadUsers()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                Aktualisieren
+                            </button>
+                        </div>
+                        <div class="card-body" id="usersTable">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Benutzer…</div>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-top: 24px;">
+                        <div class="card-header"><h3>Rollen</h3></div>
+                        <div class="card-body" id="rolesTable">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Rollen…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== CLANGS PAGE ====== -->
+                <div class="page" id="page-clangs">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Sprachen</h3>
+                            <button class="btn-icon" onclick="loadClangs()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+                                Aktualisieren
+                            </button>
+                        </div>
+                        <div class="card-body" id="clangsTable">
+                            <div class="loading-overlay"><span class="spinner"></span> Lade Sprachen…</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== API LOG PAGE ====== -->
+                <div class="page" id="page-apilog">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>API Request Log</h3>
+                            <button class="btn-icon" onclick="clearApiLog()">Leeren</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="api-log" id="apiLogList">
+                                <div class="empty-state">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                                    <p>Noch keine API-Requests aufgezeichnet.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ====== SEARCH RESULTS ====== -->
+                <div class="page" id="page-search">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Suchergebnisse</h3>
+                        </div>
+                        <div class="card-body" id="searchResults">
+                            <div class="empty-state"><p>Suchbegriff eingeben…</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="detailModal" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Details</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+<script>
+// ============================================================
+// REDAXO Content Pilot — Standalone API Dashboard
+// Nutzt die REDAXO API AddOn Endpoints
+// ============================================================
+
+const CONFIG = {
+    url: '',
+    token: '',
+};
+
+const STATE = {
+    articles: [],
+    media: [],
+    templates: [],
+    modules: [],
+    users: [],
+    roles: [],
+    clangs: [],
+    apiLog: [],
+    mediaCategories: [],
+};
+
+// ==================== API CLIENT ====================
+
+async function apiRequest(method, path, body = null) {
+    const url = `${CONFIG.url}/api/${path}`;
+    const start = performance.now();
+
+    const headers = {
+        'Authorization': `Bearer ${CONFIG.token}`,
+        'Accept': 'application/json',
+    };
+
+    const opts = { method, headers };
+
+    if (body) {
+        if (body instanceof FormData) {
+            opts.body = body;
+        } else {
+            headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+    }
+    
+    console.log(`📡 API Request: ${method} ${url}`, opts);
+    
+    // Debug headers specifically to catch SyntaxError in Headers
+    try {
+        new Headers(headers);
+    } catch (e) {
+        console.error('❌ Header Validation Error:', e);
+        throw new Error(`Ungültige Header-Zeichen (z.B. im Token): ${e.message}`);
+    }
+
+    try {
+        const res = await fetch(url, opts);
+        const elapsed = Math.round(performance.now() - start);
+        let data = null;
+
+        const ct = res.headers.get('content-type') || '';
+        if (ct.includes('json')) {
+            data = await res.json();
+        } else {
+            data = await res.text();
+        }
+
+        logApiRequest(method, path, res.status, elapsed);
+
+        if (!res.ok) {
+            const errMsg = (data && data.error) ? data.error : `HTTP ${res.status}`;
+            console.error(`❌ API Error ${res.status}:`, errMsg);
+            throw new Error(errMsg);
+        }
+
+        console.log(`✅ API Success:`, data);
+        return data;
+    } catch (err) {
+        console.error('🔥 Fetch error:', err);
+        const elapsed = Math.round(performance.now() - start);
+        if (!err.message.startsWith('HTTP ')) {
+            logApiRequest(method, path, 0, elapsed);
+        }
+        // Improve error messages for common network issues
+        if (err instanceof TypeError || err.name === 'TypeError') {
+            const msg = err.message || '';
+            if (msg.includes('match the expected pattern') || msg.includes('Failed to fetch') || msg.includes('Load failed') || msg.includes('NetworkError') || msg.includes('Network request failed')) {
+                // Likely SSL self-signed cert or CORS issue
+                // Check simple cases first before complex string logic that might fail
+                if (CONFIG.url.startsWith('https:') && location.protocol === 'http:') {
+                     throw new Error('Mixed-Content blockiert: Dashboard läuft auf HTTP, API auf HTTPS. Öffne das Dashboard über die REDAXO-URL: ' + CONFIG.url + '/assets/addons/api/dashboard/index.html');
+                }
+                
+                // Safe check for Cross Origin
+                let isCrossOrigin = false;
+                try {
+                    if (CONFIG.url && location.protocol.startsWith('http')) {
+                        const targetOrigin = new URL(CONFIG.url).origin;
+                        isCrossOrigin = location.origin !== targetOrigin;
+                    }
+                } catch (e) { /* ignore url parsing errors */ }
+                
+                 if (CONFIG.url.includes('localhost') || CONFIG.url.includes('127.0.0.1')) {
+                    throw new Error('Netzwerkfehler – vermutlich selbstsigniertes SSL-Zertifikat. Öffne zuerst ' + CONFIG.url + ' im Browser und akzeptiere das Zertifikat. Oder öffne das Dashboard direkt über: ' + CONFIG.url + '/assets/addons/api/dashboard/index.html');
+                } else if (isCrossOrigin) {
+                     throw new Error('CORS-Fehler – Zugriff blockiert. Das Dashboard muss auf derselben Domain laufen oder CORS-Header senden.');
+                } else {
+                    throw new Error('Netzwerkfehler – Server nicht erreichbar. Prüfe die URL.');
+                }
+            }
+        }
+        throw err;
+    }
+}
+
+function logApiRequest(method, path, status, elapsed) {
+    STATE.apiLog.unshift({ method, path, status, elapsed, time: new Date() });
+    const badge = document.getElementById('badgeLog');
+    if (badge) badge.textContent = STATE.apiLog.length;
+}
+
+// ==================== AUTH / CONNECTION ====================
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnConnect');
+    const errEl = document.getElementById('loginError');
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Verbinde…';
+
+    let url = document.getElementById('inputUrl').value.trim().replace(/\/+$/, '');
+    if (url && !/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+    }
+    // Validation of URL syntax immediately
+    try {
+        new URL(url);
+    } catch (e) {
+        errEl.textContent = 'Ungültiges URL-Format.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Verbinden';
+        return;
+    }
+
+    document.getElementById('inputUrl').value = url;
+    // Sanitize token (remove potential invisible chars or newlines that cause SyntaxError in headers)
+    CONFIG.token = document.getElementById('inputToken').value.trim().replace(/[\r\n\t]/g, '');
+
+    if (!url || !CONFIG.token) {
+        errEl.textContent = 'Bitte URL und Token eingeben.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Verbinden';
+        return;
+    }
+
+    console.log('🔌 Connecting to:', url);
+    CONFIG.url = url;
+
+    try {
+        // Test connection with clangs endpoint (lightweight)
+        await apiRequest('GET', 'system/clangs');
+
+        // Save to sessionStorage
+        sessionStorage.setItem('cp_url', CONFIG.url);
+        sessionStorage.setItem('cp_token', CONFIG.token);
+
+        showApp();
+    } catch (err) {
+        errEl.textContent = `Verbindung fehlgeschlagen: ${err.message}. Prüfe URL und Token.`;
+        errEl.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Verbinden';
+    }
+});
+
+function showApp() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').classList.add('active');
+    document.getElementById('instanceUrl').textContent = CONFIG.url;
+    loadDashboard();
+}
+
+function disconnect() {
+    sessionStorage.removeItem('cp_url');
+    sessionStorage.removeItem('cp_token');
+    CONFIG.url = '';
+    CONFIG.token = '';
+    document.getElementById('app').classList.remove('active');
+    document.getElementById('loginScreen').style.display = 'flex';
+}
+
+// Auto-reconnect from session
+(function autoConnect() {
+    const url = sessionStorage.getItem('cp_url');
+    const token = sessionStorage.getItem('cp_token');
+    if (url && token) {
+        CONFIG.url = url;
+        CONFIG.token = token;
+        document.getElementById('inputUrl').value = url;
+        document.getElementById('inputToken').value = token;
+        showApp();
+    }
+})();
+
+// ==================== NAVIGATION ====================
+
+function navigateTo(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const el = document.getElementById(`page-${page}`);
+    if (el) el.classList.add('active');
+    const nav = document.querySelector(`.nav-item[data-page="${page}"]`);
+    if (nav) nav.classList.add('active');
+
+    const titles = {
+        dashboard: 'Dashboard', structure: 'Seitenstruktur', media: 'Medienpool',
+        templates: 'Templates', modules: 'Module', users: 'Benutzer',
+        clangs: 'Sprachen', apilog: 'API Log', search: 'Suche'
+    };
+    document.getElementById('pageTitle').textContent = titles[page] || page;
+
+    // Lazy load
+    const loaders = {
+        structure: loadStructure,
+        media: loadMedia,
+        templates: loadTemplates,
+        modules: loadModules,
+        users: loadUsers,
+        clangs: loadClangs,
+        apilog: renderApiLog,
+    };
+    if (loaders[page]) loaders[page]();
+
+    // Close mobile sidebar
+    document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ==================== THEME ====================
+
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('cp_theme', next);
+}
+
+(function initTheme() {
+    const saved = localStorage.getItem('cp_theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+})();
+
+// ==================== DASHBOARD ====================
+
+async function loadDashboard() {
+    try {
+        const [articles, media, templates, modules, users, clangs] = await Promise.all([
+            apiRequest('GET', 'structure/articles?per_page=500'),
+            apiRequest('GET', 'media?per_page=500'),
+            apiRequest('GET', 'templates'),
+            apiRequest('GET', 'modules'),
+            apiRequest('GET', 'users'),
+            apiRequest('GET', 'system/clangs'),
+        ]);
+
+        STATE.articles = articles || [];
+        STATE.media = media || [];
+        STATE.templates = templates || [];
+        STATE.modules = modules || [];
+        STATE.users = users || [];
+        STATE.clangs = clangs || [];
+
+        // Update stats
+        const setVal = (id, val) => { document.getElementById(id).textContent = val; };
+        setVal('statArticles', STATE.articles.length);
+        setVal('statMedia', STATE.media.length);
+        setVal('statTemplates', STATE.templates.length);
+        setVal('statModules', STATE.modules.length);
+        setVal('statUsers', STATE.users.length);
+        setVal('statClangs', STATE.clangs.length);
+
+        // Update badges
+        setVal('badgeArticles', STATE.articles.length);
+        setVal('badgeMedia', STATE.media.length);
+        setVal('badgeTemplates', STATE.templates.length);
+        setVal('badgeModules', STATE.modules.length);
+        setVal('badgeUsers', STATE.users.length);
+        setVal('badgeClangs', STATE.clangs.length);
+
+        // Recent articles
+        renderRecentArticles();
+        renderRecentMedia();
+    } catch (err) {
+        console.error('Dashboard load error:', err);
+    }
+}
+
+function renderRecentArticles() {
+    const container = document.getElementById('recentArticles');
+    const sorted = [...STATE.articles]
+        .sort((a, b) => (b.updatedate || b.createdate || '').localeCompare(a.updatedate || a.createdate || ''))
+        .slice(0, 8);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Artikel gefunden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Aktualisiert</th></tr></thead>
+        <tbody>${sorted.map(a => `
+            <tr onclick="showArticleDetail(${a.id})" style="cursor:pointer">
+                <td class="id-col">${a.id}</td>
+                <td>${escHtml(a.name)}</td>
+                <td>${a.status ? '<span class="pill online">Online</span>' : '<span class="pill offline">Offline</span>'}</td>
+                <td class="date-col">${formatDate(a.updatedate || a.createdate)}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+function renderRecentMedia() {
+    const container = document.getElementById('recentMedia');
+    const sorted = [...STATE.media]
+        .sort((a, b) => (b.createdate || '').localeCompare(a.createdate || ''))
+        .slice(0, 8);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Medien gefunden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>Datei</th><th>Typ</th><th>Größe</th><th>Datum</th></tr></thead>
+        <tbody>${sorted.map(m => `
+            <tr onclick="showMediaDetail('${escAttr(m.filename)}')" style="cursor:pointer">
+                <td class="truncate">${escHtml(m.filename)}</td>
+                <td>${escHtml(shortType(m.filetype))}</td>
+                <td>${formatSize(m.filesize)}</td>
+                <td class="date-col">${formatDate(m.createdate)}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+// ==================== STRUCTURE ====================
+
+async function loadStructure() {
+    const container = document.getElementById('structureTree');
+    if (STATE.articles.length === 0) {
+        container.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Lade…</div>';
+        try {
+            STATE.articles = await apiRequest('GET', 'structure/articles?per_page=1000') || [];
+        } catch (err) {
+            container.innerHTML = `<div class="empty-state"><p>Fehler: ${escHtml(err.message)}</p></div>`;
+            return;
+        }
+    }
+    renderTree(container, STATE.articles);
+}
+
+function renderTree(container, articles) {
+    // Build tree from flat list
+    const byParent = {};
+    articles.forEach(a => {
+        const pid = a.parent_id || 0;
+        if (!byParent[pid]) byParent[pid] = [];
+        byParent[pid].push(a);
+    });
+
+    function buildNodeHtml(article) {
+        const children = byParent[article.id] || [];
+        const isCat = article.startarticle === 1 || article.catpriority > 0;
+        const hasChildren = children.length > 0;
+        const iconClass = article.startarticle ? 'start' : (isCat ? 'cat' : 'art');
+
+        const iconSvg = article.startarticle
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+
+        const toggleClass = hasChildren ? '' : ' empty';
+
+        return `<div class="tree-node">
+            <div class="tree-node-content" onclick="toggleTreeNode(this)">
+                <span class="tree-toggle${toggleClass}">▶</span>
+                <span class="tree-icon ${iconClass}">${iconSvg}</span>
+                <span class="tree-name">${escHtml(article.name)}</span>
+                <span class="tree-meta">ID: ${article.id} ${article.status ? '● online' : '○ offline'}</span>
+            </div>
+            ${hasChildren ? `<div class="tree-children">${children.map(c => buildNodeHtml(c)).join('')}</div>` : ''}
+        </div>`;
+    }
+
+    const roots = byParent[0] || [];
+    if (roots.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Artikel in der Struktur gefunden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<div class="tree">${roots.map(r => buildNodeHtml(r)).join('')}</div>`;
+
+    // Auto-open first level
+    container.querySelectorAll('.tree > .tree-node > .tree-node-content').forEach(el => {
+        const children = el.nextElementSibling;
+        const toggle = el.querySelector('.tree-toggle');
+        if (children && toggle && !toggle.classList.contains('empty')) {
+            children.classList.add('open');
+            toggle.classList.add('open');
+        }
+    });
+}
+
+function toggleTreeNode(el) {
+    const children = el.nextElementSibling;
+    const toggle = el.querySelector('.tree-toggle');
+    if (children && toggle && !toggle.classList.contains('empty')) {
+        children.classList.toggle('open');
+        toggle.classList.toggle('open');
+    }
+}
+
+// ==================== MEDIA ====================
+
+let allMediaLoaded = [];
+
+async function loadMedia() {
+    const container = document.getElementById('mediaGallery');
+    container.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Lade Medien…</div>';
+
+    try {
+        if (STATE.media.length === 0) {
+            STATE.media = await apiRequest('GET', 'media?per_page=500') || [];
+        }
+        allMediaLoaded = [...STATE.media];
+        renderMediaGrid(allMediaLoaded);
+    } catch (err) {
+        container.innerHTML = `<div class="empty-state"><p>Fehler: ${escHtml(err.message)}</p></div>`;
+    }
+}
+
+function filterMedia() {
+    const typeFilter = document.getElementById('mediaTypeFilter').value;
+    const search = document.getElementById('mediaSearchInput').value.toLowerCase();
+
+    let filtered = allMediaLoaded;
+    if (typeFilter) {
+        filtered = filtered.filter(m => (m.filetype || '').includes(typeFilter));
+    }
+    if (search) {
+        filtered = filtered.filter(m =>
+            (m.filename || '').toLowerCase().includes(search) ||
+            (m.title || '').toLowerCase().includes(search)
+        );
+    }
+    renderMediaGrid(filtered);
+}
+
+function renderMediaGrid(items) {
+    const container = document.getElementById('mediaGallery');
+    if (items.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Medien gefunden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<div class="media-grid">${items.map(m => {
+        const isImage = (m.filetype || '').startsWith('image/');
+        const thumbHtml = isImage
+            ? `<img src="${CONFIG.url}/media/${escAttr(m.filename)}" alt="${escAttr(m.filename)}" loading="lazy" onerror="this.outerHTML='<div class=\\'file-icon\\'>🖼</div>'">`
+            : `<div class="file-icon">${fileEmoji(m.filetype)}</div>`;
+
+        return `<div class="media-item" onclick="showMediaDetail('${escAttr(m.filename)}')">
+            <div class="media-thumb">${thumbHtml}</div>
+            <div class="media-info">
+                <div class="filename" title="${escAttr(m.filename)}">${escHtml(m.filename)}</div>
+                <div class="filedetails">${formatSize(m.filesize)} · ${shortType(m.filetype)}</div>
+            </div>
+        </div>`;
+    }).join('')}</div>`;
+}
+
+async function showMediaDetail(filename) {
+    try {
+        const info = await apiRequest('GET', `media/${encodeURIComponent(filename)}/info`);
+        const isImage = (info.filetype || '').startsWith('image/');
+
+        let html = '';
+        if (isImage) {
+            html += `<div style="text-align:center;margin-bottom:16px;background:var(--bg-input);border-radius:8px;padding:12px;">
+                <img src="${CONFIG.url}/media/${escAttr(filename)}" style="max-width:100%;max-height:300px;border-radius:6px;" alt="">
+            </div>`;
+        }
+
+        const rows = [
+            ['Dateiname', info.filename],
+            ['Original', info.originalname],
+            ['Typ', info.filetype],
+            ['Größe', formatSize(info.filesize)],
+            ['Titel', info.title || '–'],
+        ];
+        if (info.width) rows.push(['Abmessungen', `${info.width} × ${info.height} px`]);
+        rows.push(
+            ['Erstellt', `${formatDate(info.createdate)} von ${info.createuser}`],
+            ['Aktualisiert', `${formatDate(info.updatedate)} von ${info.updateuser}`],
+            ['Datei existiert', info.file_exists ? '✅ Ja' : '❌ Nein'],
+            ['In Verwendung', info.is_in_use ? '✅ Ja' : '❌ Nein'],
+        );
+
+        html += rows.map(([l, v]) => `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${escHtml(String(v || '–'))}</span></div>`).join('');
+
+        html += `<div style="margin-top:16px">
+            <a href="${CONFIG.url}/api/media/${encodeURIComponent(filename)}/file" target="_blank" class="btn-icon" style="text-decoration:none;display:inline-flex;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Datei herunterladen
+            </a>
+        </div>`;
+
+        showModal(filename, html);
+    } catch (err) {
+        showModal('Fehler', `<p>${escHtml(err.message)}</p>`);
+    }
+}
+
+// ==================== TEMPLATES ====================
+
+async function loadTemplates() {
+    const container = document.getElementById('templatesTable');
+    try {
+        if (STATE.templates.length === 0) {
+            STATE.templates = await apiRequest('GET', 'templates') || [];
+        }
+        renderTemplates();
+    } catch (err) {
+        container.innerHTML = `<div class="empty-state"><p>Fehler: ${escHtml(err.message)}</p></div>`;
+    }
+}
+
+function renderTemplates() {
+    const container = document.getElementById('templatesTable');
+    if (STATE.templates.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Templates vorhanden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Key</th><th>Status</th><th>Aktualisiert</th></tr></thead>
+        <tbody>${STATE.templates.map(t => `
+            <tr onclick="showTemplateDetail(${t.id})" style="cursor:pointer">
+                <td class="id-col">${t.id}</td>
+                <td>${escHtml(t.name)}</td>
+                <td><code>${escHtml(t.key || '–')}</code></td>
+                <td>${t.active ? '<span class="pill online">Aktiv</span>' : '<span class="pill offline">Inaktiv</span>'}</td>
+                <td class="date-col">${formatDate(t.updatedate)}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+function showTemplateDetail(id) {
+    const t = STATE.templates.find(t => t.id === id);
+    if (!t) return;
+
+    let html = `<div class="detail-row"><span class="detail-label">ID</span><span class="detail-value">${t.id}</span></div>
+        <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${escHtml(t.name)}</span></div>
+        <div class="detail-row"><span class="detail-label">Key</span><span class="detail-value">${escHtml(t.key || '–')}</span></div>
+        <div class="detail-row"><span class="detail-label">Aktiv</span><span class="detail-value">${t.active ? 'Ja' : 'Nein'}</span></div>
+        <div class="detail-row"><span class="detail-label">Erstellt</span><span class="detail-value">${formatDate(t.createdate)} von ${escHtml(t.createuser || '–')}</span></div>
+        <div class="detail-row"><span class="detail-label">Aktualisiert</span><span class="detail-value">${formatDate(t.updatedate)} von ${escHtml(t.updateuser || '–')}</span></div>`;
+
+    if (t.content) {
+        html += `<div style="margin-top:16px"><strong>Template-Code:</strong></div>
+            <div class="code-block" style="margin-top:8px">${escHtml(t.content)}</div>`;
+    }
+
+    showModal(`Template: ${t.name}`, html);
+}
+
+// ==================== MODULES ====================
+
+async function loadModules() {
+    const container = document.getElementById('modulesTable');
+    try {
+        if (STATE.modules.length === 0) {
+            STATE.modules = await apiRequest('GET', 'modules') || [];
+        }
+        renderModules();
+    } catch (err) {
+        container.innerHTML = `<div class="empty-state"><p>Fehler: ${escHtml(err.message)}</p></div>`;
+    }
+}
+
+function renderModules() {
+    const container = document.getElementById('modulesTable');
+    if (STATE.modules.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Module vorhanden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Key</th><th>Aktualisiert</th></tr></thead>
+        <tbody>${STATE.modules.map(m => `
+            <tr onclick="showModuleDetail(${m.id})" style="cursor:pointer">
+                <td class="id-col">${m.id}</td>
+                <td>${escHtml(m.name)}</td>
+                <td><code>${escHtml(m.key || '–')}</code></td>
+                <td class="date-col">${formatDate(m.updatedate)}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+function showModuleDetail(id) {
+    const m = STATE.modules.find(m => m.id === id);
+    if (!m) return;
+
+    let html = `<div class="detail-row"><span class="detail-label">ID</span><span class="detail-value">${m.id}</span></div>
+        <div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">${escHtml(m.name)}</span></div>
+        <div class="detail-row"><span class="detail-label">Key</span><span class="detail-value">${escHtml(m.key || '–')}</span></div>
+        <div class="detail-row"><span class="detail-label">Erstellt</span><span class="detail-value">${formatDate(m.createdate)} von ${escHtml(m.createuser || '–')}</span></div>
+        <div class="detail-row"><span class="detail-label">Aktualisiert</span><span class="detail-value">${formatDate(m.updatedate)} von ${escHtml(m.updateuser || '–')}</span></div>`;
+
+    if (m.input) {
+        html += `<div style="margin-top:16px"><strong>Eingabe:</strong></div>
+            <div class="code-block" style="margin-top:8px">${escHtml(m.input)}</div>`;
+    }
+    if (m.output) {
+        html += `<div style="margin-top:16px"><strong>Ausgabe:</strong></div>
+            <div class="code-block" style="margin-top:8px">${escHtml(m.output)}</div>`;
+    }
+
+    showModal(`Modul: ${m.name}`, html);
+}
+
+// ==================== USERS ====================
+
+async function loadUsers() {
+    const container = document.getElementById('usersTable');
+    const rolesContainer = document.getElementById('rolesTable');
+
+    try {
+        const [users, roles] = await Promise.all([
+            apiRequest('GET', 'users'),
+            apiRequest('GET', 'users/roles'),
+        ]);
+        STATE.users = users || [];
+        STATE.roles = roles || [];
+        renderUsers();
+        renderRoles();
+    } catch (err) {
+        container.innerHTML = `<div class="empty-state"><p>Fehler: ${escHtml(err.message)}</p></div>`;
+    }
+}
+
+function renderUsers() {
+    const container = document.getElementById('usersTable');
+    if (STATE.users.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Benutzer gefunden</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>ID</th><th>Login</th><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th>Letzter Login</th></tr></thead>
+        <tbody>${STATE.users.map(u => `
+            <tr>
+                <td class="id-col">${u.id}</td>
+                <td><strong>${escHtml(u.login)}</strong></td>
+                <td>${escHtml(u.name || '–')}</td>
+                <td>${escHtml(u.email || '–')}</td>
+                <td>${u.admin ? '<span class="pill admin">Admin</span>' : '<span class="pill offline">User</span>'}</td>
+                <td>${u.status ? '<span class="pill online">Aktiv</span>' : '<span class="pill offline">Inaktiv</span>'}</td>
+                <td class="date-col">${formatDate(u.lastlogin)}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+function renderRoles() {
+    const container = document.getElementById('rolesTable');
+    if (STATE.roles.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Rollen definiert</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>ID</th><th>Name</th><th>Beschreibung</th><th>Aktualisiert</th></tr></thead>
+        <tbody>${STATE.roles.map(r => `
+            <tr>
+                <td class="id-col">${r.id}</td>
+                <td><strong>${escHtml(r.name)}</strong></td>
+                <td class="truncate">${escHtml(r.description || '–')}</td>
+                <td class="date-col">${formatDate(r.updatedate)}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+// ==================== CLANGS ====================
+
+async function loadClangs() {
+    const container = document.getElementById('clangsTable');
+    try {
+        STATE.clangs = await apiRequest('GET', 'system/clangs') || [];
+        renderClangs();
+    } catch (err) {
+        container.innerHTML = `<div class="empty-state"><p>Fehler: ${escHtml(err.message)}</p></div>`;
+    }
+}
+
+function renderClangs() {
+    const container = document.getElementById('clangsTable');
+    if (STATE.clangs.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Keine Sprachen konfiguriert</p></div>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table">
+        <thead><tr><th>ID</th><th>Code</th><th>Name</th><th>Priorität</th><th>Status</th></tr></thead>
+        <tbody>${STATE.clangs.map(c => `
+            <tr>
+                <td class="id-col">${c.id}</td>
+                <td><code style="font-size:14px;font-weight:700">${escHtml(c.code)}</code></td>
+                <td>${escHtml(c.name)}</td>
+                <td>${c.priority}</td>
+                <td>${c.status ? '<span class="pill online">Online</span>' : '<span class="pill offline">Offline</span>'}</td>
+            </tr>
+        `).join('')}</tbody>
+    </table>`;
+}
+
+// ==================== ARTICLE DETAIL ====================
+
+async function showArticleDetail(id) {
+    try {
+        const article = await apiRequest('GET', `structure/articles/${id}`);
+        const template = STATE.templates.find(t => t.id === article.template_id);
+
+        const html = [
+            ['ID', article.id],
+            ['Name', article.name],
+            ['Kategoriename', article.catname],
+            ['Parent ID', article.parent_id],
+            ['Clang', article.clang_id],
+            ['Template', template ? template.name : `ID: ${article.template_id}`],
+            ['Priorität', article.priority],
+            ['Startartikel', article.startarticle ? 'Ja' : 'Nein'],
+            ['Status', article.status ? 'Online' : 'Offline'],
+            ['Erstellt', `${formatDate(article.createdate)} von ${article.createuser}`],
+            ['Aktualisiert', `${formatDate(article.updatedate)} von ${article.updateuser}`],
+        ].map(([l, v]) => `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${escHtml(String(v || '–'))}</span></div>`).join('');
+
+        showModal(`Artikel: ${article.name}`, html);
+    } catch (err) {
+        showModal('Fehler', `<p>${escHtml(err.message)}</p>`);
+    }
+}
+
+// ==================== GLOBAL SEARCH ====================
+
+let searchDebounce = null;
+function handleGlobalSearch(query) {
+    clearTimeout(searchDebounce);
+    if (query.length < 2) return;
+    searchDebounce = setTimeout(() => {
+        navigateTo('search');
+        performSearch(query);
+    }, 300);
+}
+
+async function performSearch(query) {
+    const container = document.getElementById('searchResults');
+    container.innerHTML = '<div class="loading-overlay"><span class="spinner"></span> Suche…</div>';
+
+    const q = query.toLowerCase();
+
+    // Search articles
+    const matchedArticles = STATE.articles.filter(a =>
+        (a.name || '').toLowerCase().includes(q) ||
+        String(a.id).includes(q)
+    );
+
+    // Search media
+    const matchedMedia = STATE.media.filter(m =>
+        (m.filename || '').toLowerCase().includes(q) ||
+        (m.title || '').toLowerCase().includes(q)
+    );
+
+    // Search templates
+    const matchedTemplates = STATE.templates.filter(t =>
+        (t.name || '').toLowerCase().includes(q)
+    );
+
+    // Search modules
+    const matchedModules = STATE.modules.filter(m =>
+        (m.name || '').toLowerCase().includes(q)
+    );
+
+    let html = '';
+
+    if (matchedArticles.length > 0) {
+        html += `<div style="padding:16px 24px 8px"><strong>Artikel (${matchedArticles.length})</strong></div>
+            <table class="data-table"><thead><tr><th>ID</th><th>Name</th><th>Status</th></tr></thead>
+            <tbody>${matchedArticles.slice(0, 20).map(a => `
+                <tr onclick="showArticleDetail(${a.id})" style="cursor:pointer">
+                    <td class="id-col">${a.id}</td><td>${escHtml(a.name)}</td>
+                    <td>${a.status ? '<span class="pill online">Online</span>' : '<span class="pill offline">Offline</span>'}</td>
+                </tr>`).join('')}</tbody></table>`;
+    }
+
+    if (matchedMedia.length > 0) {
+        html += `<div style="padding:16px 24px 8px"><strong>Medien (${matchedMedia.length})</strong></div>
+            <table class="data-table"><thead><tr><th>Dateiname</th><th>Typ</th><th>Größe</th></tr></thead>
+            <tbody>${matchedMedia.slice(0, 20).map(m => `
+                <tr onclick="showMediaDetail('${escAttr(m.filename)}')" style="cursor:pointer">
+                    <td>${escHtml(m.filename)}</td><td>${shortType(m.filetype)}</td><td>${formatSize(m.filesize)}</td>
+                </tr>`).join('')}</tbody></table>`;
+    }
+
+    if (matchedTemplates.length > 0) {
+        html += `<div style="padding:16px 24px 8px"><strong>Templates (${matchedTemplates.length})</strong></div>
+            <table class="data-table"><thead><tr><th>ID</th><th>Name</th></tr></thead>
+            <tbody>${matchedTemplates.map(t => `
+                <tr onclick="showTemplateDetail(${t.id})" style="cursor:pointer">
+                    <td class="id-col">${t.id}</td><td>${escHtml(t.name)}</td>
+                </tr>`).join('')}</tbody></table>`;
+    }
+
+    if (matchedModules.length > 0) {
+        html += `<div style="padding:16px 24px 8px"><strong>Module (${matchedModules.length})</strong></div>
+            <table class="data-table"><thead><tr><th>ID</th><th>Name</th></tr></thead>
+            <tbody>${matchedModules.map(m => `
+                <tr onclick="showModuleDetail(${m.id})" style="cursor:pointer">
+                    <td class="id-col">${m.id}</td><td>${escHtml(m.name)}</td>
+                </tr>`).join('')}</tbody></table>`;
+    }
+
+    if (!html) {
+        html = `<div class="empty-state"><p>Keine Ergebnisse für „${escHtml(query)}"</p></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+// ==================== API LOG ====================
+
+function renderApiLog() {
+    const container = document.getElementById('apiLogList');
+    if (STATE.apiLog.length === 0) {
+        container.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><p>Noch keine API-Requests aufgezeichnet.</p></div>';
+        return;
+    }
+
+    container.innerHTML = STATE.apiLog.map(e => `
+        <div class="api-log-entry">
+            <span class="api-log-method ${e.method}">${e.method}</span>
+            <span class="api-log-url">/api/${escHtml(e.path)}</span>
+            <span class="api-log-status ${e.status >= 200 && e.status < 400 ? 'ok' : 'err'}">${e.status || 'ERR'}</span>
+            <span class="api-log-time">${e.elapsed}ms</span>
+        </div>
+    `).join('');
+}
+
+function clearApiLog() {
+    STATE.apiLog = [];
+    document.getElementById('badgeLog').textContent = '0';
+    renderApiLog();
+}
+
+// ==================== MODAL ====================
+
+function showModal(title, contentHtml) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = contentHtml;
+    document.getElementById('detailModal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('detailModal').classList.remove('active');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+});
+
+// ==================== HELPERS ====================
+
+function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function escAttr(str) {
+    return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '–';
+    try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+            ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return dateStr;
+    }
+}
+
+function formatSize(bytes) {
+    if (!bytes) return '–';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let size = parseInt(bytes, 10);
+    while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+    return `${size.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+}
+
+function shortType(type) {
+    if (!type) return '–';
+    const map = {
+        'image/jpeg': 'JPEG', 'image/png': 'PNG', 'image/gif': 'GIF', 'image/svg+xml': 'SVG',
+        'image/webp': 'WebP', 'application/pdf': 'PDF', 'video/mp4': 'MP4',
+        'audio/mpeg': 'MP3', 'text/plain': 'TXT', 'text/html': 'HTML',
+        'application/zip': 'ZIP',
+    };
+    return map[type] || type.split('/').pop().toUpperCase();
+}
+
+function fileEmoji(type) {
+    if (!type) return '📄';
+    if (type.startsWith('image/')) return '🖼';
+    if (type.startsWith('video/')) return '🎬';
+    if (type.startsWith('audio/')) return '🎵';
+    if (type.includes('pdf')) return '📕';
+    if (type.includes('zip') || type.includes('rar')) return '📦';
+    if (type.includes('word') || type.includes('doc')) return '📝';
+    if (type.includes('sheet') || type.includes('excel')) return '📊';
+    return '📄';
+}
+</script>
+</body>
+</html>

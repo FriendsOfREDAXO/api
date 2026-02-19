@@ -67,6 +67,23 @@ class RouteCollection
             return;
         }
 
+        // CORS headers
+        $origin = rex::getRequest()->headers->get('Origin');
+        if ($origin) {
+            header('Access-Control-Allow-Origin: ' . $origin);
+            header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept');
+            header('Access-Control-Max-Age: 86400');
+        }
+
+        // Handle preflight OPTIONS request
+        if ('OPTIONS' === rex::getRequest()->getMethod()) {
+            rex_response::cleanOutputBuffers();
+            rex_response::setStatus(204);
+            rex_response::sendContent('');
+            exit;
+        }
+
         try {
             self::loadPackageRoutes();
             $routes = new \Symfony\Component\Routing\RouteCollection();
@@ -104,6 +121,7 @@ class RouteCollection
         rex_response::cleanOutputBuffers();
         rex_response::sendContentType($Response->headers->get('Content-Type') ?? 'application/json');
         rex_response::sendContent($Response->getContent());
+        exit;
     }
 
     public static function getBackendUser(array $Route): ?rex_user
