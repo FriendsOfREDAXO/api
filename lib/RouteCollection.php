@@ -70,10 +70,30 @@ class RouteCollection
         // CORS headers
         $origin = rex::getRequest()->headers->get('Origin');
         if ($origin) {
-            header('Access-Control-Allow-Origin: ' . $origin);
-            header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept');
-            header('Access-Control-Max-Age: 86400');
+            // Allow CORS only for same-origin requests
+            $serverUrl = (string) rex::getServer();
+            $originParts = parse_url($origin);
+            $serverParts = parse_url($serverUrl);
+
+            if (is_array($originParts) && is_array($serverParts)) {
+                $originScheme = $originParts['scheme'] ?? '';
+                $originHost = $originParts['host'] ?? '';
+                $originPort = isset($originParts['port']) ? ':' . $originParts['port'] : '';
+
+                $serverScheme = $serverParts['scheme'] ?? '';
+                $serverHost = $serverParts['host'] ?? '';
+                $serverPort = isset($serverParts['port']) ? ':' . $serverParts['port'] : '';
+
+                $normalizedOrigin = $originScheme . '://' . $originHost . $originPort;
+                $normalizedServer = $serverScheme . '://' . $serverHost . $serverPort;
+
+                if ($normalizedOrigin === $normalizedServer) {
+                    header('Access-Control-Allow-Origin: ' . $origin);
+                    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+                    header('Access-Control-Allow-Headers: Authorization, Content-Type, Accept');
+                    header('Access-Control-Max-Age: 86400');
+                }
+            }
         }
 
         // Handle preflight OPTIONS request
