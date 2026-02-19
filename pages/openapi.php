@@ -5,7 +5,9 @@ use FriendsOfRedaxo\Api\RouteCollection;
 
 if ('1' === rex_request('load_config', 'string')) {
     $config = OpenAPIConfig::getByRoutes(RouteCollection::getRoutes());
-    rex_response::sendContent(rex_string::yamlEncode($config), 'text/html'); // , 'application/yaml'
+    rex_response::cleanOutputBuffers();
+    rex_response::sendContent(json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), 'application/json');
+    exit;
 }
 
 ?>
