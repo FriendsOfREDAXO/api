@@ -13,6 +13,7 @@ use rex_sql;
 use rex_sql_exception;
 use rex_template;
 use rex_template_cache;
+use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -198,9 +199,26 @@ class Templates extends RoutePackage
         );
     }
 
-    /** @api */
-    public static function handleTemplateList($Parameter): Response
+    private static function checkAdminPerm(?rex_user $user): ?Response
     {
+        if (null === $user) {
+            return null;
+        }
+        if (!$user->isAdmin()) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
+    /** @api */
+    public static function handleTemplateList($Parameter, array $Route = []): Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
@@ -264,8 +282,14 @@ class Templates extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetTemplate($Parameter): Response
+    public static function handleGetTemplate($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $templateId = $Parameter['id'];
 
         $TemplateSQL = rex_sql::factory();
@@ -287,8 +311,14 @@ class Templates extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddTemplate($Parameter): Response
+    public static function handleAddTemplate($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -358,8 +388,14 @@ class Templates extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateTemplate($Parameter): Response
+    public static function handleUpdateTemplate($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $templateId = $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -443,8 +479,14 @@ class Templates extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteTemplate($Parameter): Response
+    public static function handleDeleteTemplate($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $templateId = $Parameter['id'];
 
         $checkSql = rex_sql::factory();

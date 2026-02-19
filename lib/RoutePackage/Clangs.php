@@ -11,6 +11,7 @@ use rex_clang;
 use rex_clang_service;
 use rex_extension;
 use rex_extension_point;
+use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -189,8 +190,19 @@ class Clangs extends RoutePackage
         );
     }
 
+    private static function checkAdminPerm(?rex_user $user): ?Response
+    {
+        if (null === $user) {
+            return null;
+        }
+        if (!$user->isAdmin()) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
     /** @api */
-    public static function handleClangsList($Parameter): Response
+    public static function handleClangsList($Parameter, array $Route = []): Response
     {
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
@@ -202,8 +214,18 @@ class Clangs extends RoutePackage
         $allClangs = rex_clang::getAll();
         $filteredClangs = [];
 
+        $user = RouteCollection::getBackendUser($Route);
+
         // Apply filters manually
         foreach ($allClangs as $clang) {
+            // Filter by user clang permission for backend users
+            if (null !== $user && !$user->isAdmin()) {
+                $clangPerm = $user->getComplexPerm('clang');
+                if (!$clangPerm->hasPerm($clang->getId())) {
+                    continue;
+                }
+            }
+
             // Filter by code if specified
             if (isset($Query['filter']['code']) && null !== $Query['filter']['code']) {
                 if (false === stripos($clang->getCode(), $Query['filter']['code'])) {
@@ -242,13 +264,21 @@ class Clangs extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetClang($Parameter): Response
+    public static function handleGetClang($Parameter, array $Route = []): Response
     {
         $clangId = $Parameter['id'];
         $clang = rex_clang::get($clangId);
 
         if (!$clang) {
             return new Response(json_encode(['error' => 'Language not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        if (null !== $user && !$user->isAdmin()) {
+            $clangPerm = $user->getComplexPerm('clang');
+            if (!$clangPerm->hasPerm($clang->getId())) {
+                return new Response(json_encode(['error' => 'Permission denied']), 403);
+            }
         }
 
         $clangData = [
@@ -263,8 +293,14 @@ class Clangs extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddClang($Parameter): Response
+    public static function handleAddClang($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -317,8 +353,14 @@ class Clangs extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateClang($Parameter): Response
+    public static function handleUpdateClang($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($Data)) {
             return new Response(json_encode(['error' => 'Invalid input']), 400);
@@ -383,8 +425,14 @@ class Clangs extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteClang($Parameter): Response
+    public static function handleDeleteClang($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $clang = rex_clang::get($Parameter['id']);
 
         if (!$clang) {

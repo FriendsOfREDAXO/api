@@ -411,9 +411,26 @@ class Users extends RoutePackage
         );
     }
 
-    /** @api */
-    public static function handleUsersList($Parameter): Response
+    private static function checkAdminPerm(?rex_user $user): ?Response
     {
+        if (null === $user) {
+            return null;
+        }
+        if (!$user->isAdmin()) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
+    /** @api */
+    public static function handleUsersList($Parameter, array $Route = []): Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
@@ -443,8 +460,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetUser($Parameter): Response
+    public static function handleGetUser($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $userId = (int) $Parameter['id'];
 
         try {
@@ -456,8 +479,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddUser($Parameter): Response
+    public static function handleAddUser($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -494,8 +523,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateUser($Parameter): Response
+    public static function handleUpdateUser($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $userId = (int) $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -539,8 +574,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteUser($Parameter): Response
+    public static function handleDeleteUser($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $userId = (int) $Parameter['id'];
 
         try {
@@ -555,8 +596,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleUserRolesList($Parameter): Response
+    public static function handleUserRolesList($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
@@ -574,8 +621,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetUserRole($Parameter): Response
+    public static function handleGetUserRole($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $roleId = (int) $Parameter['id'];
 
         try {
@@ -587,8 +640,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddUserRole($Parameter): Response
+    public static function handleAddUserRole($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -618,8 +677,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateUserRole($Parameter): Response
+    public static function handleUpdateUserRole($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $roleId = (int) $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -657,8 +722,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteUserRole($Parameter): Response
+    public static function handleDeleteUserRole($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $roleId = (int) $Parameter['id'];
 
         try {
@@ -673,8 +744,14 @@ class Users extends RoutePackage
     }
 
     /** @api */
-    public static function handleDuplicateUserRole($Parameter): Response
+    public static function handleDuplicateUserRole($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $roleId = (int) $Parameter['id'];
         $Data = json_decode(rex::getRequest()->getContent(), true);
 

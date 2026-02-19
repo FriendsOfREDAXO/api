@@ -7,6 +7,7 @@ use FriendsOfRedaxo\Api\Auth as ApiAuth;
 use rex;
 use rex_response;
 use rex_type;
+use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
@@ -103,6 +104,16 @@ class RouteCollection
         rex_response::cleanOutputBuffers();
         rex_response::sendContentType($Response->headers->get('Content-Type') ?? 'application/json');
         rex_response::sendContent($Response->getContent());
+    }
+
+    public static function getBackendUser(array $Route): ?rex_user
+    {
+        $auth = $Route['authorization'] ?? null;
+        if (null === $auth) {
+            return null;
+        }
+        $obj = $auth->getAuthorizationObject();
+        return $obj instanceof rex_user ? $obj : null;
     }
 
     public static function getQuerySet(array $request, $definition)

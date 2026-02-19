@@ -473,8 +473,26 @@ class Media extends RoutePackage
     //     return new Response(json_encode(['message' => 'Category deleted', 'id' => $CategoryId]), 200);
     // }
 
+    private static function checkMediaPerm(?rex_user $user, ?int $categoryId = null): ?Response
+    {
+        if (null === $user) {
+            return null;
+        }
+        if ($user->isAdmin()) {
+            return null;
+        }
+        $perm = $user->getComplexPerm('media');
+        if (null !== $categoryId && !$perm->hasCategoryPerm($categoryId)) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        if (null === $categoryId && !$perm->hasAll()) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
     /** @api */
-    public static function handleMediaList($Parameter): Response
+    public static function handleMediaList($Parameter, array $Route = []): Response
     {
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
@@ -572,12 +590,18 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteMedia($Parameter): Response
+    public static function handleDeleteMedia($Parameter, array $Route = []): Response
     {
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
             return new Response(json_encode(['error' => 'Media not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         if (false !== rex_mediapool::mediaIsInUse($Parameter['filename'])) {
@@ -594,12 +618,18 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetMedia($Parameter): Response
+    public static function handleGetMedia($Parameter, array $Route = []): Response
     {
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
             return new Response(json_encode(['error' => 'Get specific media - not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $Return = [
@@ -625,12 +655,18 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetMediaFile($Parameter): Response
+    public static function handleGetMediaFile($Parameter, array $Route = []): Response
     {
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
             return new Response(json_encode(['error' => 'Media not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         if (!$Media->fileExists()) {
@@ -648,7 +684,7 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddMedia($Parameter): Response
+    public static function handleAddMedia($Parameter, array $Route = []): Response
     {
         $request = rex::getRequest();
 
@@ -658,6 +694,12 @@ class Media extends RoutePackage
 
         $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0);
         $title = $request->request->get('title') ?? $request->query->get('title') ?? '';
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $categoryId);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
 
         if (0 !== $categoryId && !rex_media_category::get($categoryId)) {
             return new Response(json_encode(['error' => 'Category not found']), 404);
@@ -688,12 +730,18 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateMedia($Parameter): Response
+    public static function handleUpdateMedia($Parameter, array $Route = []): Response
     {
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
             return new Response(json_encode(['error' => 'Media not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $Data = json_decode(rex::getRequest()->getContent(), true);
@@ -740,8 +788,14 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddCategory($Parameter): Response
+    public static function handleAddCategory($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, (int) (json_decode(rex::getRequest()->getContent(), true)['parent_id'] ?? 0));
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -784,12 +838,18 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteCategory($Parameter): Response
+    public static function handleDeleteCategory($Parameter, array $Route = []): Response
     {
         $Category = rex_media_category::get($Parameter['id']);
 
         if (!$Category) {
             return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $Category->getId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         if (count($Category->getChildren()) > 0) {
@@ -817,12 +877,18 @@ class Media extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateCategory($Parameter): Response
+    public static function handleUpdateCategory($Parameter, array $Route = []): Response
     {
         $Category = rex_media_category::get($Parameter['id']);
 
         if (!$Category) {
             return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, $Category->getId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $Data = json_decode(rex::getRequest()->getContent(), true);

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(/Users/jankristinus/Desktop/workspace/redaxo/vendor/bin/phpunit:*)",
+      "Bash(php:*)",
+      "Bash(php -l:*)",
+      "Bash(./vendor/bin/phpunit:*)",
+      "Bash(git stash:*)",
+      "Bash(curl:*)",
+      "Bash(COOKIE_JAR=/tmp/rex_admin_cookies.txt:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

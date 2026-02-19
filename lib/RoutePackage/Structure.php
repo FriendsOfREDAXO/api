@@ -17,6 +17,7 @@ use rex_extension;
 use rex_extension_point;
 use rex_sql;
 use rex_template;
+use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -484,9 +485,32 @@ class Structure extends RoutePackage
         );
     }
 
-    /** @api */
-    public static function handleArticleList($Parameter): Response
+    private static function checkStructurePerm(?rex_user $user, ?int $categoryId = null): ?Response
     {
+        if (null === $user) {
+            return null;
+        }
+        if ($user->isAdmin()) {
+            return null;
+        }
+        $perm = $user->getComplexPerm('structure');
+        if (null !== $categoryId && !$perm->hasCategoryPerm($categoryId)) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
+    /** @api */
+    public static function handleArticleList($Parameter, array $Route = []): Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        if (null !== $user && !$user->isAdmin()) {
+            $perm = $user->getComplexPerm('structure');
+            if (!$perm->hasStructurePerm()) {
+                return new Response(json_encode(['error' => 'Permission denied']), 403);
+            }
+        }
+
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
@@ -546,8 +570,14 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddArticle($Parameter): Response
+    public static function handleAddArticle($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, (int) (json_decode(rex::getRequest()->getContent(), true)['category_id'] ?? 0));
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -595,8 +625,14 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddCategory($Parameter)
+    public static function handleAddCategory($Parameter, array $Route = [])
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, (int) (json_decode(rex::getRequest()->getContent(), true)['category_id'] ?? 0));
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -643,11 +679,17 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteArticle($Parameter): Response
+    public static function handleDeleteArticle($Parameter, array $Route = []): Response
     {
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         if ($Article->isStartArticle()) {
@@ -666,11 +708,17 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteCategory($Parameter): Response
+    public static function handleDeleteCategory($Parameter, array $Route = []): Response
     {
         $Category = rex_category::get($Parameter['id']);
         if (!$Category) {
             return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Category->getId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $CategoryId = $Category->getId();
@@ -685,7 +733,7 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddArticleSlices($Parameter): Response
+    public static function handleAddArticleSlices($Parameter, array $Route = []): Response
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -709,6 +757,12 @@ class Structure extends RoutePackage
                 'error' => 'Article not found',
                 'id' => rex_escape($Parameter['id']),
             ]), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $clangs = rex_clang::getAllIds();
@@ -823,12 +877,18 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetArticle($Parameter): Response
+    public static function handleGetArticle($Parameter, array $Route = []): Response
     {
         $Article = rex_article::get($Parameter['id']);
 
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $Return = [
@@ -854,7 +914,7 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateArticle($Parameter): Response
+    public static function handleUpdateArticle($Parameter, array $Route = []): Response
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -871,6 +931,12 @@ class Structure extends RoutePackage
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         if ($Article->isStartArticle()) {
@@ -911,7 +977,7 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateCategory($Parameter): Response
+    public static function handleUpdateCategory($Parameter, array $Route = []): Response
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -928,6 +994,12 @@ class Structure extends RoutePackage
         $Category = rex_category::get($Parameter['id']);
         if (!$Category) {
             return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Category->getId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         try {
@@ -964,7 +1036,7 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetArticleSlices($Parameter): Response
+    public static function handleGetArticleSlices($Parameter, array $Route = []): Response
     {
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
@@ -975,6 +1047,12 @@ class Structure extends RoutePackage
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $SqlQueryWhere = ['article_id = :article_id'];
@@ -1006,11 +1084,17 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetArticleSlice($Parameter): Response
+    public static function handleGetArticleSlice($Parameter, array $Route = []): Response
     {
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $SliceSQL = rex_sql::factory();
@@ -1027,7 +1111,7 @@ class Structure extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateArticleSlice($Parameter): Response
+    public static function handleUpdateArticleSlice($Parameter, array $Route = []): Response
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
@@ -1044,6 +1128,12 @@ class Structure extends RoutePackage
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $SliceSQL = rex_sql::factory();

@@ -13,6 +13,7 @@ use rex_extension_point;
 use rex_module_cache;
 use rex_sql;
 use rex_sql_exception;
+use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -189,8 +190,19 @@ class Modules extends RoutePackage
         );
     }
 
+    private static function checkAdminPerm(?rex_user $user): ?Response
+    {
+        if (null === $user) {
+            return null;
+        }
+        if (!$user->isAdmin()) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
     /** @api */
-    public static function handleModulesList($Parameter): Response
+    public static function handleModulesList($Parameter, array $Route = []): Response
     {
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
@@ -240,7 +252,7 @@ class Modules extends RoutePackage
     }
 
     /** @api */
-    public static function handleGetModules($Parameter): Response
+    public static function handleGetModules($Parameter, array $Route = []): Response
     {
         $moduleId = $Parameter['id'];
 
@@ -258,8 +270,14 @@ class Modules extends RoutePackage
     }
 
     /** @api */
-    public static function handleAddModules($Parameter): Response
+    public static function handleAddModules($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -307,8 +325,14 @@ class Modules extends RoutePackage
     }
 
     /** @api */
-    public static function handleUpdateModules($Parameter): Response
+    public static function handleUpdateModules($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
@@ -379,8 +403,14 @@ class Modules extends RoutePackage
     }
 
     /** @api */
-    public static function handleDeleteModules($Parameter): Response
+    public static function handleDeleteModules($Parameter, array $Route = []): Response
     {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $Module = rex_sql::factory();
         $Module->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $Parameter['id']]);
 

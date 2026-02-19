@@ -40,4 +40,12 @@ return [
 
     // Debug-Modus (mehr Ausgaben bei Fehlern)
     'debug' => true,
+
+    // Backend-Authentifizierung (Session-Cookie basiert)
+    'backend' => [
+        'admin_login' => 'admin',
+        'admin_password' => 'admin',
+        'restricted_login' => 'jan',
+        'restricted_password' => 'jan',
+    ],
 ];
