@@ -89,6 +89,22 @@
             --primary-light: #d6f2ef;
             --primary-dark: #20756d;
         }
+        [data-theme="agk"] {
+            --bg: #f5fcf8;
+            --bg-card: #ffffff;
+            --bg-card-hover: #eef7f2;
+            --bg-sidebar: #1e3a23;
+            --bg-input: #f0f9f4;
+            --text: #18281b;
+            --text-muted: #5e7a63;
+            --text-sidebar: #cbdccf;
+            --text-sidebar-active: #ffffff;
+            --border: #dbece0;
+            --primary: #2d8a4e;
+            --primary-light: #e6f4ea;
+            --primary-dark: #1b5e34;
+            --shadow-sm: 0 1px 2px rgba(30, 58, 35, 0.08);
+        }
 
         /* Theme Selector Styles */
         .theme-selector {
@@ -880,6 +896,7 @@
                         <button class="theme-option" onclick="setTheme('midnight')"><span class="theme-color-preview" style="background:#0f172a;"></span> Midnight</button>
                         <button class="theme-option" onclick="setTheme('forest')"><span class="theme-color-preview" style="background:#1c1c1c;"></span> Forest</button>
                         <button class="theme-option" onclick="setTheme('coffee')"><span class="theme-color-preview" style="background:#fdf6e3;"></span> Coffee</button>
+                        <button class="theme-option" onclick="setTheme('agk')"><span class="theme-color-preview" style="background:#f0f7f4; border:1px solid #4caf50;"></span> AGK</button>
                     </div>
                 </div>
                 <div style="flex:1"></div>
@@ -1732,11 +1749,19 @@ function renderStructureView(container) {
         return (a.parent_id || 0) == parentId;
     });
 
-    // Split Categories and Articles
+    // Splits Categories and Articles
     // Categories: startarticle = 1
     // Articles: startarticle = 0
     const categories = items.filter(a => a.startarticle == 1).sort((a,b) => (a.catpriority||0) - (b.catpriority||0));
     const articles = items.filter(a => a.startarticle == 0).sort((a,b) => (a.priority||0) - (b.priority||0));
+    
+    // START ARTICLE
+    // The current category IS an article (the start article of that id). 
+    // We want to show it distinctly so the user knows they can edit the "category's content".
+    let startArticle = null;
+    if (parentId > 0) {
+        startArticle = STATE.articles.find(a => a.id == parentId && (!a.clang_id || a.clang_id == currentClang));
+    }
 
     // Breadcrumb HTML
     const breadcrumbHtml = `
@@ -1748,28 +1773,32 @@ function renderStructureView(container) {
         `).join('')}
     </div>`;
 
-    const renderRow = (item, isCat) => {
-        const icon = isCat 
-            ? `<div style="color:var(--text-accent); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>`
-            : `<div style="color:var(--text-muted); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`;
+    const renderRow = (item, isCat, isStartArticle = false) => {
+        const icon = isStartArticle 
+            ? `<div style="color:var(--primary); display:flex; align-items:center; justify-content:center;" title="Startartikel"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg></div>`
+            : (isCat 
+                ? `<div style="color:var(--text-accent); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg></div>`
+                : `<div style="color:var(--text-muted); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>`);
             
         const action = isCat ? `navigateToCategory(${item.id})` : `alert('Edit Article ${item.id} (Todo)')`;
         const prio = isCat ? (item.catpriority||0) : (item.priority||0);
-        
+        const rowClass = isStartArticle ? 'is-startarticle' : (isCat ? 'is-category' : 'is-article');
+        const rowStyle = isStartArticle ? 'background:rgba(var(--primary-rgb), 0.05); font-weight:600;' : '';
+
         return `
-        <tr class="structure-row ${isCat ? 'is-category' : 'is-article'}" 
+        <tr class="structure-row ${rowClass}" 
             onclick="${action}"
-            style="cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.2s;">
+            style="cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.2s; ${rowStyle}">
             <td style="width:40px; padding:8px; text-align:center;">${icon}</td>
             <td style="padding:8px; font-weight:500;">
                 ${escHtml(item.name)}
-                ${item.startarticle ? '<span style="opacity:0.5; font-size:0.8em; margin-left:6px;">(Start)</span>' : ''}
+                ${isStartArticle ? '<span class="badge" style="margin-left:8px; font-size:0.75em; opacity:0.8;">Startartikel</span>' : ''}
             </td>
-            <td style="width:50px; padding:8px; text-align:right; opacity:0.6; font-variant-numeric:tabular-nums;">${prio}</td>
+            <td style="width:50px; padding:8px; text-align:right; opacity:0.6; font-variant-numeric:tabular-nums;">${isStartArticle ? '–' : prio}</td>
             <td style="width:60px; padding:8px; text-align:right; opacity:0.6; font-size:0.9em;">#${item.id}</td>
             <td style="width:60px; padding:8px; text-align:center;">${item.status ? '<span style="color:var(--success)">●</span>' : '<span style="color:var(--text-muted)">○</span>'}</td>
             <td style="width:50px; padding:8px; text-align:right;">
-                ${isCat ? `<button class="btn-icon" onclick="event.stopPropagation(); showCreateModal(${item.id})" title="Neu in ${escHtml(item.name)}" style="border:none; background:none; cursor:pointer;">➕</button>` : ''}
+                ${isCat && !isStartArticle ? `<button class="btn-icon" onclick="event.stopPropagation(); showCreateModal(${item.id})" title="Neu in ${escHtml(item.name)}" style="border:none; background:none; cursor:pointer;">➕</button>` : ''}
             </td>
         </tr>`;
     };
@@ -1791,10 +1820,11 @@ function renderStructureView(container) {
         <div class="panel-arts" style="background:var(--bg-card); border:1px solid var(--border); border-radius:6px; overflow:hidden;">
             <div style="background:var(--bg-header); padding:8px 12px; border-bottom:1px solid var(--border); font-weight:600; display:flex; justify-content:space-between;">
                 <span>Artikel</span>
-                <span class="badge" style="background:var(--bg-input); padding:2px 6px; border-radius:4px; font-size:0.8em">${articles.length}</span>
+                <span class="badge" style="background:var(--bg-input); padding:2px 6px; border-radius:4px; font-size:0.8em">${articles.length + (startArticle ? 1 : 0)}</span>
             </div>
             <table style="width:100%; border-collapse:collapse;">
-                ${articles.length > 0 ? articles.map(a => renderRow(a, false)).join('') : '<tr><td style="padding:15px; text-align:center; color:var(--text-muted)">Keine Artikel</td></tr>'}
+                ${startArticle ? renderRow(startArticle, false, true) : ''}
+                ${articles.length > 0 ? articles.map(a => renderRow(a, false)).join('') : (startArticle ? '' : '<tr><td style="padding:15px; text-align:center; color:var(--text-muted)">Keine Artikel</td></tr>')}
             </table>
         </div>
     </div>
