@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>REDAXO Content Pilot — API Dashboard</title>
+    <title>REDAXO Remote — API Dashboard</title>
     <style>
         :root {
             --bg: #f0f2f5;
             --bg-card: #ffffff;
             --bg-card-hover: #f8f9fa;
-            --bg-sidebar: #1a1d23;
+            --bg-sidebar: #11151c;
             --bg-input: #f5f6f8;
             --text: #1a1d23;
             --text-muted: #6b7280;
             --text-sidebar: #94a3b8;
             --text-sidebar-active: #ffffff;
             --border: #e5e7eb;
-            --primary: #e8453c;
-            --primary-light: #fef2f2;
-            --primary-dark: #c53030;
+            --primary: #4b9ad9;
+            --primary-light: #ebf8ff;
+            --primary-dark: #2b6cb0;
             --success: #10b981;
             --warning: #f59e0b;
             --info: #3b82f6;
@@ -30,17 +30,19 @@
             --transition: 0.2s ease;
         }
         [data-theme="dark"] {
-            --bg: #0f1117;
-            --bg-card: #1a1d26;
-            --bg-card-hover: #22252e;
-            --bg-input: #22252e;
+            --bg: #151b23;
+            --bg-card: #1e252f;
+            --bg-card-hover: #252d3a;
+            --bg-sidebar: #11151c;
+            --bg-input: #252d3a;
             --text: #e2e8f0;
             --text-muted: #94a3b8;
-            --border: #2d3140;
-            --primary-light: #2d1b1b;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
-            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.3);
-            --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.4);
+            --text-sidebar: #64748b;
+            --border: #2d3642;
+            --primary-light: #162636;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
+            --shadow-lg: 0 10px 25px -5px rgba(0,0,0,0.5);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -59,7 +61,7 @@
             justify-content: center;
             min-height: 100vh;
             padding: 20px;
-            background: linear-gradient(135deg, #1a1d23 0%, #2d3140 50%, #e8453c 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #324050 100%);
         }
         .login-card {
             background: var(--bg-card);
@@ -701,8 +703,8 @@
     <div class="login-screen" id="loginScreen">
         <div class="login-card">
             <div class="login-logo">
-                <svg viewBox="0 0 56 56" fill="none"><rect width="56" height="56" rx="14" fill="#e8453c"/><path d="M16 20h8v4h-8zm0 6h12v4H16zm0 6h16v4H16zm20-12h4v16h-4z" fill="white" opacity="0.9"/><path d="M28 14l10 6v16l-10 6-10-6V20l10-6z" stroke="white" stroke-width="1.5" fill="none" opacity="0.3"/></svg>
-                <h1>Content Pilot</h1>
+                <svg viewBox="0 0 56 56" fill="none"><rect width="56" height="56" rx="14" fill="#4b9ad9"/><path d="M16 20h8v4h-8zm0 6h12v4H16zm0 6h16v4H16zm20-12h4v16h-4z" fill="white" opacity="0.9"/><path d="M28 14l10 6v16l-10 6-10-6V20l10-6z" stroke="white" stroke-width="1.5" fill="none" opacity="0.3"/></svg>
+                <h1>REDAXO Remote</h1>
                 <p>REDAXO API Dashboard</p>
             </div>
             <div class="login-error" id="loginError"></div>
@@ -731,8 +733,8 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>
-                    <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="#e8453c"/><path d="M8 10h4v2H8zm0 3h6v2H8zm0 3h8v2H8zm10-6h2v8h-2z" fill="white" opacity="0.9"/></svg>
-                    Content Pilot
+                    <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="#4b9ad9"/><path d="M8 10h4v2H8zm0 3h6v2H8zm0 3h8v2H8zm10-6h2v8h-2z" fill="white" opacity="0.9"/></svg>
+                    REDAXO Remote
                 </h2>
                 <div class="instance-url" id="instanceUrl"></div>
             </div>
@@ -1027,7 +1029,7 @@
 
 <script>
 // ============================================================
-// REDAXO Content Pilot — Standalone API Dashboard
+// REDAXO Remote — Standalone API Dashboard
 // Nutzt die REDAXO API AddOn Endpoints
 // ============================================================
 
@@ -1508,12 +1510,24 @@ async function loadStructure() {
 }
 
 function renderTree(container, articles) {
-    // Build tree from flat list
-    const byParent = {};
+    // Ensure currentClang is set if possible
+    if (!STATE.currentClang && STATE.clangs.length > 0) {
+        STATE.currentClang = STATE.clangs[0].id;
+    }
+
+    // Deduplicate articles by ID + filter by clang
+    const uniqueMap = new Map();
     articles.forEach(a => {
         // Filter by current Clang if available
         if (STATE.currentClang && a.clang_id != STATE.currentClang) return;
+        
+        // Use String ID to ensure uniqueness despite type coercion
+        uniqueMap.set(String(a.id), a);
+    });
 
+    // Build tree
+    const byParent = {};
+    uniqueMap.forEach(a => {
         const pid = a.parent_id || 0;
         if (!byParent[pid]) byParent[pid] = [];
         byParent[pid].push(a);
