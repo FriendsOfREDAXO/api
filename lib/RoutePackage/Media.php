@@ -12,16 +12,15 @@ use rex_media_cache;
 use rex_media_category;
 use rex_media_service;
 use rex_mediapool;
-use rex_pager;
 use rex_path;
 use rex_sql;
 use rex_user;
 
+use function count;
 use function is_array;
+
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
-
-use function count;
 
 use const JSON_PRETTY_PRINT;
 
@@ -190,6 +189,11 @@ class Media extends RoutePackage
                 [
                     '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleAddMedia',
                     'Body' => [
+                        'file' => [
+                            'type' => 'file',
+                            'required' => true,
+                            'description' => 'Die hochzuladende Datei',
+                        ],
                         'category_id' => [
                             'type' => 'integer',
                             'required' => false,
@@ -220,6 +224,11 @@ class Media extends RoutePackage
                 [
                     '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleUpdateMedia',
                     'Body' => [
+                        'file' => [
+                            'type' => 'file',
+                            'required' => false,
+                            'description' => 'Neue Datei (gleiche Dateiendung wie Original)',
+                        ],
                         'category_id' => [
                             'type' => 'integer',
                             'required' => false,
@@ -359,21 +368,21 @@ class Media extends RoutePackage
             return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
         }
 
-        $Authorization = $Route['authorization'] ?? null;
-        /** @var rex_user $AuthorizationObject|null */
-        $AuthorizationObject = null;
-        if (null !== $Authorization->getAuthorizationObject()) {
-            $AuthorizationObject = $Authorization->getAuthorizationObject();
-        }
+        $user = RouteCollection::getBackendUser($Route);
 
         if (null !== $Query['filter']['category_id'] && 0 < $Query['filter']['category_id']) {
             $MediaCategory = null;
-            if ($AuthorizationObject) {
-                $perm = $AuthorizationObject->getComplexPerm('media');
-                if ($perm->hasCategoryPerm($Query['filter']['category_id'])) {
+            if (null !== $user) {
+                if ($user->isAdmin()) {
                     $MediaCategory = rex_media_category::get($Query['filter']['category_id']);
+                } else {
+                    $perm = $user->getComplexPerm('media');
+                    if ($perm->hasCategoryPerm($Query['filter']['category_id'])) {
+                        $MediaCategory = rex_media_category::get($Query['filter']['category_id']);
+                    }
                 }
             } else {
+                // Token-Auth: Scope berechtigt, kein Rechte-Filter
                 $MediaCategory = rex_media_category::get($Query['filter']['category_id']);
             }
 
@@ -383,12 +392,12 @@ class Media extends RoutePackage
             $CategoriesCollection = $MediaCategory->getChildren();
         } else {
             $CategoriesCollection = [];
-            if ($AuthorizationObject) {
-                $perm = $AuthorizationObject->getComplexPerm('media');
-                if ($perm->hasAll()) {
+            if (null !== $user) {
+                if ($user->isAdmin() || $user->getComplexPerm('media')->hasAll()) {
                     $CategoriesCollection = rex_media_category::getRootCategories();
                 }
             } else {
+                // Token-Auth: Scope berechtigt, kein Rechte-Filter
                 $CategoriesCollection = rex_media_category::getRootCategories();
             }
         }
@@ -686,14 +695,13 @@ class Media extends RoutePackage
     /** @api */
     public static function handleAddMedia($Parameter, array $Route = []): Response
     {
-        $request = rex::getRequest();
-
         if (!isset($_FILES['file']) || UPLOAD_ERR_OK !== $_FILES['file']['error']) {
             return new Response(json_encode(['error' => 'No file uploaded or upload error']), 400);
         }
 
+        $request = rex::getRequest();
         $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0);
-        $title = $request->request->get('title') ?? $request->query->get('title') ?? '';
+        $title = (string) ($request->request->get('title') ?? $request->query->get('title') ?? '');
 
         $user = RouteCollection::getBackendUser($Route);
         $permResponse = self::checkMediaPerm($user, $categoryId);
@@ -706,15 +714,15 @@ class Media extends RoutePackage
         }
 
         try {
-            $result = rex_mediapool_saveMedia(
-                $_FILES['file'],
-                $categoryId,
-                [
-                    'title' => $title,
+            $result = rex_media_service::addMedia([
+                'category_id' => $categoryId,
+                'title' => $title,
+                'file' => [
+                    'name' => $_FILES['file']['name'],
+                    'tmp_name' => $_FILES['file']['tmp_name'],
+                    'error' => $_FILES['file']['error'],
                 ],
-                'API',
-                true,
-            );
+            ], true);
 
             if ($result['ok']) {
                 return new Response(json_encode([
@@ -744,47 +752,148 @@ class Media extends RoutePackage
             return $permResponse;
         }
 
-        $Data = json_decode(rex::getRequest()->getContent(), true);
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
 
-        if (!is_array($Data)) {
-            $Data = [];
-        }
+        $serviceData = [
+            'title' => $Media->getTitle(),
+            'category_id' => $Media->getCategoryId(),
+        ];
 
-        try {
-            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
-        } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
-        }
+        if (str_contains($contentType, 'multipart/form-data')) {
+            // Multipart-Request: Datei + Metadaten (PUT/PATCH füllt $_FILES nicht)
+            $parsed = self::parseMultipartInput();
 
-        try {
-            $sql = rex_sql::factory();
-            $sql->setTable(rex::getTable('media'));
-            $sql->setWhere(['filename' => $Parameter['filename']]);
+            if (isset($parsed['fields']['category_id'])) {
+                $categoryId = (int) $parsed['fields']['category_id'];
+                if (0 !== $categoryId && !rex_media_category::get($categoryId)) {
+                    return new Response(json_encode(['error' => 'Category not found']), 404);
+                }
+                $serviceData['category_id'] = $categoryId;
+            }
+
+            if (isset($parsed['fields']['title'])) {
+                $serviceData['title'] = $parsed['fields']['title'];
+            }
+
+            if (isset($parsed['files']['file'])) {
+                $serviceData['file'] = $parsed['files']['file'];
+            }
+        } else {
+            // JSON-Request: nur Metadaten
+            $Data = json_decode(rex::getRequest()->getContent(), true);
+
+            if (!is_array($Data)) {
+                $Data = [];
+            }
+
+            try {
+                $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
+            } catch (Exception $e) {
+                return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            }
 
             if (null !== $Data['category_id']) {
                 if (0 !== $Data['category_id'] && !rex_media_category::get($Data['category_id'])) {
                     return new Response(json_encode(['error' => 'Category not found']), 404);
                 }
-                $sql->setValue('category_id', $Data['category_id']);
+                $serviceData['category_id'] = $Data['category_id'];
             }
 
             if (null !== $Data['title']) {
-                $sql->setValue('title', $Data['title']);
+                $serviceData['title'] = $Data['title'];
+            }
+        }
+
+        try {
+            $result = rex_media_service::updateMedia($Parameter['filename'], $serviceData);
+
+            if ($result['ok']) {
+                return new Response(json_encode([
+                    'message' => 'Media updated',
+                    'filename' => $Parameter['filename'],
+                ]), 200);
             }
 
-            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
-            $sql->setValue('updateuser', 'API');
-            $sql->update();
-
-            rex_media_cache::delete($Parameter['filename']);
-
-            return new Response(json_encode([
-                'message' => 'Media updated',
-                'filename' => $Parameter['filename'],
-            ]), 200);
+            return new Response(json_encode(['error' => $result['msg'] ?? 'Unknown error']), 400);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        } finally {
+            // Temp-Datei aufräumen
+            if (isset($serviceData['file']['tmp_name']) && file_exists($serviceData['file']['tmp_name'])) {
+                @unlink($serviceData['file']['tmp_name']);
+            }
         }
+    }
+
+    /**
+     * Parst multipart/form-data aus php://input für PUT/PATCH-Requests.
+     * PHP füllt $_FILES nur bei POST automatisch.
+     *
+     * @return array{fields: array<string, string>, files: array<string, array{name: string, tmp_name: string, type: string, size: int, error: int}>}
+     */
+    private static function parseMultipartInput(): array
+    {
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+
+        if (!preg_match('/boundary=(?:"([^"]+)"|(.+))$/i', $contentType, $matches)) {
+            return ['fields' => [], 'files' => []];
+        }
+
+        $boundary = $matches[1] ?: $matches[2];
+        $rawData = file_get_contents('php://input');
+
+        if (false === $rawData || '' === $rawData) {
+            return ['fields' => [], 'files' => []];
+        }
+
+        $fields = [];
+        $files = [];
+
+        $parts = preg_split('/-+' . preg_quote($boundary, '/') . '/', $rawData);
+
+        foreach ($parts as $part) {
+            $part = ltrim($part, "\r\n");
+
+            if ('' === $part || '--' === trim($part)) {
+                continue;
+            }
+
+            $separator = strpos($part, "\r\n\r\n");
+            if (false === $separator) {
+                continue;
+            }
+
+            $headers = substr($part, 0, $separator);
+            $body = substr($part, $separator + 4);
+            $body = rtrim($body, "\r\n");
+
+            if (!preg_match('/name="([^"]+)"/', $headers, $nameMatch)) {
+                continue;
+            }
+            $fieldName = $nameMatch[1];
+
+            if (preg_match('/filename="([^"]*)"/', $headers, $filenameMatch)) {
+                // Datei-Feld
+                $tmpFile = tempnam(sys_get_temp_dir(), 'rex_api_upload_');
+                file_put_contents($tmpFile, $body);
+
+                preg_match('/Content-Type:\s*(.+)/i', $headers, $typeMatch);
+                $mimeType = isset($typeMatch[1]) ? trim($typeMatch[1]) : 'application/octet-stream';
+
+                $files[$fieldName] = [
+                    'name' => $filenameMatch[1],
+                    'tmp_name' => $tmpFile,
+                    'type' => $mimeType,
+                    'size' => strlen($body),
+                    'error' => UPLOAD_ERR_OK,
+                ];
+            } else {
+                // Normales Feld
+                $fields[$fieldName] = $body;
+            }
+        }
+
+        return ['fields' => $fields, 'files' => $files];
     }
 
     /** @api */

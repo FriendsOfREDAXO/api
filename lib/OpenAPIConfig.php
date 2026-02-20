@@ -122,14 +122,24 @@ class OpenAPIConfig
             }
 
             // in Body
+            $hasFileField = false;
             foreach ($Route->getDefault('Body') ?? [] as $Key => $Parameter) {
-                $RequestBodyProperties[$Key] = [
-                    'type' => $Parameter['type'],
-                    'description' => $Parameter['description'] ?? '',
-                    'required' => $Parameter['required'] ?? false,
-                ];
+                if ('file' === ($Parameter['type'] ?? '')) {
+                    $hasFileField = true;
+                    $RequestBodyProperties[$Key] = [
+                        'type' => 'string',
+                        'format' => 'binary',
+                        'description' => $Parameter['description'] ?? '',
+                    ];
+                } else {
+                    $RequestBodyProperties[$Key] = [
+                        'type' => $Parameter['type'],
+                        'description' => $Parameter['description'] ?? '',
+                        'required' => $Parameter['required'] ?? false,
+                    ];
+                }
                 if ($Parameter['required'] ?? false) {
-                    $RequestBodyRequired[] = '- ' . $Key;
+                    $RequestBodyRequired[] = $Key;
                 }
             }
 
@@ -170,10 +180,11 @@ class OpenAPIConfig
             }
 
             if (0 < count($RequestBodyProperties)) {
+                $contentType = $hasFileField ? 'multipart/form-data' : 'application/json';
                 $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['requestBody'] = [
                     'required' => true,
                     'content' => [
-                        'application/json' => [
+                        $contentType => [
                             'schema' => [
                                 'type' => 'object',
                                 'properties' => $RequestBodyProperties,
