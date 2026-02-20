@@ -506,13 +506,16 @@ class Media extends RoutePackage
         $SqlQueryWhere = [];
         $SqlParameters = [];
 
-        if (null !== $Query['filter']['category_id'] && 0 < $Query['filter']['category_id']) {
-            $MediaCategory = rex_media_category::get($Query['filter']['category_id']);
-            if (!$MediaCategory) {
-                return new Response(json_encode(['error' => 'Category not found']), 404);
+        if (null !== $Query['filter']['category_id']) {
+            $categoryId = (int) $Query['filter']['category_id'];
+            if ($categoryId > 0) {
+                $MediaCategory = rex_media_category::get($categoryId);
+                if (!$MediaCategory) {
+                    return new Response(json_encode(['error' => 'Category not found']), 404);
+                }
             }
             $SqlQueryWhere[':category_id'] = 'category_id = :category_id';
-            $SqlParameters[':category_id'] = $Query['filter']['category_id'];
+            $SqlParameters[':category_id'] = $categoryId;
         }
 
         if (null !== $Query['filter']['title'] && '' != $Query['filter']['title']) {
