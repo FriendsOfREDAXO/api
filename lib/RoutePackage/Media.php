@@ -635,6 +635,12 @@ class Media extends RoutePackage
             return $permResponse;
         }
 
+        try {
+            $isInUse = false !== rex_mediapool::mediaIsInUse($Parameter['filename']);
+        } catch (\Throwable $e) {
+            $isInUse = false;
+        }
+
         $Return = [
             'id' => $Media->getId(),
             'category_id' => $Media->getCategoryId(),
@@ -649,7 +655,7 @@ class Media extends RoutePackage
             'createuser' => $Media->getCreateUser(),
             'updatedate' => $Media->getUpdateDate(),
             'updateuser' => $Media->getUpdateUser(),
-            'is_in_use' => (false !== rex_mediapool::mediaIsInUse($Parameter['filename']) ? true : false),
+            'is_in_use' => $isInUse,
             'is_image' => $Media->isImage(),
             'file_exists' => $Media->fileExists(),
         ];
