@@ -123,7 +123,7 @@ class Structure extends RoutePackage
         RouteCollection::registerRoute(
             'structure/articles/add',
             new Route(
-                'structure/articles/',
+                'structure/articles',
                 [
                     '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleAddArticle',
                     'Body' => [
@@ -167,7 +167,7 @@ class Structure extends RoutePackage
         RouteCollection::registerRoute(
             'structure/categories/add',
             new Route(
-                'structure/categories/',
+                'structure/categories',
                 [
                     '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleAddCategory',
                     'Body' => [
@@ -538,19 +538,16 @@ class Structure extends RoutePackage
             $SqlParameters[':parent_id'] = $Query['filter']['parent_id'];
         }
 
-        if (null !== $Query['filter']['name']) {
-            $SqlQueryWhere[':name'] = 'id LIKE :name';
-            $SqlParameters[':name'] = '%' . $Query['filter']['id'] . '%';
+        if (null !== $Query['filter']['name'] && '' !== $Query['filter']['name']) {
+            $SqlQueryWhere[':name'] = 'name LIKE :name';
+            $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
         }
 
         $ArticeFields = ['id', 'pid', 'name', 'catname', 'catpriority', 'clang_id', 'parent_id', 'priority', 'startarticle', 'status', 'template_id', 'createdate', 'createuser', 'updatedate', 'updateuser', 'revision'];
 
-        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
-        $page = (1 > $Query['page']) ? 1 : $Query['page'];
+        $per_page = (1 > $Query['per_page']) ? 10 : (int) $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : (int) $Query['page'];
         $start = ($page - 1) * $per_page;
-
-        $SqlParameters[':per_page'] = $per_page;
-        $SqlParameters[':start'] = $start;
 
         $ArticlesSQL = rex_sql::factory();
         $Articles = $ArticlesSQL->getArray(
@@ -561,7 +558,7 @@ class Structure extends RoutePackage
                 ' . rex::getTablePrefix() . 'article
             ' . (count($SqlQueryWhere) ? 'where ' . implode(' and ', $SqlQueryWhere) : '') . '
 
-            LIMIT :start, :per_page
+            LIMIT ' . $start . ', ' . $per_page . '
                 ',
             $SqlParameters,
         );

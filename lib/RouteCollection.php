@@ -5,13 +5,17 @@ namespace FriendsOfRedaxo\Api;
 use Exception;
 use FriendsOfRedaxo\Api\Auth as ApiAuth;
 use rex;
+use rex_logger;
 use rex_response;
 use rex_type;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
+use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\Route;
+use Throwable;
 
 use function count;
 use function is_array;
@@ -118,23 +122,45 @@ class RouteCollection
             $context->fromRequest(rex::getRequest());
             $matcher = new UrlMatcher($routes, $context);
 
-            $parameters = $matcher->match(rex::getRequest()->getPathInfo());
+            try {
+                $parameters = $matcher->match(rex::getRequest()->getPathInfo());
+            } catch (ResourceNotFoundException $e) {
+                $Response = new Response(json_encode(['error' => 'Route not found']), 404);
+                $parameters = null;
+            } catch (MethodNotAllowedException $e) {
+                $Response = new Response(json_encode([
+                    'error' => 'Method not allowed',
+                    'allowed' => $e->getAllowedMethods(),
+                ]), 405);
+                $parameters = null;
+            }
 
-            if (!isset($parameters['_controller'])) {
-                $Response = new Response(json_encode(['error' => 'Controller Not found']), 404);
-            } else {
-                $controller = $parameters['_controller'];
-                $AuthObject = $RegisterdRoutes[$parameters['_route']]['authorization'] ?? null;
-
-                // if no AuthObject is set, we assume that the route is public
-                if ($AuthObject && !$AuthObject->isAuthorized($parameters)) {
-                    $Response = new Response(json_encode(['error' => 'Authorization failed']), 401);
+            if (null !== $parameters) {
+                if (!isset($parameters['_controller'])) {
+                    $Response = new Response(json_encode(['error' => 'Controller not found']), 404);
                 } else {
-                    $Response = $controller($parameters, $RegisterdRoutes[$parameters['_route']]);
+                    $controller = $parameters['_controller'];
+                    $AuthObject = $RegisterdRoutes[$parameters['_route']]['authorization'] ?? null;
+
+                    // if no AuthObject is set, we assume that the route is public
+                    if ($AuthObject && !$AuthObject->isAuthorized($parameters)) {
+                        $Response = new Response(json_encode(['error' => 'Authorization failed']), 401);
+                    } else {
+                        try {
+                            $Response = $controller($parameters, $RegisterdRoutes[$parameters['_route']]);
+                        } catch (Throwable $e) {
+                            rex_logger::logException($e);
+                            $Response = new Response(json_encode([
+                                'error' => 'Internal server error',
+                                'message' => $e->getMessage(),
+                            ]), 500);
+                        }
+                    }
                 }
             }
-        } catch (Exception $e) {
-            $Response = new Response(json_encode(['error' => 'Route with method not found or no access']), 401);
+        } catch (Throwable $e) {
+            rex_logger::logException($e);
+            $Response = new Response(json_encode(['error' => 'Internal server error']), 500);
         }
 
         rex_response::setStatus($Response->getStatusCode());
