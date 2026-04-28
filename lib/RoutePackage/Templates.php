@@ -340,7 +340,7 @@ class Templates extends RoutePackage
 
         $TemplateSQL = rex_sql::factory();
         $TemplateData = $TemplateSQL->getArray(
-            'SELECT ' . implode(',', self::TemplateFields) . ' FROM ' . rex::getTable('template') . 'template WHERE id = :id',
+            'SELECT ' . implode(',', self::TemplateFields) . ' FROM ' . rex::getTable('template') . ' WHERE id = :id',
             [':id' => $templateId],
         );
 
