@@ -288,26 +288,91 @@ class StructureApiTest extends ApiTestCase
     {
         $articleId = self::$config['test_data']['existing_article_id'];
         $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
 
-        // Erst Slices des Artikels abrufen
-        $listResponse = $this->get('structure/articles/' . $articleId . '/slices', [
+        // Create a fresh slice we own, then update it.
+        $createResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
             'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'pre-update value',
         ]);
+        $this->assertStatus(201, $createResponse);
+        $sliceId = (int) $createResponse['data']['slice_id'];
 
-        $this->assertSuccess($listResponse);
+        try {
+            $newValue = 'Updated via API Test ' . uniqid();
+            $updateResponse = $this->patch('structure/articles/' . $articleId . '/slices/' . $sliceId, [
+                'value1' => $newValue,
+            ]);
 
-        if (empty($listResponse['data']['data'])) {
-            $this->markTestSkipped('Keine Slices im Test-Artikel vorhanden.');
+            $this->assertSuccess($updateResponse);
+            $this->assertHasField($updateResponse, 'message');
+            $this->assertSame($sliceId, (int) $updateResponse['data']['slice_id']);
+
+            // Verify the new value persisted
+            $getResponse = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSame($newValue, $getResponse['data']['value1']);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
         }
+    }
 
-        $sliceId = $listResponse['data']['data'][0]['id'];
+    public function testUpdateArticleSliceWithNoContentFields(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
 
-        // Slice updaten
-        $updateResponse = $this->put('structure/articles/' . $articleId . '/slices/' . $sliceId, [
-            'value1' => 'Updated via API Test ' . uniqid(),
+        $createResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'placeholder',
         ]);
+        $this->assertStatus(201, $createResponse);
+        $sliceId = (int) $createResponse['data']['slice_id'];
 
-        $this->assertSuccess($updateResponse);
-        $this->assertHasField($updateResponse, 'message');
+        try {
+            $response = $this->patch('structure/articles/' . $articleId . '/slices/' . $sliceId, []);
+            $this->assertStatus(400, $response);
+            $this->assertError($response);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testDeleteArticleSlice(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+
+        $createResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'to-be-deleted',
+        ]);
+        $this->assertStatus(201, $createResponse);
+        $sliceId = (int) $createResponse['data']['slice_id'];
+
+        $deleteResponse = $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        $this->assertSuccess($deleteResponse);
+        $this->assertHasField($deleteResponse, 'message');
+        $this->assertSame($sliceId, (int) $deleteResponse['data']['slice_id']);
+
+        // Verify the slice is gone
+        $getResponse = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        $this->assertStatus(404, $getResponse);
+    }
+
+    public function testDeleteArticleSliceNotFound(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $response = $this->delete('structure/articles/' . $articleId . '/slices/999999');
+
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
     }
 }

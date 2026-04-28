@@ -9,6 +9,7 @@ use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
 use rex_article;
+use rex_article_cache;
 use rex_article_service;
 use rex_category;
 use rex_category_service;
@@ -16,7 +17,9 @@ use rex_clang;
 use rex_content_service;
 use rex_extension;
 use rex_extension_point;
+use rex_extension_point_art_content_updated;
 use rex_sql;
+use rex_sql_util;
 use rex_template;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
@@ -503,6 +506,27 @@ class Structure extends RoutePackage
                 [],
                 ['PUT', 'PATCH']),
             'Update a slice of an article',
+            null,
+            new BearerAuth()
+        );
+
+        // Slice eines Artikel löschen ✅
+        RouteCollection::registerRoute(
+            'structure/articles/slices/delete',
+            new Route(
+                'structure/articles/{id}/slices/{slice_id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleDeleteArticleSlice',
+                ],
+                [
+                    'id' => '\d+',
+                    'slice_id' => '\d+',
+                ],
+                [],
+                '',
+                [],
+                ['DELETE']),
+            'Delete a slice of an article',
             null,
             new BearerAuth()
         );
@@ -1192,7 +1216,16 @@ class Structure extends RoutePackage
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        $Article = rex_article::get($Parameter['id']);
+        $sliceId = (int) $Parameter['slice_id'];
+        $articleId = (int) $Parameter['id'];
+
+        $Slice = self::loadSliceForArticle($sliceId, $articleId);
+        if (null === $Slice) {
+            return new Response(json_encode(['error' => 'Slice not found']), 404);
+        }
+
+        $clangId = (int) $Slice['clang_id'];
+        $Article = rex_article::get($articleId, $clangId);
         if (!$Article) {
             return new Response(json_encode(['error' => 'Article not found']), 404);
         }
@@ -1202,19 +1235,9 @@ class Structure extends RoutePackage
         if (null !== $permResponse) {
             return $permResponse;
         }
-
-        $SliceSQL = rex_sql::factory();
-        $SliceData = $SliceSQL->getArray(
-            'SELECT * FROM ' . rex::getTable('article_slice') . ' WHERE id = :slice_id AND article_id = :article_id',
-            [':slice_id' => $Parameter['slice_id'], ':article_id' => $Parameter['id']],
-        );
-
-        if (empty($SliceData)) {
-            return new Response(json_encode(['error' => 'Slice not found']), 404);
+        if (null !== $user && !$user->getComplexPerm('modules')->hasPerm((int) $Slice['module_id'])) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
         }
-
-        $Slice = $SliceData[0];
-        $clangId = $Data['clang_id'] ?? $Slice['clang_id'];
 
         $UpdateData = [];
         for ($i = 1; $i <= 19; ++$i) {
@@ -1237,19 +1260,213 @@ class Structure extends RoutePackage
             }
         }
 
+        if (0 === count($UpdateData)) {
+            return new Response(json_encode(['error' => 'No content fields provided']), 400);
+        }
+
+        $ctype = (int) $Slice['ctype_id'];
+        $moduleId = (int) $Slice['module_id'];
+        $sliceRevision = (int) $Slice['revision'];
+        $articleRevision = 0;
+        $categoryId = $Article->getCategoryId();
+
         try {
-            rex_content_service::editSlice(
-                $Parameter['slice_id'],
-                $clangId,
-                $UpdateData,
-            );
+            // The PRE EPs (SLICE_UPDATE / SLICE_DELETE) are intentionally not fired here.
+            // Their primary consumer is the structure/history plugin which calls
+            // rex::requireUser()->getValue('login') to record history_user — that fails in
+            // token-auth API context where no rex_user is set. Same convention as the existing
+            // addSlice handler, which uses rex_content_service::addSlice() and fires SLICE_ADDED
+            // (POST) only, never SLICE_ADD (PRE). All POST EPs below are fired exactly like the
+            // backend content.php page does.
+            self::fireSliceUpdatePreEpIfUserAvailable($sliceId, $articleId, $clangId, $sliceRevision);
+
+            $sql = rex_sql::factory();
+            $sql->setTable(rex::getTable('article_slice'));
+            $sql->setWhere(['id' => $sliceId]);
+            foreach ($UpdateData as $key => $value) {
+                $sql->setValue($key, $value);
+            }
+            $sql->addGlobalUpdateFields('API');
+            $sql->update();
+
+            $info = '';
+            $epParams = [
+                'article_id' => $articleId,
+                'clang' => $clangId,
+                'function' => 'edit',
+                'slice_id' => $sliceId,
+                'page' => '',
+                'ctype' => $ctype,
+                'category_id' => $categoryId,
+                'module_id' => $moduleId,
+                'article_revision' => &$articleRevision,
+                'slice_revision' => &$sliceRevision,
+            ];
+
+            // ----- POST EPs (mirror content.php:226-228)
+            $info = rex_extension::registerPoint(new rex_extension_point('SLICE_UPDATED', $info, $epParams));
+            /* deprecated */ $info = rex_extension::registerPoint(new rex_extension_point('STRUCTURE_CONTENT_SLICE_UPDATED', $info, $epParams));
+            $info = rex_extension::registerPoint(new rex_extension_point_art_content_updated($Article, 'slice_updated', $info));
+
+            // Article timestamp + cache (content.php:298-308)
+            self::stampArticleAndInvalidate($articleId, $clangId);
 
             return new Response(json_encode([
                 'message' => 'Slice updated',
-                'slice_id' => $Parameter['slice_id'],
+                'slice_id' => $sliceId,
             ]), 200);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
+    }
+
+    /** @api */
+    public static function handleDeleteArticleSlice($Parameter, array $Route = []): Response
+    {
+        $sliceId = (int) $Parameter['slice_id'];
+        $articleId = (int) $Parameter['id'];
+
+        $Slice = self::loadSliceForArticle($sliceId, $articleId);
+        if (null === $Slice) {
+            return new Response(json_encode(['error' => 'Slice not found']), 404);
+        }
+
+        $clangId = (int) $Slice['clang_id'];
+        $Article = rex_article::get($articleId, $clangId);
+        if (!$Article) {
+            return new Response(json_encode(['error' => 'Article not found']), 404);
+        }
+
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+        if (null !== $user && !$user->getComplexPerm('modules')->hasPerm((int) $Slice['module_id'])) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+
+        $ctype = (int) $Slice['ctype_id'];
+        $moduleId = (int) $Slice['module_id'];
+        $sliceRevision = (int) $Slice['revision'];
+        $articleRevision = 0;
+        $categoryId = $Article->getCategoryId();
+
+        try {
+            // SLICE_DELETE PRE-EP is fired only when a backend user is available — see comment
+            // on the update handler. We bypass rex_content_service::deleteSlice() (which would
+            // unconditionally fire SLICE_DELETE) and replicate its body inline.
+            self::fireSliceDeletePreEpIfUserAvailable($sliceId, $articleId, $clangId, $sliceRevision);
+
+            $del = rex_sql::factory();
+            $del->setQuery('DELETE FROM ' . rex::getTable('article_slice') . ' WHERE id = ?', [$sliceId]);
+
+            rex_sql_util::organizePriorities(
+                rex::getTable('article_slice'),
+                'priority',
+                'article_id=' . $articleId . ' AND clang_id=' . $clangId . ' AND ctype_id=' . $ctype . ' AND revision=' . $sliceRevision,
+                'priority',
+            );
+
+            $info = '';
+            $epParams = [
+                'article_id' => $articleId,
+                'clang' => $clangId,
+                'function' => 'delete',
+                'slice_id' => $sliceId,
+                'page' => '',
+                'ctype' => $ctype,
+                'category_id' => $categoryId,
+                'module_id' => $moduleId,
+                'article_revision' => &$articleRevision,
+                'slice_revision' => &$sliceRevision,
+            ];
+
+            // ----- POST EPs (mirror content.php:288-290)
+            $info = rex_extension::registerPoint(new rex_extension_point('SLICE_DELETED', $info, $epParams));
+            /* deprecated */ $info = rex_extension::registerPoint(new rex_extension_point('STRUCTURE_CONTENT_SLICE_DELETED', $info, $epParams));
+            $info = rex_extension::registerPoint(new rex_extension_point_art_content_updated($Article, 'slice_deleted', $info));
+
+            // Article timestamp + cache (content.php:298-308)
+            self::stampArticleAndInvalidate($articleId, $clangId);
+
+            return new Response(json_encode([
+                'message' => 'Slice deleted',
+                'slice_id' => $sliceId,
+            ]), 200);
+        } catch (Exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+        }
+    }
+
+    /**
+     * Load a slice by id and verify it belongs to the given article. Returns null when not found.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function loadSliceForArticle(int $sliceId, int $articleId): ?array
+    {
+        $rows = rex_sql::factory()->getArray(
+            'SELECT * FROM ' . rex::getTable('article_slice') . ' WHERE id = :slice_id AND article_id = :article_id LIMIT 1',
+            [':slice_id' => $sliceId, ':article_id' => $articleId],
+        );
+        return $rows[0] ?? null;
+    }
+
+    /**
+     * Fires SLICE_UPDATE (PRE) only when a backend user is set. The structure/history plugin
+     * listens to this EP and unconditionally calls rex::requireUser()->getValue('login') for
+     * its history_user column — so firing it without a user throws "User object does not exist".
+     * Skipping is the same convention rex_content_service::addSlice() uses (it also avoids the
+     * SLICE_ADD PRE EP and only fires SLICE_ADDED).
+     */
+    private static function fireSliceUpdatePreEpIfUserAvailable(int $sliceId, int $articleId, int $clangId, int $sliceRevision): void
+    {
+        if (null === rex::getUser()) {
+            return;
+        }
+        rex_extension::registerPoint(new rex_extension_point('SLICE_UPDATE', '', [
+            'slice_id' => $sliceId,
+            'article_id' => $articleId,
+            'clang_id' => $clangId,
+            'slice_revision' => $sliceRevision,
+        ]));
+    }
+
+    /**
+     * Fires SLICE_DELETE (PRE) only when a backend user is set — same reasoning as
+     * fireSliceUpdatePreEpIfUserAvailable().
+     */
+    private static function fireSliceDeletePreEpIfUserAvailable(int $sliceId, int $articleId, int $clangId, int $sliceRevision): void
+    {
+        if (null === rex::getUser()) {
+            return;
+        }
+        rex_extension::registerPoint(new rex_extension_point('SLICE_DELETE', '', [
+            'slice_id' => $sliceId,
+            'article_id' => $articleId,
+            'clang_id' => $clangId,
+            'slice_revision' => $sliceRevision,
+        ]));
+    }
+
+    /**
+     * Touches rex_article (updatedate/updateuser), invalidates the article cache, and fires
+     * STRUCTURE_CONTENT_ARTICLE_UPDATED — mirrors backend content.php:298-308 after slice mutations.
+     */
+    private static function stampArticleAndInvalidate(int $articleId, int $clangId): void
+    {
+        $sql = rex_sql::factory();
+        $sql->setTable(rex::getTable('article'));
+        $sql->setWhere(['id' => $articleId, 'clang_id' => $clangId]);
+        $sql->addGlobalUpdateFields('API');
+        $sql->update();
+
+        rex_article_cache::delete($articleId, $clangId);
+
+        rex_extension::registerPoint(new rex_extension_point('STRUCTURE_CONTENT_ARTICLE_UPDATED', '', [
+            'id' => $articleId,
+            'clang' => $clangId,
+        ]));
     }
 }
