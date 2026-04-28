@@ -94,7 +94,6 @@ class BackendApiTest extends TestCase
         ]);
 
         $html = curl_exec($ch);
-        curl_close($ch);
 
         if (false === $html) {
             return '';
@@ -128,7 +127,6 @@ class BackendApiTest extends TestCase
 
         curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         if ($httpCode >= 400) {
             @unlink($cookieJar);
@@ -146,9 +144,8 @@ class BackendApiTest extends TestCase
             CURLOPT_TIMEOUT => 30,
         ]);
 
-        $response = curl_exec($ch);
+        curl_exec($ch);
         $verifyCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         // If we get 401, login failed
         if (401 === $verifyCode) {
@@ -191,7 +188,6 @@ class BackendApiTest extends TestCase
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
-        curl_close($ch);
 
         if (false === $response) {
             return ['success' => false, 'status' => 0, 'error' => $error, 'data' => null];
@@ -488,7 +484,7 @@ class BackendApiTest extends TestCase
     public function testAdminCanCreateAndDeleteArticle(): void
     {
         $name = 'BACKEND_TEST_' . uniqid();
-        $response = $this->adminPost('structure/articles/', [
+        $response = $this->adminPost('structure/articles', [
             'name' => $name,
             'category_id' => 0,
             'priority' => 1,
@@ -551,9 +547,8 @@ class BackendApiTest extends TestCase
             CURLOPT_TIMEOUT => 30,
         ]);
 
-        $response = curl_exec($ch);
+        curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
 
         $this->assertSame(401, $httpCode, 'Unauthenticated request should return 401');
     }

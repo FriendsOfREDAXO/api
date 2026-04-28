@@ -144,8 +144,8 @@ class MetainfoApiTest extends ApiTestCase
     public function testArticleValuesRoundtrip(): void
     {
         $name = 'art_test_value_' . uniqid();
-        $articleId = self::$config['test_data']['existing_article_id'];
         $clangId = self::$config['test_data']['existing_clang_id'];
+        $articleId = $this->findNonStartArticleId($clangId);
 
         $create = $this->post('metainfo/fields', [
             'name' => $name,
@@ -181,7 +181,7 @@ class MetainfoApiTest extends ApiTestCase
 
     public function testArticleValuesPatchRejectsUnknownField(): void
     {
-        $articleId = self::$config['test_data']['existing_article_id'];
+        $articleId = $this->findNonStartArticleId(self::$config['test_data']['existing_clang_id']);
 
         $response = $this->patch('structure/articles/' . $articleId . '/metainfo', [
             'art_definitely_not_a_real_field_' . uniqid() => 'x',
@@ -196,14 +196,14 @@ class MetainfoApiTest extends ApiTestCase
         $response = $this->get('metainfo/fields', ['filter[prefix]' => 'med_', 'per_page' => 1]);
         $this->assertSuccess($response);
 
-        // Find a media id (we need any existing media for this smoke test).
+        // Find any existing media for this smoke test. Media routes are keyed by filename.
         $mediaList = $this->get('media', ['per_page' => 1]);
         if (empty($mediaList['data']['data'])) {
             $this->markTestSkipped('Keine Media-Items in der DB für Smoke-Test vorhanden.');
         }
-        $mediaId = (int) $mediaList['data']['data'][0]['id'];
+        $filename = $mediaList['data']['data'][0]['filename'];
 
-        $values = $this->get('media/' . $mediaId . '/metainfo');
+        $values = $this->get('media/' . $filename . '/metainfo');
         $this->assertSuccess($values);
         $this->assertArrayHasKey('data', $values['data']);
     }
@@ -222,5 +222,26 @@ class MetainfoApiTest extends ApiTestCase
     {
         $response = $this->get('structure/articles/999999/metainfo');
         $this->assertStatus(404, $response);
+    }
+
+    /**
+     * The metainfo endpoint refuses start articles (their meta lives on the category).
+     * Find any non-start article via the list API for tests that need a real article id.
+     */
+    private function findNonStartArticleId(int $clangId): int
+    {
+        // The list endpoint has no startarticle filter, so we page through and pick
+        // the first non-start article ourselves.
+        $list = $this->get('structure/articles', [
+            'filter' => ['clang_id' => $clangId],
+            'per_page' => 100,
+        ]);
+        $this->assertSuccess($list);
+        foreach ($list['data']['data'] ?? [] as $article) {
+            if (0 === (int) ($article['startarticle'] ?? 0)) {
+                return (int) $article['id'];
+            }
+        }
+        $this->markTestSkipped('Keine Nicht-Start-Artikel in der DB vorhanden.');
     }
 }

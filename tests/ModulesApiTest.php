@@ -47,6 +47,7 @@ class ModulesApiTest extends ApiTestCase
 
         $response = $this->post('modules', [
             'name' => $name,
+            'key' => 'apitest_' . uniqid(),
             'input' => '<p>Test Input</p>',
             'output' => '<p>Test Output</p>',
         ]);
@@ -74,6 +75,7 @@ class ModulesApiTest extends ApiTestCase
         $name = $this->generateTestName('module');
         $createResponse = $this->post('modules', [
             'name' => $name,
+            'key' => 'apitest_' . uniqid(),
             'input' => '<p>Original Input</p>',
             'output' => '<p>Original Output</p>',
         ]);
@@ -98,6 +100,7 @@ class ModulesApiTest extends ApiTestCase
         $name = $this->generateTestName('module_delete');
         $createResponse = $this->post('modules', [
             'name' => $name,
+            'key' => 'apitest_' . uniqid(),
             'input' => '<p>Delete Test</p>',
             'output' => '<p>Delete Test</p>',
         ]);
