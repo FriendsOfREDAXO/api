@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -16,6 +17,8 @@ use rex_user_role_service;
 use rex_user_service;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
+use InvalidArgumentException;
 
 use function array_key_exists;
 use function count;
@@ -71,6 +74,21 @@ class Users extends RoutePackage
                             'type' => 'array',
                             'required' => false,
                             'default' => [],
+                        ],
+                        'page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'per_page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -142,6 +160,21 @@ class Users extends RoutePackage
                             'type' => 'array',
                             'required' => false,
                             'default' => [],
+                        ],
+                        'page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'per_page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -456,7 +489,20 @@ class Users extends RoutePackage
 
         $users = rex_user_service::getList($filter);
 
-        return new Response(json_encode($users, JSON_PRETTY_PRINT));
+        $allowedSortFields = ['id', 'name', 'login', 'email', 'status', 'admin', 'createdate', 'updatedate', 'lastlogin'];
+
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'name', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : $Query['page'];
+
+        $result = ListHelper::paginateArray($users, $sortDefs, $page, $per_page);
+
+        return new Response(json_encode($result, JSON_PRETTY_PRINT));
     }
 
     /** @api */
@@ -617,7 +663,20 @@ class Users extends RoutePackage
 
         $roles = rex_user_role_service::getList($filter);
 
-        return new Response(json_encode($roles, JSON_PRETTY_PRINT));
+        $allowedSortFields = ['id', 'name', 'description', 'createdate', 'updatedate'];
+
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'name', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : $Query['page'];
+
+        $result = ListHelper::paginateArray($roles, $sortDefs, $page, $per_page);
+
+        return new Response(json_encode($result, JSON_PRETTY_PRINT));
     }
 
     /** @api */

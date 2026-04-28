@@ -87,6 +87,58 @@ Andere APIs haben eine Backend-Authentifizierung, die dann über den Backend-Use
 
 Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet.
 
+### Response-Format für Listen-Endpunkte
+
+Alle Listen-Endpunkte liefern ein einheitliches Response-Format mit Daten und Meta-Informationen:
+
+```json
+{
+  "data": [
+    { "id": 1, "name": "..." },
+    { "id": 2, "name": "..." }
+  ],
+  "meta": {
+    "page": 1,
+    "per_page": 100,
+    "total": 42,
+    "total_pages": 1
+  }
+}
+```
+
+### Paginierung
+
+Alle Listen-Endpunkte unterstützen Paginierung über Query-Parameter:
+
+| Parameter  | Typ | Default | Beschreibung                |
+|-----------|-----|---------|----------------------------|
+| `page`     | int | 1       | Seitennummer (1-basiert)   |
+| `per_page` | int | 100     | Einträge pro Seite         |
+
+Beispiel: `GET /api/media?page=2&per_page=10`
+
+### Sortierung
+
+Alle Listen-Endpunkte unterstützen Sortierung über den `sort` Query-Parameter. Mehrere Sortierfelder können kommagetrennt angegeben werden:
+
+```
+?sort=field1:asc,field2:desc
+```
+
+| Richtung | Beschreibung |
+|---------|-------------|
+| `asc`   | Aufsteigend (Standard) |
+| `desc`  | Absteigend  |
+
+Beispiele:
+- `GET /api/media?sort=filesize:desc` - Medien nach Dateigröße absteigend
+- `GET /api/structure/articles?sort=name:asc,createdate:desc` - Artikel nach Name aufsteigend, dann nach Erstelldatum absteigend
+- `GET /api/system/clangs?sort=priority:asc` - Sprachen nach Priorität
+
+Bei ungültigem Sortierfeld wird ein `400 Bad Request` zurückgegeben.
+
+Jeder Endpunkt hat eine eigene Whitelist erlaubter Sortierfelder (siehe OpenAPI-Dokumentation).
+
 ## Was funktioniert vielleicht nicht, und müssen AddOn Entwickler beachten
 
 Das API AddON funktioniert aus dem Frontend-User-Kontext heraus. Das heisst, sollte es registrierte Methoden an bestimmten

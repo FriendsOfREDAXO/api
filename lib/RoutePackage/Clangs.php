@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -14,6 +15,8 @@ use rex_extension_point;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
+use InvalidArgumentException;
 
 use function count;
 use function is_array;
@@ -53,6 +56,21 @@ class Clangs extends RoutePackage
                             'type' => 'array',
                             'required' => false,
                             'default' => [],
+                        ],
+                        'page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'per_page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -258,9 +276,20 @@ class Clangs extends RoutePackage
             ];
         }
 
-        // Sort by priority (already done by rex_clang internally)
+        $allowedSortFields = ['id', 'code', 'name', 'priority', 'status'];
 
-        return new Response(json_encode($filteredClangs, JSON_PRETTY_PRINT));
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'priority', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : $Query['page'];
+
+        $result = ListHelper::paginateArray($filteredClangs, $sortDefs, $page, $per_page);
+
+        return new Response(json_encode($result, JSON_PRETTY_PRINT));
     }
 
     /** @api */
