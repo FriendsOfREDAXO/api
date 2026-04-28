@@ -455,6 +455,23 @@ class Users extends RoutePackage
         return null;
     }
 
+    /**
+     * Maps a service-layer rex_api_exception to an HTTP status. Service messages
+     * come from rex_i18n::msg() and may be German or English depending on the
+     * configured backend language — match both so the status is stable across locales.
+     */
+    private static function statusFromApiException(rex_api_exception $e, int $defaultCode): int
+    {
+        $msg = $e->getMessage();
+        if (str_contains($msg, 'not found') || str_contains($msg, 'nicht gefunden')) {
+            return 404;
+        }
+        if (str_contains($msg, 'exists') || str_contains($msg, 'existiert')) {
+            return 409;
+        }
+        return $defaultCode;
+    }
+
     /** @api */
     public static function handleUsersList($Parameter, array $Route = []): Response
     {
@@ -561,7 +578,7 @@ class Users extends RoutePackage
 
             return new Response(json_encode($result), 201);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'exists') ? 409 : 400;
+            $code = self::statusFromApiException($e, 400);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -612,7 +629,7 @@ class Users extends RoutePackage
             $result = rex_user_service::updateUser($userId, $updateData);
             return new Response(json_encode($result), 200);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'not found') ? 404 : 400;
+            $code = self::statusFromApiException($e, 400);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -634,7 +651,7 @@ class Users extends RoutePackage
             $result = rex_user_service::deleteUser($userId);
             return new Response(json_encode($result), 200);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'not found') ? 404 : 409;
+            $code = self::statusFromApiException($e, 409);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -728,7 +745,7 @@ class Users extends RoutePackage
 
             return new Response(json_encode($result), 201);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'exists') ? 409 : 400;
+            $code = self::statusFromApiException($e, 400);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -773,7 +790,7 @@ class Users extends RoutePackage
             $result = rex_user_role_service::updateRole($roleId, $updateData);
             return new Response(json_encode($result), 200);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'not found') ? 404 : 400;
+            $code = self::statusFromApiException($e, 400);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -795,7 +812,7 @@ class Users extends RoutePackage
             $result = rex_user_role_service::deleteRole($roleId);
             return new Response(json_encode($result), 200);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'not found') ? 404 : 409;
+            $code = self::statusFromApiException($e, 409);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
@@ -828,7 +845,7 @@ class Users extends RoutePackage
             $result = rex_user_role_service::duplicateRole($roleId, $newName);
             return new Response(json_encode($result), 201);
         } catch (rex_api_exception $e) {
-            $code = str_contains($e->getMessage(), 'not found') ? 404 : 400;
+            $code = self::statusFromApiException($e, 400);
             return new Response(json_encode(['error' => $e->getMessage()]), $code);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
