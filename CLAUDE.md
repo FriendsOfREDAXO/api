@@ -13,7 +13,7 @@ Dies ist das **API-AddOn** für REDAXO CMS. Es stellt eine REST-API-Schicht bere
 ## Entwicklungsbefehle
 
 ```bash
-# Alle Tests ausführen (erfordert laufende REDAXO-Instanz + konfigurierte tests/config.php)
+# Alle Tests ausführen (erfordert laufende REDAXO-Instanz + tests/.env)
 ./vendor/bin/phpunit
 
 # Einzelne Testdatei ausführen
@@ -23,7 +23,17 @@ Dies ist das **API-AddOn** für REDAXO CMS. Es stellt eine REST-API-Schicht bere
 pnpm install && pnpm build
 ```
 
-Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufende REDAXO-Installation senden. Vor dem Ausführen `tests/config.php` mit `base_url` und `api_token` konfigurieren.
+Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufende REDAXO-Installation senden. Setup:
+
+1. `cp tests/.env.example tests/.env` und Werte anpassen (Basis-URL, Bearer-Token, Backend-Credentials, existierende IDs).
+2. Bearer-Token im REDAXO-Backend unter `API → Token` anlegen und alle benötigten Scopes vergeben — die Test-Suite erwartet u.a. `structure/articles/slices/{list,add,get,update,delete}`, `system/clangs/*`, `modules/*`, `templates/*`, `users/*`, `media/*`, `metainfo/*`.
+3. Restricted-Backend-User mit eingeschränkten Permissions anlegen (Default-Login `apitest_restricted`):
+   ```bash
+   redaxo/bin/console user:create apitest_restricted <password> --name="API Test Restricted"
+   ```
+4. `tests/.env` ist gitignored — Geheimnisse bleiben lokal.
+
+`tests/bootstrap.php` parst `.env` ohne externe Dependency; `tests/config.php` liest die Werte über `getenv()` mit Fallbacks.
 
 ## Architektur
 
@@ -48,15 +58,17 @@ Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufe
 
 Jede Datei definiert Routen und Handler-Methoden für eine Ressourcengruppe:
 
-| Datei              | Endpunkte                                    | Scope-Prefix     |
-| ------------------ | -------------------------------------------- | ---------------- |
-| `Structure.php`    | Artikel, Kategorien, Slices CRUD             | `structure/`     |
-| `Media.php`        | Mediendateien und Medienkategorien CRUD       | `media/`         |
-| `Users.php`        | Benutzer und Rollen                          | `users/`         |
-| `Modules.php`      | Module CRUD                                  | `modules/`       |
-| `Templates.php`    | Templates CRUD                               | `templates/`     |
-| `Clangs.php`       | Sprachen CRUD                                | `system/clangs/` |
-| `Backend/Media.php`| Backend-authentifizierte Medien-Endpunkte    | `backend/media/` |
+| Datei              | Endpunkte                                              | Scope-Prefix     |
+| ------------------ | ------------------------------------------------------ | ---------------- |
+| `Structure.php`    | Artikel, Kategorien, Slices CRUD                       | `structure/`     |
+| `Media.php`        | Mediendateien und Medienkategorien CRUD                | `media/`         |
+| `Users.php`        | Benutzer und Rollen                                    | `users/`         |
+| `Modules.php`      | Module CRUD                                            | `modules/`       |
+| `Templates.php`    | Templates CRUD                                         | `templates/`     |
+| `Clangs.php`       | Sprachen CRUD                                          | `system/clangs/` |
+| `Metainfo.php`     | Metainfo-Felddefinitionen + Werte (Artikel/Kategorie/Medium/Sprache) | `metainfo/`      |
+
+Die `lib/RoutePackage/Backend/`-Klassen erweitern jeweils ihre Bearer-Variante, klonen alle passenden Routen, hängen `backend/` an Pfad und Scope und ersetzen das Auth-Objekt durch `BackendUser`. Beim Anlegen eines neuen Bearer-Endpunkts entsteht der Backend-Spiegel automatisch — eigene `Backend/*.php`-Implementierungen sind nur nötig, wenn das Standardverhalten überschrieben werden soll (Beispiel: `Backend/Media.php`).
 
 ### Neuen Endpunkt hinzufügen
 
@@ -92,19 +104,28 @@ RouteCollection::registerRoute(
 
 ### Handler-Muster
 
-- **GET-Liste**: Query-Parameter parsen via `RouteCollection::getQuerySet($_REQUEST, $Parameter['query'])`
-- **POST/PUT**: Body parsen via `json_decode(rex::getRequest()->getContent(), true)`, dann validieren mit `RouteCollection::getQuerySet($Data, $Parameter['Body'])`
+- **GET-Liste**: Query-Parameter parsen via `RouteCollection::getQuerySet($_REQUEST, $Parameter['query'])`. Listen einheitlich über `ListHelper::paginateArray()` aufbauen (Pagination + Sort + Meta-Block).
+- **POST/PUT/PATCH**: Body parsen via `json_decode(rex::getRequest()->getContent(), true)`, dann validieren mit `RouteCollection::getQuerySet($Data, $Parameter['Body'])`
 - **Erstellte IDs**: REDAXO Extension Points nutzen (z.B. `ART_ADDED`, `CLANG_ADDED`, `SLICE_ADDED`), um auto-generierte IDs abzufangen
+- **Permissions im Backend-Scope**: Nutzer via `RouteCollection::getBackendUser($Route)` holen; ist er `null`, wird per Bearer-Token aufgerufen und es greifen Token-Scopes statt User-Permissions. Andernfalls `rex_user::isAdmin()` / `getComplexPerm('structure'|'modules'|'media'|'clang')` prüfen und 403 zurückgeben, wenn die Berechtigung fehlt.
+- **PRE-Extension-Points & API-Kontext**: Manche Extension Points (z.B. `SLICE_UPDATE`, `SLICE_DELETE`) rufen `rex::requireUser()` auf — das schlägt im Bearer-Token-Kontext fehl. Im API-Kontext entweder den EP nur firen, wenn `rex::getUser() !== null`, oder die Service-Methode bewusst umgehen und nur den POST-EP firen (siehe `Structure::handleUpdateArticleSlice` / `handleDeleteArticleSlice`).
+- **Service-Exceptions**: `rex_api_exception` trägt eine i18n-übersetzte Message. Status-Code daher nicht über `str_contains($e->getMessage(), 'not found')` ermitteln (locale-abhängig), sondern über einen Helper, der EN- und DE-Marker prüft (siehe `Users::statusFromApiException`).
 - Rückgabe: `new Response(json_encode($data), $statusCode)`
 
 ### Service-Klassen
 
 - `rex_user_service` (`lib/service_user.php`) — Benutzer-CRUD-Operationen mit Passwort-Richtlinien und Admin-Schutz
 - `rex_user_role_service` (`lib/service_user_role.php`) — Benutzerrollen-Operationen
+- `ListHelper` (`lib/ListHelper.php`) — Einheitliche Pagination/Sort/Meta-Hülle für alle Listen-Endpunkte
 
 ### Tests
 
-Tests erweitern `ApiTestCase`, welche HTTP-Hilfsmethoden (`get()`, `post()`, `put()`, `patch()`, `delete()`, `postMultipart()`) und Assertions (`assertSuccess()`, `assertStatus()`, `assertError()`) bereitstellt. Mit `trackResource()` werden erstellte Ressourcen in `tearDown()` automatisch aufgeräumt.
+Es gibt zwei Test-Basisklassen für die zwei Auth-Scopes:
+
+- **`ApiTestCase`** — Bearer-Token-Tests. Stellt HTTP-Hilfsmethoden (`get()`, `post()`, `put()`, `patch()`, `delete()`, `postMultipart()`) und Assertions (`assertSuccess()`, `assertStatus()`, `assertError()`) bereit. Mit `trackResource()` werden erstellte Ressourcen in `tearDown()` automatisch aufgeräumt.
+- **`BackendApiTest`** — Session-Cookie-Tests. Loggt sich beim Setup einmal als Admin und einmal als Restricted-User ins Backend ein (CSRF-Token + POST auf `/redaxo/index.php`), persistiert die Cookie-Jars und stellt `adminGet/Post/Put/Delete` und `restrictedGet/Post/Put/Delete` bereit. Damit lassen sich Permission-Pfade beider User-Rollen am selben Endpoint verifizieren.
+
+Konfigurationswerte (Token, Backend-Credentials, existierende IDs) kommen aus `tests/.env` (gitignored, von `tests/bootstrap.php` geparsed). `tests/.env.example` zeigt die verfügbaren Keys.
 
 ### Datenbank
 
