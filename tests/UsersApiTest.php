@@ -16,7 +16,9 @@ class UsersApiTest extends ApiTestCase
         $response = $this->get('users');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
+        $this->assertArrayHasKey('total', $response['data']['meta']);
     }
 
     public function testGetUserListWithFilter(): void
@@ -26,10 +28,10 @@ class UsersApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
 
         // Alle Ergebnisse sollten status = 1 haben
-        foreach ($response['data'] as $user) {
+        foreach ($response['data']['data'] as $user) {
             $this->assertEquals(1, $user['status']);
         }
     }
@@ -41,10 +43,10 @@ class UsersApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
 
         // Alle Ergebnisse sollten Admins sein
-        foreach ($response['data'] as $user) {
+        foreach ($response['data']['data'] as $user) {
             $this->assertEquals(1, $user['admin']);
         }
     }
@@ -56,11 +58,11 @@ class UsersApiTest extends ApiTestCase
         // Erst Liste abrufen
         $listResponse = $this->get('users');
 
-        if (empty($listResponse['data'])) {
+        if (empty($listResponse['data']['data'])) {
             $this->markTestSkipped('Keine User in der Datenbank vorhanden.');
         }
 
-        $userId = $listResponse['data'][0]['id'];
+        $userId = $listResponse['data']['data'][0]['id'];
         $response = $this->get('users/' . $userId);
 
         $this->assertSuccess($response);
@@ -198,7 +200,8 @@ class UsersApiTest extends ApiTestCase
         $response = $this->get('users/roles');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testGetRolesListWithFilter(): void
@@ -208,7 +211,7 @@ class UsersApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
     }
 
     public function testGetRole(): void

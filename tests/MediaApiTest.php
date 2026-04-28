@@ -49,7 +49,9 @@ class MediaApiTest extends ApiTestCase
         $response = $this->get('media');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
+        $this->assertArrayHasKey('total', $response['data']['meta']);
     }
 
     public function testGetMediaListWithPagination(): void
@@ -60,8 +62,10 @@ class MediaApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
-        $this->assertLessThanOrEqual(5, count($response['data']));
+        $this->assertIsArray($response['data']['data']);
+        $this->assertLessThanOrEqual(5, count($response['data']['data']));
+        $this->assertSame(1, $response['data']['meta']['page']);
+        $this->assertSame(5, $response['data']['meta']['per_page']);
     }
 
     public function testGetMediaListWithFilter(): void
@@ -71,10 +75,10 @@ class MediaApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
 
         // Alle Ergebnisse sollten PNG sein
-        foreach ($response['data'] as $media) {
+        foreach ($response['data']['data'] as $media) {
             if (isset($media['filetype'])) {
                 $this->assertSame('image/png', $media['filetype']);
             }
@@ -113,11 +117,11 @@ class MediaApiTest extends ApiTestCase
         // Erst Liste abrufen um einen existierenden Dateinamen zu bekommen
         $listResponse = $this->get('media', ['per_page' => 1]);
 
-        if (empty($listResponse['data'])) {
+        if (empty($listResponse['data']['data'])) {
             $this->markTestSkipped('Keine Medien in der Datenbank vorhanden.');
         }
 
-        $filename = $listResponse['data'][0]['filename'];
+        $filename = $listResponse['data']['data'][0]['filename'];
         $response = $this->get('media/' . $filename . '/info');
 
         $this->assertSuccess($response);
@@ -139,11 +143,11 @@ class MediaApiTest extends ApiTestCase
         // Erst Liste abrufen um einen existierenden Dateinamen zu bekommen
         $listResponse = $this->get('media', ['per_page' => 1]);
 
-        if (empty($listResponse['data'])) {
+        if (empty($listResponse['data']['data'])) {
             $this->markTestSkipped('Keine Medien in der Datenbank vorhanden.');
         }
 
-        $filename = $listResponse['data'][0]['filename'];
+        $filename = $listResponse['data']['data'][0]['filename'];
         $response = $this->get('media/' . $filename . '/file');
 
         $this->assertSuccess($response);
@@ -156,11 +160,11 @@ class MediaApiTest extends ApiTestCase
         // Erst Liste abrufen
         $listResponse = $this->get('media', ['per_page' => 1]);
 
-        if (empty($listResponse['data'])) {
+        if (empty($listResponse['data']['data'])) {
             $this->markTestSkipped('Keine Medien in der Datenbank vorhanden.');
         }
 
-        $filename = $listResponse['data'][0]['filename'];
+        $filename = $listResponse['data']['data'][0]['filename'];
         $newTitle = $this->generateTestName('updated_title');
 
         $response = $this->put('media/' . $filename . '/update', [
@@ -171,6 +175,45 @@ class MediaApiTest extends ApiTestCase
         $this->assertHasField($response, 'message');
     }
 
+    public function testDeleteMedia(): void
+    {
+        if (!file_exists(self::$testImagePath)) {
+            $this->markTestSkipped('Test-Bild konnte nicht erstellt werden.');
+        }
+
+        // Erst Datei hochladen
+        $response = $this->postMultipart('media', [
+            'category_id' => 0,
+            'title' => $this->generateTestName('media_delete'),
+        ], [
+            'file' => self::$testImagePath,
+        ]);
+
+        if (!$response['success']) {
+            $this->markTestSkipped('Upload fehlgeschlagen, Delete-Test nicht möglich.');
+        }
+
+        $filename = $response['data']['filename'];
+
+        // Dann löschen
+        $deleteResponse = $this->delete('media/' . $filename . '/delete');
+
+        $this->assertSuccess($deleteResponse);
+        $this->assertHasField($deleteResponse, 'message');
+
+        // Prüfen ob wirklich gelöscht
+        $getResponse = $this->get('media/' . $filename . '/info');
+        $this->assertStatus(404, $getResponse);
+    }
+
+    public function testDeleteMediaNotFound(): void
+    {
+        $response = $this->delete('media/nicht_existierende_datei_12345.jpg/delete');
+
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
+    }
+
     // ==================== MEDIA CATEGORY TESTS ====================
 
     public function testGetMediaCategoryList(): void
@@ -178,7 +221,8 @@ class MediaApiTest extends ApiTestCase
         $response = $this->get('media/category');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testGetMediaCategoryListWithFilter(): void
@@ -188,7 +232,7 @@ class MediaApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
     }
 
     public function testCreateMediaCategory(): void

@@ -16,7 +16,9 @@ class ModulesApiTest extends ApiTestCase
         $response = $this->get('modules');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
+        $this->assertArrayHasKey('total', $response['data']['meta']);
     }
 
     // ==================== MODULE CRUD TESTS ====================
@@ -24,7 +26,7 @@ class ModulesApiTest extends ApiTestCase
     public function testGetModule(): void
     {
         $moduleId = self::$config['test_data']['existing_module_id'];
-        $response = $this->get('module/' . $moduleId);
+        $response = $this->get('modules/' . $moduleId);
 
         $this->assertSuccess($response);
         $this->assertHasField($response, 'id');
@@ -33,7 +35,7 @@ class ModulesApiTest extends ApiTestCase
 
     public function testGetModuleNotFound(): void
     {
-        $response = $this->get('module/999999');
+        $response = $this->get('modules/999999');
 
         $this->assertStatus(404, $response);
         $this->assertError($response);
@@ -52,7 +54,7 @@ class ModulesApiTest extends ApiTestCase
         $this->assertStatus(201, $response);
         $this->assertHasField($response, 'id');
 
-        $this->trackResource('module', $response['data']['id']);
+        $this->trackResource('modules', $response['data']['id']);
     }
 
     public function testCreateModuleValidation(): void
@@ -78,11 +80,11 @@ class ModulesApiTest extends ApiTestCase
 
         $this->assertStatus(201, $createResponse);
         $moduleId = $createResponse['data']['id'];
-        $this->trackResource('module', $moduleId);
+        $this->trackResource('modules', $moduleId);
 
         // Dann updaten
         $newName = $this->generateTestName('module_updated');
-        $updateResponse = $this->put('module/' . $moduleId, [
+        $updateResponse = $this->put('modules/' . $moduleId, [
             'name' => $newName,
             'input' => '<p>Updated Input</p>',
         ]);
@@ -104,12 +106,12 @@ class ModulesApiTest extends ApiTestCase
         $moduleId = $createResponse['data']['id'];
 
         // Dann löschen
-        $deleteResponse = $this->delete('module/' . $moduleId);
+        $deleteResponse = $this->delete('modules/' . $moduleId);
 
         $this->assertSuccess($deleteResponse);
 
         // Prüfen ob wirklich gelöscht
-        $getResponse = $this->get('module/' . $moduleId);
+        $getResponse = $this->get('modules/' . $moduleId);
         $this->assertStatus(404, $getResponse);
     }
 }

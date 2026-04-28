@@ -16,7 +16,9 @@ class StructureApiTest extends ApiTestCase
         $response = $this->get('structure/articles');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
+        $this->assertArrayHasKey('total', $response['data']['meta']);
     }
 
     public function testGetArticleListWithFilter(): void
@@ -26,7 +28,7 @@ class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
     }
 
     public function testGetArticleListWithPagination(): void
@@ -37,8 +39,10 @@ class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
-        $this->assertLessThanOrEqual(5, count($response['data']));
+        $this->assertIsArray($response['data']['data']);
+        $this->assertLessThanOrEqual(5, count($response['data']['data']));
+        $this->assertSame(1, $response['data']['meta']['page']);
+        $this->assertSame(5, $response['data']['meta']['per_page']);
     }
 
     public function testGetArticle(): void
@@ -206,7 +210,8 @@ class StructureApiTest extends ApiTestCase
         $response = $this->get('structure/articles/' . $articleId . '/slices');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testGetArticleSlicesWithFilter(): void
@@ -220,7 +225,7 @@ class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
     }
 
     public function testCreateArticleSlice(): void
@@ -243,5 +248,66 @@ class StructureApiTest extends ApiTestCase
             // Template hat möglicherweise das Modul nicht zugeordnet
             $this->assertContains($response['status'], [400, 404]);
         }
+    }
+
+    public function testGetArticleSlice(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // Erst Slices des Artikels abrufen um eine existierende Slice-ID zu bekommen
+        $listResponse = $this->get('structure/articles/' . $articleId . '/slices', [
+            'clang_id' => $clangId,
+        ]);
+
+        $this->assertSuccess($listResponse);
+
+        if (empty($listResponse['data']['data'])) {
+            $this->markTestSkipped('Keine Slices im Test-Artikel vorhanden.');
+        }
+
+        $sliceId = $listResponse['data']['data'][0]['id'];
+        $response = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
+
+        $this->assertSuccess($response);
+        $this->assertArrayHasKey('id', $response['data']);
+        $this->assertArrayHasKey('module_id', $response['data']);
+        $this->assertEquals($sliceId, $response['data']['id']);
+    }
+
+    public function testGetArticleSliceNotFound(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $response = $this->get('structure/articles/' . $articleId . '/slices/999999');
+
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
+    }
+
+    public function testUpdateArticleSlice(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // Erst Slices des Artikels abrufen
+        $listResponse = $this->get('structure/articles/' . $articleId . '/slices', [
+            'clang_id' => $clangId,
+        ]);
+
+        $this->assertSuccess($listResponse);
+
+        if (empty($listResponse['data']['data'])) {
+            $this->markTestSkipped('Keine Slices im Test-Artikel vorhanden.');
+        }
+
+        $sliceId = $listResponse['data']['data'][0]['id'];
+
+        // Slice updaten
+        $updateResponse = $this->put('structure/articles/' . $articleId . '/slices/' . $sliceId, [
+            'value1' => 'Updated via API Test ' . uniqid(),
+        ]);
+
+        $this->assertSuccess($updateResponse);
+        $this->assertHasField($updateResponse, 'message');
     }
 }

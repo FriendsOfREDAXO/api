@@ -260,8 +260,9 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success'], 'Admin should be able to list clangs');
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
-        $this->assertNotEmpty($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertNotEmpty($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testAdminCanGetClang(): void
@@ -279,7 +280,7 @@ class BackendApiTest extends TestCase
         $response = $this->restrictedGet('system/clangs');
 
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
         // Restricted user should only see clangs they have permission for
         // (may be empty if no clang permissions are set)
     }
@@ -323,7 +324,8 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testRestrictedUserCannotListTemplates(): void
@@ -375,8 +377,9 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
-        $this->assertNotEmpty($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertNotEmpty($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testRestrictedUserCannotListUsers(): void
@@ -427,7 +430,8 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testRestrictedUserCanListModules(): void
@@ -437,7 +441,7 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
     }
 
     public function testRestrictedUserCannotAddModule(): void
@@ -468,7 +472,8 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testAdminCanGetArticle(): void
@@ -517,7 +522,8 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     public function testAdminCanListMediaCategories(): void
@@ -526,7 +532,8 @@ class BackendApiTest extends TestCase
 
         $this->assertTrue($response['success']);
         $this->assertSame(200, $response['status']);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
     }
 
     // ==================== NO AUTH (should be 401) ====================

@@ -16,8 +16,12 @@ class ClangsApiTest extends ApiTestCase
         $response = $this->get('system/clangs');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
-        $this->assertNotEmpty($response['data'], 'Mindestens eine Sprache sollte existieren.');
+        $this->assertIsArray($response['data']['data']);
+        $this->assertNotEmpty($response['data']['data'], 'Mindestens eine Sprache sollte existieren.');
+        $this->assertArrayHasKey('meta', $response['data']);
+        $this->assertArrayHasKey('total', $response['data']['meta']);
+        $this->assertArrayHasKey('page', $response['data']['meta']);
+        $this->assertArrayHasKey('per_page', $response['data']['meta']);
     }
 
     // ==================== CLANG CRUD TESTS ====================

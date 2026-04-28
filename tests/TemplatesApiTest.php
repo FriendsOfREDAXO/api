@@ -16,7 +16,9 @@ class TemplatesApiTest extends ApiTestCase
         $response = $this->get('templates');
 
         $this->assertSuccess($response);
-        $this->assertIsArray($response['data']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
+        $this->assertArrayHasKey('total', $response['data']['meta']);
     }
 
     // ==================== TEMPLATE CRUD TESTS ====================
