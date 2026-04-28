@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -16,6 +17,8 @@ use rex_template_cache;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
+use InvalidArgumentException;
 
 use function count;
 use function in_array;
@@ -65,6 +68,21 @@ class Templates extends RoutePackage
                             'type' => 'array',
                             'required' => false,
                             'default' => [],
+                        ],
+                        'page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'per_page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -260,25 +278,53 @@ class Templates extends RoutePackage
             $SqlParameters[':key'] = $Query['filter']['key'];
         }
 
+        $allowedSortFields = ['id', 'key', 'name', 'active', 'createdate', 'updatedate'];
+
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'name', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $whereClause = count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '';
+
+        // Count total
+        $CountSQL = rex_sql::factory();
+        try {
+            $countResult = $CountSQL->getArray(
+                'SELECT COUNT(*) as total FROM ' . rex::getTablePrefix() . 'template ' . $whereClause,
+                $SqlParameters,
+            );
+        } catch (rex_sql_exception $e) {
+            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+        }
+        $total = (int) $countResult[0]['total'];
+
+        $per_page = (1 > $Query['per_page']) ? 10 : (int) $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : (int) $Query['page'];
+        $pagination = ListHelper::paginate($page, $per_page, $total);
+
+        $orderBy = ListHelper::buildSqlOrderBy($sortDefs, ['key' => '`key`']);
+
+        // LIMIT inlined as integers (rex_sql binds as string -> MySQL strict mode rejects).
+        $offset = (int) $pagination['offset'];
+        $limit = (int) $pagination['limit'];
+
         $TemplatesSQL = rex_sql::factory();
         try {
             $Templates = $TemplatesSQL->getArray(
-                '
-                SELECT
-                    ' . implode(',', self::TemplateFields) . '
-                FROM
-                    ' . rex::getTablePrefix() . 'template
-                    ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
-                ORDER BY
-                    name ASC
-                ',
+                'SELECT ' . implode(',', self::TemplateFields) . '
+                FROM ' . rex::getTablePrefix() . 'template
+                ' . $whereClause . '
+                ORDER BY ' . $orderBy . '
+                LIMIT ' . $offset . ', ' . $limit,
                 $SqlParameters,
             );
         } catch (rex_sql_exception $e) {
             return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
         }
 
-        return new Response(json_encode($Templates, JSON_PRETTY_PRINT));
+        return new Response(json_encode(ListHelper::wrapResponse($Templates, $pagination['meta']), JSON_PRETTY_PRINT));
     }
 
     /** @api */

@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -20,6 +21,8 @@ use rex_template;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
+use InvalidArgumentException;
 
 use function count;
 use function in_array;
@@ -87,6 +90,11 @@ class Structure extends RoutePackage
                             'type' => 'int',
                             'required' => false,
                             'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -372,6 +380,21 @@ class Structure extends RoutePackage
                             'required' => false,
                             'default' => 0,
                         ],
+                        'page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'per_page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
                     ],
                 ],
                 ['id' => '\d+'],
@@ -543,27 +566,46 @@ class Structure extends RoutePackage
             $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
         }
 
-        $ArticeFields = ['id', 'pid', 'name', 'catname', 'catpriority', 'clang_id', 'parent_id', 'priority', 'startarticle', 'status', 'template_id', 'createdate', 'createuser', 'updatedate', 'updateuser', 'revision'];
+        $ArticleFields = ['id', 'pid', 'name', 'catname', 'catpriority', 'clang_id', 'parent_id', 'priority', 'startarticle', 'status', 'template_id', 'createdate', 'createuser', 'updatedate', 'updateuser', 'revision'];
+        $allowedSortFields = ['id', 'name', 'catname', 'priority', 'parent_id', 'status', 'template_id', 'createdate', 'updatedate', 'clang_id', 'catpriority'];
+
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'id', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $whereClause = count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '';
+
+        // Count total
+        $CountSQL = rex_sql::factory();
+        $countResult = $CountSQL->getArray(
+            'SELECT COUNT(*) as total FROM ' . rex::getTablePrefix() . 'article ' . $whereClause,
+            $SqlParameters,
+        );
+        $total = (int) $countResult[0]['total'];
 
         $per_page = (1 > $Query['per_page']) ? 10 : (int) $Query['per_page'];
         $page = (1 > $Query['page']) ? 1 : (int) $Query['page'];
-        $start = ($page - 1) * $per_page;
+        $pagination = ListHelper::paginate($page, $per_page, $total);
+
+        $orderBy = ListHelper::buildSqlOrderBy($sortDefs);
+
+        // LIMIT inlined as integers (rex_sql binds as string -> MySQL strict mode rejects).
+        $offset = (int) $pagination['offset'];
+        $limit = (int) $pagination['limit'];
 
         $ArticlesSQL = rex_sql::factory();
         $Articles = $ArticlesSQL->getArray(
-            '
-            select
-                ' . implode(',', $ArticeFields) . '
-            from
-                ' . rex::getTablePrefix() . 'article
-            ' . (count($SqlQueryWhere) ? 'where ' . implode(' and ', $SqlQueryWhere) : '') . '
-
-            LIMIT ' . $start . ', ' . $per_page . '
-                ',
+            'SELECT ' . implode(',', $ArticleFields) . '
+            FROM ' . rex::getTablePrefix() . 'article
+            ' . $whereClause . '
+            ORDER BY ' . $orderBy . '
+            LIMIT ' . $offset . ', ' . $limit,
             $SqlParameters,
         );
 
-        return new Response(json_encode($Articles, JSON_PRETTY_PRINT));
+        return new Response(json_encode(ListHelper::wrapResponse($Articles, $pagination['meta']), JSON_PRETTY_PRINT));
     }
 
     /** @api */
@@ -1068,16 +1110,44 @@ class Structure extends RoutePackage
         $SqlQueryWhere[] = 'revision = :revision';
         $SqlParameters[':revision'] = $Query['revision'] ?? 0;
 
+        $allowedSortFields = ['id', 'ctype_id', 'module_id', 'priority', 'status', 'createdate', 'updatedate'];
+
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'ctype_id', 'direction' => 'asc'], ['field' => 'priority', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $whereClause = 'WHERE ' . implode(' AND ', $SqlQueryWhere);
+
+        // Count total
+        $CountSQL = rex_sql::factory();
+        $countResult = $CountSQL->getArray(
+            'SELECT COUNT(*) as total FROM ' . rex::getTable('article_slice') . ' ' . $whereClause,
+            $SqlParameters,
+        );
+        $total = (int) $countResult[0]['total'];
+
+        $per_page = (1 > $Query['per_page']) ? 10 : (int) $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : (int) $Query['page'];
+        $pagination = ListHelper::paginate($page, $per_page, $total);
+
+        $orderBy = ListHelper::buildSqlOrderBy($sortDefs);
+
+        $offset = (int) $pagination['offset'];
+        $limit = (int) $pagination['limit'];
+
         $SlicesSQL = rex_sql::factory();
         $Slices = $SlicesSQL->getArray(
             'SELECT id, article_id, clang_id, ctype_id, module_id, priority, status, createdate, createuser, updatedate, updateuser, revision
             FROM ' . rex::getTable('article_slice') . '
-            WHERE ' . implode(' AND ', $SqlQueryWhere) . '
-            ORDER BY ctype_id, priority',
+            ' . $whereClause . '
+            ORDER BY ' . $orderBy . '
+            LIMIT ' . $offset . ', ' . $limit,
             $SqlParameters,
         );
 
-        return new Response(json_encode($Slices, JSON_PRETTY_PRINT));
+        return new Response(json_encode(ListHelper::wrapResponse($Slices, $pagination['meta']), JSON_PRETTY_PRINT));
     }
 
     /** @api */

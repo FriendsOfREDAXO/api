@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -15,6 +16,8 @@ use rex_mediapool;
 use rex_path;
 use rex_sql;
 use rex_user;
+
+use InvalidArgumentException;
 
 use function count;
 use function is_array;
@@ -104,6 +107,11 @@ class Media extends RoutePackage
                             'type' => 'int',
                             'required' => false,
                             'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -271,6 +279,21 @@ class Media extends RoutePackage
                             'required' => true,
                             'default' => [],
                         ],
+                        'page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 1,
+                        ],
+                        'per_page' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
+                        ],
                     ],
                 ],
                 [],
@@ -412,7 +435,20 @@ class Media extends RoutePackage
             ];
         }
 
-        return new Response(json_encode($Categories, JSON_PRETTY_PRINT));
+        $allowedSortFields = ['id', 'name', 'hasChildren', 'parent_id'];
+
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'name', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
+
+        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : $Query['page'];
+
+        $result = ListHelper::paginateArray($Categories, $sortDefs, $page, $per_page);
+
+        return new Response(json_encode($result, JSON_PRETTY_PRINT));
     }
 
     /** @api */
@@ -571,34 +607,45 @@ class Media extends RoutePackage
             $SqlParameters[':height_min'] = $Query['filter']['height_min'];
         }
 
-        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
-        $page = (1 > $Query['page']) ? 1 : $Query['page'];
-        $start = ($page - 1) * $per_page;
+        $allowedSortFields = ['filename', 'category_id', 'filetype', 'filesize', 'title', 'createdate', 'updatedate', 'width', 'height'];
 
-        $SqlParameters[':per_page'] = $per_page;
-        $SqlParameters[':start'] = $start;
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'filename', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
 
-        // Leider nicht nutzbar. Da Pager über Parameter funktioniert.
-        // $pager = new rex_pager(5000);
-        // $items = rex_media_service::getList($filter, [], $pager);
+        $whereClause = count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '';
+
+        // Count total
+        $CountSQL = rex_sql::factory();
+        $countResult = $CountSQL->getArray(
+            'SELECT COUNT(*) as total FROM ' . rex::getTable('media') . ' ' . $whereClause,
+            $SqlParameters,
+        );
+        $total = (int) $countResult[0]['total'];
+
+        $per_page = (1 > $Query['per_page']) ? 10 : (int) $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : (int) $Query['page'];
+        $pagination = ListHelper::paginate($page, $per_page, $total);
+
+        $orderBy = ListHelper::buildSqlOrderBy($sortDefs);
+
+        // LIMIT inlined as integers (rex_sql binds as string -> MySQL strict mode rejects).
+        $offset = (int) $pagination['offset'];
+        $limit = (int) $pagination['limit'];
 
         $MediaSQL = rex_sql::factory();
-        $Medias = $MediaSQL->getArray('
-            select
-                ' . implode(',', self::MediaFields) . '
-            from
-                ' . rex::getTable('media') . '
-                ' . (count($SqlQueryWhere) ? 'where ' . implode(' and ', $SqlQueryWhere) : '') . '
-
-            LIMIT :start, :per_page
-                ',
+        $Medias = $MediaSQL->getArray(
+            'SELECT ' . implode(',', self::MediaFields) . '
+            FROM ' . rex::getTable('media') . '
+            ' . $whereClause . '
+            ORDER BY ' . $orderBy . '
+            LIMIT ' . $offset . ', ' . $limit,
             $SqlParameters,
         );
 
-        // var_dump($SqlQueryWhere, $SqlParameters);
-        // exit;
-
-        return new Response(json_encode($Medias, JSON_PRETTY_PRINT));
+        return new Response(json_encode(ListHelper::wrapResponse($Medias, $pagination['meta']), JSON_PRETTY_PRINT));
     }
 
     /** @api */

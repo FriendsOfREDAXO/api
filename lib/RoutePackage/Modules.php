@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api\RoutePackage;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
@@ -16,6 +17,8 @@ use rex_sql_exception;
 use rex_user;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
+
+use InvalidArgumentException;
 
 use function count;
 use function is_array;
@@ -62,6 +65,11 @@ class Modules extends RoutePackage
                             'type' => 'int',
                             'required' => false,
                             'default' => 100,
+                        ],
+                        'sort' => [
+                            'type' => 'string',
+                            'required' => false,
+                            'default' => null,
                         ],
                     ],
                 ],
@@ -224,31 +232,45 @@ class Modules extends RoutePackage
             $SqlParameters[':key'] = '%' . $Query['filter']['key'] . '%';
         }
 
-        $per_page = (1 > $Query['per_page']) ? 10 : $Query['per_page'];
-        $page = (1 > $Query['page']) ? 1 : $Query['page'];
-        $start = ($page - 1) * $per_page;
+        $allowedSortFields = ['id', 'name', 'key', 'createdate', 'updatedate'];
 
-        $SqlParameters[':per_page'] = $per_page;
-        $SqlParameters[':start'] = $start;
+        try {
+            $sortDefs = ListHelper::parseSort($Query['sort'] ?? null, $allowedSortFields, [['field' => 'name', 'direction' => 'asc']]);
+        } catch (InvalidArgumentException $e) {
+            return ListHelper::sortErrorResponse($e);
+        }
 
-        // TODO
-        // - is_in_use
+        $whereClause = count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '';
+
+        // Count total
+        $CountSQL = rex_sql::factory();
+        $countResult = $CountSQL->getArray(
+            'SELECT COUNT(*) as total FROM ' . rex::getTablePrefix() . 'module ' . $whereClause,
+            $SqlParameters,
+        );
+        $total = (int) $countResult[0]['total'];
+
+        $per_page = (1 > $Query['per_page']) ? 10 : (int) $Query['per_page'];
+        $page = (1 > $Query['page']) ? 1 : (int) $Query['page'];
+        $pagination = ListHelper::paginate($page, $per_page, $total);
+
+        $orderBy = ListHelper::buildSqlOrderBy($sortDefs, ['key' => '`key`']);
+
+        // LIMIT inlined as integers (rex_sql binds as string -> MySQL strict mode rejects).
+        $offset = (int) $pagination['offset'];
+        $limit = (int) $pagination['limit'];
 
         $ModulesSQL = rex_sql::factory();
         $Modules = $ModulesSQL->getArray(
-            '
-        SELECT
-            `' . implode('`,`', self::ModuleFields) . '`
-        FROM
-            ' . rex::getTablePrefix() . 'module
-            ' . (count($SqlQueryWhere) ? 'WHERE ' . implode(' AND ', $SqlQueryWhere) : '') . '
-        ORDER BY name ASC
-        LIMIT :start, :per_page
-        ',
+            'SELECT `' . implode('`,`', self::ModuleFields) . '`
+            FROM ' . rex::getTablePrefix() . 'module
+            ' . $whereClause . '
+            ORDER BY ' . $orderBy . '
+            LIMIT ' . $offset . ', ' . $limit,
             $SqlParameters,
         );
 
-        return new Response(json_encode($Modules, JSON_PRETTY_PRINT));
+        return new Response(json_encode(ListHelper::wrapResponse($Modules, $pagination['meta']), JSON_PRETTY_PRINT));
     }
 
     /** @api */
