@@ -5,47 +5,51 @@ declare(strict_types=1);
 /**
  * API Test Configuration.
  *
- * Diese Konfiguration wird für die API-Tests verwendet.
- * Passe die Werte an deine lokale Umgebung an.
+ * Werte werden aus tests/.env gelesen (Geheimnisse, lokal). Die Defaults
+ * unten sind nur Platzhalter, damit Tests bei fehlender .env mit klarer
+ * Meldung skippen statt mit Fehler zu sterben.
  */
+
+$env = static function (string $key, string $default = ''): string {
+    $val = getenv($key);
+    if (false === $val || '' === $val) {
+        return $default;
+    }
+    return $val;
+};
+
+$envBool = static function (string $key, bool $default) use ($env): bool {
+    $val = $env($key, $default ? '1' : '0');
+    return in_array(strtolower($val), ['1', 'true', 'yes', 'on'], true);
+};
+
+$envInt = static function (string $key, int $default) use ($env): int {
+    $val = $env($key, (string) $default);
+    return is_numeric($val) ? (int) $val : $default;
+};
+
 return [
-    // Basis-URL der REDAXO-Installation
-    'base_url' => 'https://redaxo.localhost',
+    'base_url' => $env('API_TEST_BASE_URL', 'https://redaxo.localhost'),
+    'api_prefix' => $env('API_TEST_API_PREFIX', '/api'),
+    'api_token' => $env('API_TEST_TOKEN'),
+    'timeout' => $envInt('API_TEST_TIMEOUT', 30),
+    'verify_ssl' => $envBool('API_TEST_VERIFY_SSL', false),
+    'debug' => $envBool('API_TEST_DEBUG', true),
 
-    // API-Endpunkt-Prefix
-    'api_prefix' => '/api',
-
-    // API-Token für Authentifizierung
-    // Erstelle einen Token im Backend unter "API" -> "Token"
-    'api_token' => '5c32e210baa8fe7e27c8df02c30d206e',
-
-    // Timeout für HTTP-Requests in Sekunden
-    'timeout' => 30,
-
-    // SSL-Zertifikat verifizieren (für lokale Entwicklung oft false)
-    'verify_ssl' => false,
-
-    // Test-Daten IDs (werden bei Tests verwendet/erstellt)
     'test_data' => [
-        // Existierende IDs für Read-Tests (müssen in der DB vorhanden sein)
-        'existing_article_id' => 1,
-        'existing_category_id' => 1,
-        'existing_clang_id' => 1,
-        'existing_template_id' => 1,
-        'existing_module_id' => 1,
+        'existing_article_id' => $envInt('API_TEST_EXISTING_ARTICLE_ID', 1),
+        'existing_category_id' => $envInt('API_TEST_EXISTING_CATEGORY_ID', 1),
+        'existing_clang_id' => $envInt('API_TEST_EXISTING_CLANG_ID', 1),
+        'existing_template_id' => $envInt('API_TEST_EXISTING_TEMPLATE_ID', 1),
+        'existing_module_id' => $envInt('API_TEST_EXISTING_MODULE_ID', 1),
 
-        // Prefix für Test-Daten (zur einfachen Identifizierung)
         'test_prefix' => 'API_TEST_',
     ],
 
-    // Debug-Modus (mehr Ausgaben bei Fehlern)
-    'debug' => true,
-
-    // Backend-Authentifizierung (Session-Cookie basiert)
     'backend' => [
-        'admin_login' => 'admin',
-        'admin_password' => 'admin',
-        'restricted_login' => 'jan',
-        'restricted_password' => 'jan',
+        'admin_login' => $env('API_TEST_ADMIN_LOGIN', 'admin'),
+        'admin_password' => $env('API_TEST_ADMIN_PASSWORD'),
+        'restricted_login' => $env('API_TEST_RESTRICTED_LOGIN', 'apitest_restricted'),
+        'restricted_password' => $env('API_TEST_RESTRICTED_PASSWORD'),
     ],
 ];

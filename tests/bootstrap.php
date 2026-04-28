@@ -37,6 +37,34 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
+// tests/.env laden (nicht ins Repo committen). Tiny parser, keine externe Dependency.
+$envPath = __DIR__ . '/.env';
+if (is_file($envPath)) {
+    foreach (file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = ltrim($line);
+        if ('' === $line || '#' === $line[0]) {
+            continue;
+        }
+        $eq = strpos($line, '=');
+        if (false === $eq) {
+            continue;
+        }
+        $key = trim(substr($line, 0, $eq));
+        $value = trim(substr($line, $eq + 1));
+        // Quoted values: strip surrounding single/double quotes.
+        if (strlen($value) >= 2
+            && (('"' === $value[0] && '"' === $value[-1]) || ("'" === $value[0] && "'" === $value[-1]))
+        ) {
+            $value = substr($value, 1, -1);
+        }
+        if ('' === $key || false !== getenv($key)) {
+            continue; // Don't overwrite values explicitly set in the environment.
+        }
+        putenv($key . '=' . $value);
+        $_ENV[$key] = $value;
+    }
+}
+
 // Test-Konfiguration laden
 if (!defined('API_TEST_CONFIG')) {
     $configPath = __DIR__ . '/config.php';
