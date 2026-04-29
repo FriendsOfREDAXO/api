@@ -16,6 +16,8 @@ use const JSON_PRETTY_PRINT;
 
 class ListHelper
 {
+    public const MAX_PER_PAGE = 1000;
+
     /**
      * Parses a sort string like "name:asc,createdate:desc" into an array of sort definitions.
      *
@@ -91,7 +93,7 @@ class ListHelper
     public static function paginate(int $page, int $perPage, int $total): array
     {
         $page = max(1, $page);
-        $perPage = max(1, $perPage);
+        $perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
         $totalPages = (int) ceil($total / $perPage);
         $offset = ($page - 1) * $perPage;
 

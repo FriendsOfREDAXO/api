@@ -37,14 +37,7 @@ class Structure extends RoutePackage
 {
     public function loadRoutes(): void
     {
-        // TODO?
-        // Über den Header z.B. X-REDAXO-API-COUNT: 100
-        // Über den Header z.B. X-REDAXO-API-PAGE: 1
-        // Über den Header z.B. X-REDAXO-API-PER-PAGE: 10
-        // 'structure/articles/{id}/{clang}'
-        // 'structure/categories/{id}/{clang}'
-
-        // Article List ✅
+        // Article List
         RouteCollection::registerRoute(
             'structure/articles/list',
             new Route(

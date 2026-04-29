@@ -740,10 +740,8 @@ class Media extends RoutePackage
 
         $Response = new Response();
         $Response->headers->set('Content-Type', $Media->getType());
-        $Response->headers->set('Content-Disposition', 'inline; filename="' . $Media->getFileName() . '"');
+        $Response->headers->set('Content-Disposition', 'inline; filename="' . addcslashes($Media->getFileName(), '"\\') . '"');
         $Response->setContent(file_get_contents(rex_path::media($Media->getFileName())));
-
-        // var_dump($Media->getType());exit;
 
         return $Response;
     }
