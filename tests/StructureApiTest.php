@@ -45,6 +45,42 @@ class StructureApiTest extends ApiTestCase
         $this->assertSame(5, $response['data']['meta']['per_page']);
     }
 
+    public function testPerPageHardCap(): void
+    {
+        $response = $this->get('structure/articles', [
+            'per_page' => 99999,
+        ]);
+
+        $this->assertSuccess($response);
+        $this->assertSame(1000, $response['data']['meta']['per_page']);
+        $this->assertLessThanOrEqual(1000, count($response['data']['data']));
+    }
+
+    public function testInvalidSortFieldReturns400(): void
+    {
+        $response = $this->get('structure/articles', [
+            'sort' => 'this_field_does_not_exist',
+        ]);
+
+        $this->assertStatus(400, $response);
+        $this->assertError($response);
+    }
+
+    public function testPaginationPageBeyondTotalReturnsEmpty(): void
+    {
+        $response = $this->get('structure/articles', [
+            'page' => 99999,
+            'per_page' => 10,
+        ]);
+
+        $this->assertSuccess($response);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertCount(0, $response['data']['data']);
+        $this->assertSame(99999, $response['data']['meta']['page']);
+        $this->assertSame(10, $response['data']['meta']['per_page']);
+        $this->assertGreaterThanOrEqual(0, $response['data']['meta']['total']);
+    }
+
     public function testGetArticle(): void
     {
         $articleId = self::$config['test_data']['existing_article_id'];
