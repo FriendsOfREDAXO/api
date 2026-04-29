@@ -617,4 +617,187 @@ class BackendApiTest extends TestCase
         $deleteResponse = $this->adminDelete('modules/' . $moduleId);
         $this->assertSame(200, $deleteResponse['status']);
     }
+
+    // ==================== ADMIN CRUD: Structure ====================
+
+    public function testAdminCanUpdateArticle(): void
+    {
+        $createResponse = $this->adminPost('structure/articles', [
+            'name' => 'BACKEND_TEST_update_' . uniqid(),
+            'category_id' => 0,
+            'priority' => 1,
+            'status' => 0,
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should create article. Response: ' . json_encode($createResponse['data']));
+        $articleId = $createResponse['data']['id'];
+
+        try {
+            $updateResponse = $this->adminPut('structure/articles/' . $articleId, [
+                'name' => 'BACKEND_TEST_renamed_' . uniqid(),
+            ]);
+            $this->assertSame(200, $updateResponse['status'], 'Admin should update article.');
+        } finally {
+            $this->adminDelete('structure/articles/' . $articleId);
+        }
+    }
+
+    public function testAdminCategoryCRUD(): void
+    {
+        $name = 'BACKEND_TEST_cat_' . uniqid();
+        $createResponse = $this->adminPost('structure/categories', [
+            'name' => $name,
+            'category_id' => 0,
+            'priority' => 1,
+            'status' => 0,
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should create category. Response: ' . json_encode($createResponse['data']));
+        $categoryId = $createResponse['data']['id'];
+
+        try {
+            $updateResponse = $this->adminPut('structure/categories/' . $categoryId, [
+                'name' => $name . '_renamed',
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+        } finally {
+            $deleteResponse = $this->adminDelete('structure/categories/' . $categoryId);
+            $this->assertSame(200, $deleteResponse['status']);
+        }
+    }
+
+    public function testAdminSliceCRUD(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $createResponse = $this->adminPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'BACKEND_TEST_slice_' . uniqid(),
+        ]);
+        if (201 !== $createResponse['status']) {
+            // Template hat das Modul evtl. nicht zugeordnet — wie im Bearer-Pendant tolerieren.
+            $this->assertContains($createResponse['status'], [400, 404]);
+            $this->markTestSkipped('Slice konnte nicht angelegt werden (Template/Modul-Zuordnung fehlt).');
+        }
+        $sliceId = $createResponse['data']['slice_id'];
+
+        try {
+            $getResponse = $this->adminGet('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSame(200, $getResponse['status']);
+
+            $updateResponse = $this->adminPut('structure/articles/' . $articleId . '/slices/' . $sliceId, [
+                'value1' => 'BACKEND_TEST_updated_' . uniqid(),
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+        } finally {
+            $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    // ==================== ADMIN CRUD: Media Category ====================
+
+    public function testAdminMediaCategoryCRUD(): void
+    {
+        $name = 'BACKEND_TEST_mediacat_' . uniqid();
+        $createResponse = $this->adminPost('media/category', [
+            'name' => $name,
+            'parent_id' => 0,
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should create media category. Response: ' . json_encode($createResponse['data']));
+        $categoryId = $createResponse['data']['id'];
+
+        try {
+            $updateResponse = $this->adminPut('media/category/' . $categoryId, [
+                'name' => $name . '_renamed',
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+        } finally {
+            $deleteResponse = $this->adminDelete('media/category/' . $categoryId);
+            $this->assertSame(200, $deleteResponse['status']);
+        }
+    }
+
+    // ==================== ADMIN CRUD: Templates ====================
+
+    public function testAdminTemplateCRUD(): void
+    {
+        $name = 'BACKEND_TEST_template_' . uniqid();
+        $createResponse = $this->adminPost('templates', [
+            'name' => $name,
+            'content' => '<?php echo "Backend Test"; ?>',
+            'active' => 0,
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should create template. Response: ' . json_encode($createResponse['data']));
+        $templateId = $createResponse['data']['id'];
+
+        try {
+            $getResponse = $this->adminGet('templates/' . $templateId);
+            $this->assertSame(200, $getResponse['status']);
+            $this->assertSame($name, $getResponse['data']['name']);
+
+            $updateResponse = $this->adminPut('templates/' . $templateId, [
+                'name' => $name . '_renamed',
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+        } finally {
+            $deleteResponse = $this->adminDelete('templates/' . $templateId);
+            $this->assertSame(200, $deleteResponse['status']);
+        }
+    }
+
+    // ==================== ADMIN CRUD: Users ====================
+
+    public function testAdminUserCRUD(): void
+    {
+        $login = strtolower('backend_test_user_' . uniqid());
+        $createResponse = $this->adminPost('users', [
+            'login' => $login,
+            'name' => 'Backend Test User',
+            'password' => 'TestPassword123!',
+            'email' => $login . '@example.com',
+            'status' => 1,
+            'admin' => 0,
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should create user. Response: ' . json_encode($createResponse['data']));
+        $userId = $createResponse['data']['id'];
+
+        try {
+            $updateResponse = $this->adminPut('users/' . $userId, [
+                'name' => 'Backend Test User (renamed)',
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+        } finally {
+            $deleteResponse = $this->adminDelete('users/' . $userId);
+            $this->assertSame(200, $deleteResponse['status']);
+        }
+    }
+
+    // ==================== ADMIN CRUD: Roles ====================
+
+    public function testAdminRoleCRUD(): void
+    {
+        $name = 'BACKEND_TEST_role_' . uniqid();
+        $createResponse = $this->adminPost('users/roles', [
+            'name' => $name,
+            'description' => 'Backend Test Role',
+            'perms' => ['general' => '|structure|'],
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should create role. Response: ' . json_encode($createResponse['data']));
+        $roleId = $createResponse['data']['id'];
+
+        try {
+            $getResponse = $this->adminGet('users/roles/' . $roleId);
+            $this->assertSame(200, $getResponse['status']);
+
+            $updateResponse = $this->adminPut('users/roles/' . $roleId, [
+                'description' => 'Backend Test Role (renamed)',
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+        } finally {
+            $deleteResponse = $this->adminDelete('users/roles/' . $roleId);
+            $this->assertSame(200, $deleteResponse['status']);
+        }
+    }
 }

@@ -208,6 +208,77 @@ class MetainfoApiTest extends ApiTestCase
         $this->assertArrayHasKey('data', $values['data']);
     }
 
+    public function testCategoryValuesRoundtrip(): void
+    {
+        $name = 'cat_test_value_' . uniqid();
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $categoryId = self::$config['test_data']['existing_category_id'];
+
+        $create = $this->post('metainfo/fields', [
+            'name' => $name,
+            'title' => 'Category value roundtrip',
+            'type_id' => 1,
+        ]);
+        $this->assertStatus(201, $create);
+        $fieldId = (int) $create['data']['id'];
+
+        try {
+            $initial = $this->get('structure/categories/' . $categoryId . '/metainfo', ['clang_id' => $clangId]);
+            $this->assertSuccess($initial);
+            $this->assertArrayHasKey($name, $initial['data']['data']);
+
+            $payload = 'cat-hello-' . uniqid();
+            $patch = $this->patch('structure/categories/' . $categoryId . '/metainfo?clang_id=' . $clangId, [
+                $name => $payload,
+            ]);
+            $this->assertSuccess($patch);
+            $this->assertSame($payload, $patch['data']['data'][$name]);
+
+            $verify = $this->get('structure/categories/' . $categoryId . '/metainfo', ['clang_id' => $clangId]);
+            $this->assertSame($payload, $verify['data']['data'][$name]);
+
+            $this->patch('structure/categories/' . $categoryId . '/metainfo?clang_id=' . $clangId, [
+                $name => '',
+            ]);
+        } finally {
+            $this->delete('metainfo/fields/' . $fieldId);
+        }
+    }
+
+    public function testMediaValuesRoundtrip(): void
+    {
+        $mediaList = $this->get('media', ['per_page' => 1]);
+        if (empty($mediaList['data']['data'])) {
+            $this->markTestSkipped('Keine Media-Items in der DB vorhanden.');
+        }
+        $filename = $mediaList['data']['data'][0]['filename'];
+
+        $name = 'med_test_value_' . uniqid();
+        $create = $this->post('metainfo/fields', [
+            'name' => $name,
+            'title' => 'Media value roundtrip',
+            'type_id' => 1,
+        ]);
+        $this->assertStatus(201, $create);
+        $fieldId = (int) $create['data']['id'];
+
+        try {
+            $payload = 'med-hello-' . uniqid();
+            $patch = $this->patch('media/' . $filename . '/metainfo', [
+                $name => $payload,
+            ]);
+            $this->assertSuccess($patch);
+            $this->assertSame($payload, $patch['data']['data'][$name]);
+
+            $verify = $this->get('media/' . $filename . '/metainfo');
+            $this->assertSame($payload, $verify['data']['data'][$name]);
+
+            $this->patch('media/' . $filename . '/metainfo', [$name => '']);
+        } finally {
+            $this->delete('metainfo/fields/' . $fieldId);
+        }
+    }
+
     public function testClangValuesGetReturnsMap(): void
     {
         $clangId = self::$config['test_data']['existing_clang_id'];
@@ -216,6 +287,36 @@ class MetainfoApiTest extends ApiTestCase
 
         $this->assertSuccess($response);
         $this->assertArrayHasKey('data', $response['data']);
+    }
+
+    public function testClangValuesRoundtrip(): void
+    {
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $name = 'clang_test_value_' . uniqid();
+        $create = $this->post('metainfo/fields', [
+            'name' => $name,
+            'title' => 'Clang value roundtrip',
+            'type_id' => 1,
+        ]);
+        $this->assertStatus(201, $create);
+        $fieldId = (int) $create['data']['id'];
+
+        try {
+            $payload = 'clang-hello-' . uniqid();
+            $patch = $this->patch('system/clangs/' . $clangId . '/metainfo', [
+                $name => $payload,
+            ]);
+            $this->assertSuccess($patch);
+            $this->assertSame($payload, $patch['data']['data'][$name]);
+
+            $verify = $this->get('system/clangs/' . $clangId . '/metainfo');
+            $this->assertSame($payload, $verify['data']['data'][$name]);
+
+            $this->patch('system/clangs/' . $clangId . '/metainfo', [$name => '']);
+        } finally {
+            $this->delete('metainfo/fields/' . $fieldId);
+        }
     }
 
     public function testValuesGetReturnsNotFoundForMissingArticle(): void
