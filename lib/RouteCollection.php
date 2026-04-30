@@ -9,7 +9,7 @@ use rex_logger;
 use rex_response;
 use rex_type;
 use rex_user;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\UrlMatcher;
@@ -125,47 +125,47 @@ class RouteCollection
             try {
                 $parameters = $matcher->match(rex::getRequest()->getPathInfo());
             } catch (ResourceNotFoundException $e) {
-                $Response = new Response(json_encode(['error' => 'Route not found']), 404);
+                $Response = new JsonResponse(['error' => 'Route not found'], 404);
                 $parameters = null;
             } catch (MethodNotAllowedException $e) {
-                $Response = new Response(json_encode([
+                $Response = new JsonResponse([
                     'error' => 'Method not allowed',
                     'allowed' => $e->getAllowedMethods(),
-                ]), 405);
+                ], 405);
                 $parameters = null;
             }
 
             if (null !== $parameters) {
                 if (!isset($parameters['_controller'])) {
-                    $Response = new Response(json_encode(['error' => 'Controller not found']), 404);
+                    $Response = new JsonResponse(['error' => 'Controller not found'], 404);
                 } else {
                     $controller = $parameters['_controller'];
                     $AuthObject = $RegisterdRoutes[$parameters['_route']]['authorization'] ?? null;
 
                     // if no AuthObject is set, we assume that the route is public
                     if ($AuthObject && !$AuthObject->isAuthorized($parameters)) {
-                        $Response = new Response(json_encode(['error' => 'Authorization failed']), 401);
+                        $Response = new JsonResponse(['error' => 'Authorization failed'], 401);
                     } else {
                         try {
                             $Response = $controller($parameters, $RegisterdRoutes[$parameters['_route']]);
                         } catch (Throwable $e) {
                             rex_logger::logException($e);
-                            $Response = new Response(json_encode([
+                            $Response = new JsonResponse([
                                 'error' => 'Internal server error',
                                 'message' => $e->getMessage(),
-                            ]), 500);
+                            ], 500);
                         }
                     }
                 }
             }
         } catch (Throwable $e) {
             rex_logger::logException($e);
-            $Response = new Response(json_encode(['error' => 'Internal server error']), 500);
+            $Response = new JsonResponse(['error' => 'Internal server error'], 500);
         }
 
         rex_response::setStatus($Response->getStatusCode());
         rex_response::cleanOutputBuffers();
-        rex_response::sendContentType($Response->headers->get('Content-Type') ?? 'application/json');
+        rex_response::sendContentType($Response->headers->get('Content-Type'));
         rex_response::sendContent($Response->getContent());
         exit;
     }

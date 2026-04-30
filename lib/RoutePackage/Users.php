@@ -15,6 +15,7 @@ use rex_sql;
 use rex_user;
 use rex_user_role_service;
 use rex_user_service;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -507,7 +508,7 @@ class Users extends RoutePackage
             return null;
         }
         if (!$user->isAdmin()) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -541,7 +542,7 @@ class Users extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $filter = [];
@@ -576,7 +577,7 @@ class Users extends RoutePackage
 
         $result = ListHelper::paginateArray($users, $sortDefs, $page, $per_page);
 
-        return new Response(json_encode($result, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($result, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -592,9 +593,9 @@ class Users extends RoutePackage
 
         try {
             $user = rex_user_service::getUser($userId);
-            return new Response(json_encode($user, JSON_PRETTY_PRINT));
+            return new JsonResponse(json_encode($user, JSON_PRETTY_PRINT), 200, [], true);
         } catch (rex_api_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 404);
+            return new JsonResponse(['error' => $e->getMessage()], 404);
         }
     }
 
@@ -610,13 +611,13 @@ class Users extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         try {
@@ -633,12 +634,12 @@ class Users extends RoutePackage
                 'role' => $Data['role'] ?? '',
             ]);
 
-            return new Response(json_encode($result), 201);
+            return new JsonResponse($result, 201);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 400);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -655,13 +656,13 @@ class Users extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         // Build update data array with only set values
@@ -684,12 +685,12 @@ class Users extends RoutePackage
 
         try {
             $result = rex_user_service::updateUser($userId, $updateData);
-            return new Response(json_encode($result), 200);
+            return new JsonResponse($result, 200);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 400);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -706,12 +707,12 @@ class Users extends RoutePackage
 
         try {
             $result = rex_user_service::deleteUser($userId);
-            return new Response(json_encode($result), 200);
+            return new JsonResponse($result, 200);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 409);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -728,7 +729,7 @@ class Users extends RoutePackage
         $sql = rex_sql::factory();
         $rows = $sql->getArray('SELECT role FROM ' . rex::getTable('user') . ' WHERE id = :id', [':id' => $userId]);
         if (0 === count($rows)) {
-            return new Response(json_encode(['error' => 'User not found']), 404);
+            return new JsonResponse(['error' => 'User not found'], 404);
         }
 
         $roleIds = self::parseRoleIds((string) ($rows[0]['role'] ?? ''));
@@ -746,10 +747,10 @@ class Users extends RoutePackage
             ], $roles);
         }
 
-        return new Response(json_encode([
+        return new JsonResponse(json_encode([
             'user_id' => $userId,
             'data' => $roles,
-        ], JSON_PRETTY_PRINT));
+        ], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -766,7 +767,7 @@ class Users extends RoutePackage
 
         $current = self::loadUserRoleIds($userId);
         if (null === $current) {
-            return new Response(json_encode(['error' => 'User not found']), 404);
+            return new JsonResponse(['error' => 'User not found'], 404);
         }
 
         $roleRows = rex_sql::factory()->getArray(
@@ -774,23 +775,23 @@ class Users extends RoutePackage
             [':id' => $roleId],
         );
         if (0 === count($roleRows)) {
-            return new Response(json_encode(['error' => 'Role not found']), 404);
+            return new JsonResponse(['error' => 'Role not found'], 404);
         }
 
         if (in_array($roleId, $current, true)) {
-            return new Response(json_encode(['error' => 'Role already assigned']), 409);
+            return new JsonResponse(['error' => 'Role already assigned'], 409);
         }
 
         $current[] = $roleId;
         sort($current);
         self::storeUserRoleIds($userId, $current);
 
-        return new Response(json_encode([
+        return new JsonResponse([
             'message' => 'Role assigned',
             'user_id' => $userId,
             'role_id' => $roleId,
             'roles' => $current,
-        ]), 200);
+        ], 200);
     }
 
     /** @api */
@@ -807,22 +808,22 @@ class Users extends RoutePackage
 
         $current = self::loadUserRoleIds($userId);
         if (null === $current) {
-            return new Response(json_encode(['error' => 'User not found']), 404);
+            return new JsonResponse(['error' => 'User not found'], 404);
         }
 
         if (!in_array($roleId, $current, true)) {
-            return new Response(json_encode(['error' => 'Role not assigned to user']), 404);
+            return new JsonResponse(['error' => 'Role not assigned to user'], 404);
         }
 
         $remaining = array_values(array_filter($current, static fn(int $r): bool => $r !== $roleId));
         self::storeUserRoleIds($userId, $remaining);
 
-        return new Response(json_encode([
+        return new JsonResponse([
             'message' => 'Role removed',
             'user_id' => $userId,
             'role_id' => $roleId,
             'roles' => $remaining,
-        ]), 200);
+        ], 200);
     }
 
     /**
@@ -903,7 +904,7 @@ class Users extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $filter = [];
@@ -926,7 +927,7 @@ class Users extends RoutePackage
 
         $result = ListHelper::paginateArray($roles, $sortDefs, $page, $per_page);
 
-        return new Response(json_encode($result, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($result, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -942,9 +943,9 @@ class Users extends RoutePackage
 
         try {
             $role = rex_user_role_service::getRole($roleId);
-            return new Response(json_encode($role, JSON_PRETTY_PRINT));
+            return new JsonResponse(json_encode($role, JSON_PRETTY_PRINT), 200, [], true);
         } catch (rex_api_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 404);
+            return new JsonResponse(['error' => $e->getMessage()], 404);
         }
     }
 
@@ -960,13 +961,13 @@ class Users extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         try {
@@ -976,12 +977,12 @@ class Users extends RoutePackage
                 'perms' => $Data['perms'] ?? [],
             ]);
 
-            return new Response(json_encode($result), 201);
+            return new JsonResponse($result, 201);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 400);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -998,13 +999,13 @@ class Users extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         // Build update data array with only set values
@@ -1021,12 +1022,12 @@ class Users extends RoutePackage
 
         try {
             $result = rex_user_role_service::updateRole($roleId, $updateData);
-            return new Response(json_encode($result), 200);
+            return new JsonResponse($result, 200);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 400);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -1043,12 +1044,12 @@ class Users extends RoutePackage
 
         try {
             $result = rex_user_role_service::deleteRole($roleId);
-            return new Response(json_encode($result), 200);
+            return new JsonResponse($result, 200);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 409);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -1076,12 +1077,12 @@ class Users extends RoutePackage
 
         try {
             $result = rex_user_role_service::duplicateRole($roleId, $newName);
-            return new Response(json_encode($result), 201);
+            return new JsonResponse($result, 201);
         } catch (rex_api_exception $e) {
             $code = self::statusFromApiException($e, 400);
-            return new Response(json_encode(['error' => $e->getMessage()]), $code);
+            return new JsonResponse(['error' => $e->getMessage()], $code);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 }

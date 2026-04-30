@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace FriendsOfRedaxo\Api;
 
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 use function array_key_exists;
@@ -190,6 +191,6 @@ class ListHelper
      */
     public static function sortErrorResponse(InvalidArgumentException $e): Response
     {
-        return new Response(json_encode(['error' => $e->getMessage()]), 400);
+        return new JsonResponse(['error' => $e->getMessage()], 400);
     }
 }

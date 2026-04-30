@@ -24,6 +24,7 @@ use InvalidArgumentException;
 use function count;
 use function is_array;
 
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -384,7 +385,7 @@ class Media extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -406,7 +407,7 @@ class Media extends RoutePackage
             }
 
             if (null === $MediaCategory) {
-                return new Response(json_encode(['error' => 'Category not found or no permission']), 404);
+                return new JsonResponse(['error' => 'Category not found or no permission'], 404);
             }
             $CategoriesCollection = $MediaCategory->getChildren();
         } else {
@@ -444,7 +445,7 @@ class Media extends RoutePackage
 
         $result = ListHelper::paginateArray($Categories, $sortDefs, $page, $per_page);
 
-        return new Response(json_encode($result, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($result, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -453,17 +454,17 @@ class Media extends RoutePackage
     //     $Data = json_decode(rex::getRequest()->getContent(), true);
     //
     //     if (!is_array($Data)) {
-    //         return new Response(json_encode(['error' => 'Invalid input']), 400);
+    //         return new JsonResponse(['error' => 'Invalid input'], 400);
     //     }
     //
     //     try {
     //         $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
     //     } catch (Exception $e) {
-    //         return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+    //         return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
     //     }
     //
     //     if (0 !== $Data['category_id'] && !rex_category::get($Data['category_id'])) {
-    //         return new Response(json_encode(['error' => 'Valid category_id is required']), 400);
+    //         return new JsonResponse(['error' => 'Valid category_id is required'], 400);
     //     }
     //
     //     try {
@@ -482,16 +483,15 @@ class Media extends RoutePackage
     //
     //         $Category = rex_category::get($CategoryId);
     //         if (!$Category) {
-    //             return new Response(json_encode(['error' => 'Category not created - reason unknown']), 500);
+    //             return new JsonResponse(['error' => 'Category not created - reason unknown'], 500);
     //         }
     //
-    //         return new Response(json_encode([
+    //         return new JsonResponse([
     //             'message' => 'Category created',
     //             'id' => $CategoryId,
-    //         ],
-    //         ), 201);
+    //         ], 201);
     //     } catch (Exception $e) {
-    //         return new Response(json_encode(['error' => $e->getMessage()]), 500);
+    //         return new JsonResponse(['error' => $e->getMessage()], 500);
     //     }
     // }
     //
@@ -500,7 +500,7 @@ class Media extends RoutePackage
     // {
     //     $Category = rex_category::get($Parameter['id']);
     //     if (!$Category) {
-    //         return new Response(json_encode(['error' => 'Category not found']), 404);
+    //         return new JsonResponse(['error' => 'Category not found'], 404);
     //     }
     //
     //     $CategoryId = $Category->getId();
@@ -508,10 +508,10 @@ class Media extends RoutePackage
     //     try {
     //         rex_category_service::deleteCategory($CategoryId);
     //     } catch (Exception $e) {
-    //         return new Response(json_encode(['error' => $e->getMessage(), 'id' => $CategoryId]), 500);
+    //         return new JsonResponse(['error' => $e->getMessage(), 'id' => $CategoryId], 500);
     //     }
     //
-    //     return new Response(json_encode(['message' => 'Category deleted', 'id' => $CategoryId]), 200);
+    //     return new JsonResponse(['message' => 'Category deleted', 'id' => $CategoryId], 200);
     // }
 
     private static function checkMediaPerm(?rex_user $user, ?int $categoryId = null): ?Response
@@ -524,10 +524,10 @@ class Media extends RoutePackage
         }
         $perm = $user->getComplexPerm('media');
         if (null !== $categoryId && !$perm->hasCategoryPerm($categoryId)) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         if (null === $categoryId && !$perm->hasAll()) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -538,7 +538,7 @@ class Media extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         // var_dump(rex::getRequest()->getHost()); exit;
@@ -552,7 +552,7 @@ class Media extends RoutePackage
             if ($categoryId > 0) {
                 $MediaCategory = rex_media_category::get($categoryId);
                 if (!$MediaCategory) {
-                    return new Response(json_encode(['error' => 'Category not found']), 404);
+                    return new JsonResponse(['error' => 'Category not found'], 404);
                 }
             }
             $SqlQueryWhere[':category_id'] = 'category_id = :category_id';
@@ -641,7 +641,7 @@ class Media extends RoutePackage
             $SqlParameters,
         );
 
-        return new Response(json_encode(ListHelper::wrapResponse($Medias, $pagination['meta']), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(ListHelper::wrapResponse($Medias, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -650,7 +650,7 @@ class Media extends RoutePackage
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
-            return new Response(json_encode(['error' => 'Media not found']), 404);
+            return new JsonResponse(['error' => 'Media not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -660,16 +660,16 @@ class Media extends RoutePackage
         }
 
         if (false !== rex_mediapool::mediaIsInUse($Parameter['filename'])) {
-            return new Response(json_encode(['error' => 'Media is in use.', 'filename' => $Parameter['filename']]), 409);
+            return new JsonResponse(['error' => 'Media is in use.', 'filename' => $Parameter['filename']], 409);
         }
 
         try {
             rex_media_service::deleteMedia($Media->getFileName());
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage(), 'filename' => $Parameter['filename']]), 500);
+            return new JsonResponse(['error' => $e->getMessage(), 'filename' => $Parameter['filename']], 500);
         }
 
-        return new Response(json_encode(['message' => 'Media deleted', 'filename' => $Parameter['filename']]), 200);
+        return new JsonResponse(['message' => 'Media deleted', 'filename' => $Parameter['filename']], 200);
     }
 
     /** @api */
@@ -678,7 +678,7 @@ class Media extends RoutePackage
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
-            return new Response(json_encode(['error' => 'Get specific media - not found']), 404);
+            return new JsonResponse(['error' => 'Get specific media - not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -712,7 +712,7 @@ class Media extends RoutePackage
             'file_exists' => $Media->fileExists(),
         ];
 
-        return new Response(json_encode($Return, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($Return, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -721,7 +721,7 @@ class Media extends RoutePackage
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
-            return new Response(json_encode(['error' => 'Media not found']), 404);
+            return new JsonResponse(['error' => 'Media not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -731,7 +731,7 @@ class Media extends RoutePackage
         }
 
         if (!$Media->fileExists()) {
-            return new Response(json_encode(['error' => 'Media file resource not found']), 404);
+            return new JsonResponse(['error' => 'Media file resource not found'], 404);
         }
 
         $Response = new Response();
@@ -746,7 +746,7 @@ class Media extends RoutePackage
     public static function handleAddMedia($Parameter, array $Route = []): Response
     {
         if (!isset($_FILES['file']) || UPLOAD_ERR_OK !== $_FILES['file']['error']) {
-            return new Response(json_encode(['error' => 'No file uploaded or upload error']), 400);
+            return new JsonResponse(['error' => 'No file uploaded or upload error'], 400);
         }
 
         $request = rex::getRequest();
@@ -760,7 +760,7 @@ class Media extends RoutePackage
         }
 
         if (0 !== $categoryId && !rex_media_category::get($categoryId)) {
-            return new Response(json_encode(['error' => 'Category not found']), 404);
+            return new JsonResponse(['error' => 'Category not found'], 404);
         }
 
         try {
@@ -775,15 +775,15 @@ class Media extends RoutePackage
             ], true);
 
             if ($result['ok']) {
-                return new Response(json_encode([
+                return new JsonResponse([
                     'message' => 'Media created',
                     'filename' => $result['filename'],
-                ]), 201);
+                ], 201);
             }
 
-            return new Response(json_encode(['error' => $result['msg'] ?? 'Unknown error']), 400);
+            return new JsonResponse(['error' => $result['msg'] ?? 'Unknown error'], 400);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -793,7 +793,7 @@ class Media extends RoutePackage
         $Media = rex_media::get($Parameter['filename']);
 
         if (!$Media) {
-            return new Response(json_encode(['error' => 'Media not found']), 404);
+            return new JsonResponse(['error' => 'Media not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -816,7 +816,7 @@ class Media extends RoutePackage
             if (isset($parsed['fields']['category_id'])) {
                 $categoryId = (int) $parsed['fields']['category_id'];
                 if (0 !== $categoryId && !rex_media_category::get($categoryId)) {
-                    return new Response(json_encode(['error' => 'Category not found']), 404);
+                    return new JsonResponse(['error' => 'Category not found'], 404);
                 }
                 $serviceData['category_id'] = $categoryId;
             }
@@ -839,12 +839,12 @@ class Media extends RoutePackage
             try {
                 $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
             } catch (Exception $e) {
-                return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+                return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
             }
 
             if (null !== $Data['category_id']) {
                 if (0 !== $Data['category_id'] && !rex_media_category::get($Data['category_id'])) {
-                    return new Response(json_encode(['error' => 'Category not found']), 404);
+                    return new JsonResponse(['error' => 'Category not found'], 404);
                 }
                 $serviceData['category_id'] = $Data['category_id'];
             }
@@ -858,15 +858,15 @@ class Media extends RoutePackage
             $result = rex_media_service::updateMedia($Parameter['filename'], $serviceData);
 
             if ($result['ok']) {
-                return new Response(json_encode([
+                return new JsonResponse([
                     'message' => 'Media updated',
                     'filename' => $Parameter['filename'],
-                ]), 200);
+                ], 200);
             }
 
-            return new Response(json_encode(['error' => $result['msg'] ?? 'Unknown error']), 400);
+            return new JsonResponse(['error' => $result['msg'] ?? 'Unknown error'], 400);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         } finally {
             // Temp-Datei aufräumen
             if (isset($serviceData['file']['tmp_name']) && file_exists($serviceData['file']['tmp_name'])) {
@@ -951,13 +951,13 @@ class Media extends RoutePackage
     {
         $Data = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -971,7 +971,7 @@ class Media extends RoutePackage
         if (0 !== $parentId) {
             $parent = rex_media_category::get($parentId);
             if (null === $parent) {
-                return new Response(json_encode(['error' => 'Parent category not found']), 404);
+                return new JsonResponse(['error' => 'Parent category not found'], 404);
             }
         }
 
@@ -980,7 +980,7 @@ class Media extends RoutePackage
         try {
             rex_media_category_service::addCategory($Data['name'], $parent);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
         // Service does not return the new id — fetch the most recent id for this parent_id.
@@ -990,10 +990,10 @@ class Media extends RoutePackage
         );
         $newId = isset($row[0]['id']) ? (int) $row[0]['id'] : null;
 
-        return new Response(json_encode([
+        return new JsonResponse([
             'message' => 'Media category created',
             'id' => $newId,
-        ]), 201);
+        ], 201);
     }
 
     /** @api */
@@ -1002,7 +1002,7 @@ class Media extends RoutePackage
         $Category = rex_media_category::get($Parameter['id']);
 
         if (!$Category) {
-            return new Response(json_encode(['error' => 'Category not found']), 404);
+            return new JsonResponse(['error' => 'Category not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1017,15 +1017,15 @@ class Media extends RoutePackage
         try {
             rex_media_category_service::deleteCategory((int) $Parameter['id']);
         } catch (rex_functional_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 409);
+            return new JsonResponse(['error' => $e->getMessage()], 409);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
-        return new Response(json_encode([
+        return new JsonResponse([
             'message' => 'Media category deleted',
             'id' => $Parameter['id'],
-        ]), 200);
+        ], 200);
     }
 
     /** @api */
@@ -1034,7 +1034,7 @@ class Media extends RoutePackage
         $Category = rex_media_category::get($Parameter['id']);
 
         if (!$Category) {
-            return new Response(json_encode(['error' => 'Category not found']), 404);
+            return new JsonResponse(['error' => 'Category not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1045,13 +1045,13 @@ class Media extends RoutePackage
 
         $Data = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         // Mirror mediapool/pages/structure.php (edit_file_cat): rex_media_category_service::editCategory()
@@ -1060,12 +1060,12 @@ class Media extends RoutePackage
         try {
             rex_media_category_service::editCategory((int) $Parameter['id'], ['name' => $Data['name']]);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
-        return new Response(json_encode([
+        return new JsonResponse([
             'message' => 'Media category updated',
             'id' => $Parameter['id'],
-        ]), 200);
+        ], 200);
     }
 }

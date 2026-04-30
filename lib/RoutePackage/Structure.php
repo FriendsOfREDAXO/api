@@ -22,6 +22,7 @@ use rex_sql;
 use rex_sql_util;
 use rex_template;
 use rex_user;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -535,7 +536,7 @@ class Structure extends RoutePackage
         }
         $perm = $user->getComplexPerm('structure');
         if (null !== $categoryId && !$perm->hasCategoryPerm($categoryId)) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -547,14 +548,14 @@ class Structure extends RoutePackage
         if (null !== $user && !$user->isAdmin()) {
             $perm = $user->getComplexPerm('structure');
             if (!$perm->hasStructurePerm()) {
-                return new Response(json_encode(['error' => 'Permission denied']), 403);
+                return new JsonResponse(['error' => 'Permission denied'], 403);
             }
         }
 
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $SqlQueryWhere = [];
@@ -622,7 +623,7 @@ class Structure extends RoutePackage
             $SqlParameters,
         );
 
-        return new Response(json_encode(ListHelper::wrapResponse($Articles, $pagination['meta']), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(ListHelper::wrapResponse($Articles, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -637,17 +638,17 @@ class Structure extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         if (0 !== $Data['category_id'] && !rex_category::get($Data['category_id'])) {
-            return new Response(json_encode(['error' => 'Valid category_id is required']), 400);
+            return new JsonResponse(['error' => 'Valid category_id is required'], 400);
         }
 
         try {
@@ -667,16 +668,15 @@ class Structure extends RoutePackage
 
             $Article = rex_article::get($ArticleId);
             if (!$Article) {
-                return new Response(json_encode(['error' => 'Article not created - reason unknown']), 500);
+                return new JsonResponse(['error' => 'Article not created - reason unknown'], 500);
             }
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Article created',
                 'id' => $ArticleId,
-            ],
-            ), 201);
+            ], 201);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -692,17 +692,17 @@ class Structure extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         if (0 !== $Data['category_id'] && !rex_category::get($Data['category_id'])) {
-            return new Response(json_encode(['error' => 'Valid category_id is required']), 400);
+            return new JsonResponse(['error' => 'Valid category_id is required'], 400);
         }
 
         try {
@@ -721,16 +721,15 @@ class Structure extends RoutePackage
 
             $Category = rex_category::get($CategoryId);
             if (!$Category) {
-                return new Response(json_encode(['error' => 'Category not created - reason unknown']), 500);
+                return new JsonResponse(['error' => 'Category not created - reason unknown'], 500);
             }
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Category created',
                 'id' => $CategoryId,
-            ],
-            ), 201);
+            ], 201);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -739,7 +738,7 @@ class Structure extends RoutePackage
     {
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -749,7 +748,7 @@ class Structure extends RoutePackage
         }
 
         if ($Article->isStartArticle()) {
-            return new Response(json_encode(['error' => 'Article is category. Please use category route']), 403);
+            return new JsonResponse(['error' => 'Article is category. Please use category route'], 403);
         }
 
         $ArticleId = $Article->getId();
@@ -757,10 +756,10 @@ class Structure extends RoutePackage
         try {
             rex_article_service::deleteArticle($ArticleId);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage(), 'id' => $ArticleId]), 500);
+            return new JsonResponse(['error' => $e->getMessage(), 'id' => $ArticleId], 500);
         }
 
-        return new Response(json_encode(['message' => 'Article deleted', 'id' => $ArticleId]), 200);
+        return new JsonResponse(['message' => 'Article deleted', 'id' => $ArticleId], 200);
     }
 
     /** @api */
@@ -768,7 +767,7 @@ class Structure extends RoutePackage
     {
         $Category = rex_category::get($Parameter['id']);
         if (!$Category) {
-            return new Response(json_encode(['error' => 'Category not found']), 404);
+            return new JsonResponse(['error' => 'Category not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -782,10 +781,10 @@ class Structure extends RoutePackage
         try {
             rex_category_service::deleteCategory($CategoryId);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage(), 'id' => $CategoryId]), 500);
+            return new JsonResponse(['error' => $e->getMessage(), 'id' => $CategoryId], 500);
         }
 
-        return new Response(json_encode(['message' => 'Category deleted', 'id' => $CategoryId]), 200);
+        return new JsonResponse(['message' => 'Category deleted', 'id' => $CategoryId], 200);
     }
 
     /** @api */
@@ -794,25 +793,25 @@ class Structure extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Invalid input',
-            ]), 400);
+            ], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Body field: `' . $e->getMessage() . '` is required',
-            ]), 400);
+            ], 400);
         }
 
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Article not found',
                 'id' => rex_escape($Parameter['id']),
-            ]), 404);
+            ], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -823,10 +822,10 @@ class Structure extends RoutePackage
 
         $clangs = rex_clang::getAllIds();
         if (!in_array($Data['clang_id'], $clangs)) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Clang not found',
                 'clang_id' => rex_escape($Data['clang_id']),
-            ]), 404);
+            ], 404);
         }
 
         // Get Template of Article
@@ -834,20 +833,19 @@ class Structure extends RoutePackage
         $Template = new rex_template($TemplateId);
 
         if (!$Template) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Template not found',
-                'id' => rex_escape($TemplateId)],
-            ), 404);
+                'id' => rex_escape($TemplateId)], 404);
         }
 
         $CTypeId = null;
         $Ctypes = $Template->getCtypes();
         if (0 == count($Ctypes) && 1 != $Data['ctype_id']) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Template has not such ctype',
                 'ctype' => rex_escape($Data['ctype_id']),
                 'template_id' => rex_escape($TemplateId),
-            ]), 404);
+            ], 404);
         }
         if (0 == count($Ctypes)) {
             $CTypeId = 1;
@@ -863,30 +861,30 @@ class Structure extends RoutePackage
         }
 
         if (null === $CTypeId) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Template has not such ctype',
                 'ctype' => rex_escape($Data['ctype_id']),
                 'template_id' => rex_escape($TemplateId),
-            ]), 404);
+            ], 404);
         }
 
         $ModuleQuery = rex_sql::factory()->setQuery('select * from rex_module where id = :id', ['id' => $Data['module_id']]);
         if (0 === $ModuleQuery->getRows()) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Module not found',
                 'module_id' => rex_escape($Data['module_id']),
-            ]), 404);
+            ], 404);
         }
 
         $TemplateQuery = rex_sql::factory()->setQuery('select * from rex_template where id = :id', ['id' => $Template->getId()]);
         $TemplateHasModule = rex_template::hasModule($TemplateQuery->getArrayValue('attributes'), $CTypeId, $Data['module_id']);
         if (!$TemplateHasModule) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Template has no module in such ctype',
                 'template_id' => rex_escape($Template->getId()),
                 'ctype_id' => rex_escape($Data['ctype_id']),
                 'module_id' => rex_escape($Data['module_id']),
-            ]), 404);
+            ], 404);
         }
 
         // value1...19
@@ -946,14 +944,14 @@ class Structure extends RoutePackage
             // Add was missing it.
             self::stampArticleAndInvalidate((int) $Parameter['id'], (int) $Data['clang_id']);
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'ArticleSlice created',
                 'slice_id' => $SliceId,
-            ]), 201);
+            ], 201);
         } catch (Exception $e) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => $e->getMessage(),
-            ]), 500);
+            ], 500);
         }
     }
 
@@ -963,7 +961,7 @@ class Structure extends RoutePackage
         $Article = rex_article::get($Parameter['id']);
 
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -991,7 +989,7 @@ class Structure extends RoutePackage
             'revision' => $Article->getValue('revision'),
         ];
 
-        return new Response(json_encode($Return, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($Return, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -1000,18 +998,18 @@ class Structure extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1021,7 +1019,7 @@ class Structure extends RoutePackage
         }
 
         if ($Article->isStartArticle()) {
-            return new Response(json_encode(['error' => 'Article is a start article. Please use category route to update.']), 403);
+            return new JsonResponse(['error' => 'Article is a start article. Please use category route to update.'], 403);
         }
 
         try {
@@ -1048,12 +1046,12 @@ class Structure extends RoutePackage
                 }
             }
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Article updated',
                 'id' => $Parameter['id'],
-            ]), 200);
+            ], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -1063,18 +1061,18 @@ class Structure extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $Category = rex_category::get($Parameter['id']);
         if (!$Category) {
-            return new Response(json_encode(['error' => 'Category not found']), 404);
+            return new JsonResponse(['error' => 'Category not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1107,12 +1105,12 @@ class Structure extends RoutePackage
                 }
             }
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Category updated',
                 'id' => $Parameter['id'],
-            ]), 200);
+            ], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -1122,12 +1120,12 @@ class Structure extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1189,7 +1187,7 @@ class Structure extends RoutePackage
             $SqlParameters,
         );
 
-        return new Response(json_encode(ListHelper::wrapResponse($Slices, $pagination['meta']), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(ListHelper::wrapResponse($Slices, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -1197,7 +1195,7 @@ class Structure extends RoutePackage
     {
         $Article = rex_article::get($Parameter['id']);
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1213,10 +1211,10 @@ class Structure extends RoutePackage
         );
 
         if (empty($SliceData)) {
-            return new Response(json_encode(['error' => 'Slice not found']), 404);
+            return new JsonResponse(['error' => 'Slice not found'], 404);
         }
 
-        return new Response(json_encode($SliceData[0], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($SliceData[0], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -1225,13 +1223,13 @@ class Structure extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $sliceId = (int) $Parameter['slice_id'];
@@ -1239,13 +1237,13 @@ class Structure extends RoutePackage
 
         $Slice = self::loadSliceForArticle($sliceId, $articleId);
         if (null === $Slice) {
-            return new Response(json_encode(['error' => 'Slice not found']), 404);
+            return new JsonResponse(['error' => 'Slice not found'], 404);
         }
 
         $clangId = (int) $Slice['clang_id'];
         $Article = rex_article::get($articleId, $clangId);
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1254,7 +1252,7 @@ class Structure extends RoutePackage
             return $permResponse;
         }
         if (null !== $user && !$user->getComplexPerm('modules')->hasPerm((int) $Slice['module_id'])) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
 
         $UpdateData = [];
@@ -1279,7 +1277,7 @@ class Structure extends RoutePackage
         }
 
         if (0 === count($UpdateData)) {
-            return new Response(json_encode(['error' => 'No content fields provided']), 400);
+            return new JsonResponse(['error' => 'No content fields provided'], 400);
         }
 
         $ctype = (int) $Slice['ctype_id'];
@@ -1329,12 +1327,12 @@ class Structure extends RoutePackage
             // Article timestamp + cache (content.php:298-308)
             self::stampArticleAndInvalidate($articleId, $clangId);
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Slice updated',
                 'slice_id' => $sliceId,
-            ]), 200);
+            ], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -1346,13 +1344,13 @@ class Structure extends RoutePackage
 
         $Slice = self::loadSliceForArticle($sliceId, $articleId);
         if (null === $Slice) {
-            return new Response(json_encode(['error' => 'Slice not found']), 404);
+            return new JsonResponse(['error' => 'Slice not found'], 404);
         }
 
         $clangId = (int) $Slice['clang_id'];
         $Article = rex_article::get($articleId, $clangId);
         if (!$Article) {
-            return new Response(json_encode(['error' => 'Article not found']), 404);
+            return new JsonResponse(['error' => 'Article not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
@@ -1361,7 +1359,7 @@ class Structure extends RoutePackage
             return $permResponse;
         }
         if (null !== $user && !$user->getComplexPerm('modules')->hasPerm((int) $Slice['module_id'])) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
 
         $ctype = (int) $Slice['ctype_id'];
@@ -1408,12 +1406,12 @@ class Structure extends RoutePackage
             // Article timestamp + cache (content.php:298-308)
             self::stampArticleAndInvalidate($articleId, $clangId);
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Slice deleted',
                 'slice_id' => $sliceId,
-            ]), 200);
+            ], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 

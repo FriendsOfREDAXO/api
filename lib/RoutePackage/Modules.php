@@ -15,6 +15,7 @@ use rex_module_cache;
 use rex_sql;
 use rex_sql_exception;
 use rex_user;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -204,7 +205,7 @@ class Modules extends RoutePackage
             return null;
         }
         if (!$user->isAdmin()) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -215,7 +216,7 @@ class Modules extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $SqlQueryWhere = [];
@@ -270,7 +271,7 @@ class Modules extends RoutePackage
             $SqlParameters,
         );
 
-        return new Response(json_encode(ListHelper::wrapResponse($Modules, $pagination['meta']), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(ListHelper::wrapResponse($Modules, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -285,10 +286,10 @@ class Modules extends RoutePackage
         );
 
         if (empty($ModulesData)) {
-            return new Response(json_encode(['error' => 'Module not found']), 404);
+            return new JsonResponse(['error' => 'Module not found'], 404);
         }
 
-        return new Response(json_encode($ModulesData[0], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($ModulesData[0], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -303,13 +304,13 @@ class Modules extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         try {
@@ -338,11 +339,11 @@ class Modules extends RoutePackage
                 'output' => $Data['output'],
             ]));
 
-            return new Response(json_encode(['message' => 'Module created', 'id' => $moduleId]), 201);
+            return new JsonResponse(['message' => 'Module created', 'id' => $moduleId], 201);
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'conflict_key_already_exists']), 409);
+            return new JsonResponse(['error' => 'conflict_key_already_exists'], 409);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -358,20 +359,20 @@ class Modules extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $Module = rex_sql::factory();
         $Module->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $Parameter['id']]);
 
         if (0 === $Module->getRows()) {
-            return new Response(json_encode(['error' => 'Module not found']), 404);
+            return new JsonResponse(['error' => 'Module not found'], 404);
         }
 
         $Data['name'] ??= $Module->getValue('name');
@@ -416,11 +417,11 @@ class Modules extends RoutePackage
                 }
             }
 
-            return new Response(json_encode(['message' => 'Module updated', 'id' => $Parameter['id']]), 200);
+            return new JsonResponse(['message' => 'Module updated', 'id' => $Parameter['id']], 200);
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'conflict_key_already_exists']), 409);
+            return new JsonResponse(['error' => 'conflict_key_already_exists'], 409);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -437,7 +438,7 @@ class Modules extends RoutePackage
         $Module->setQuery('SELECT id FROM ' . rex::getTable('module') . ' WHERE id = :id', [':id' => $Parameter['id']]);
 
         if (0 === $Module->getRows()) {
-            return new Response(json_encode(['error' => 'Module not found']), 404);
+            return new JsonResponse(['error' => 'Module not found'], 404);
         }
 
         try {
@@ -448,9 +449,9 @@ class Modules extends RoutePackage
             );
 
             if ($usageCheck->getRows() > 0) {
-                return new Response(json_encode([
+                return new JsonResponse([
                     'error' => 'Cannot delete module. It is in use by one or more slices.',
-                ]), 409);
+                ], 409);
             }
 
             $sql = rex_sql::factory();
@@ -469,9 +470,9 @@ class Modules extends RoutePackage
                 'id' => $Parameter['id'],
             ]));
 
-            return new Response(json_encode(['message' => 'Module deleted', 'id' => $Parameter['id']]), 200);
+            return new JsonResponse(['message' => 'Module deleted', 'id' => $Parameter['id']], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 }

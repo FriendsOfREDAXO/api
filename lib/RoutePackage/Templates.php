@@ -15,6 +15,7 @@ use rex_sql_exception;
 use rex_template;
 use rex_template_cache;
 use rex_user;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -223,7 +224,7 @@ class Templates extends RoutePackage
             return null;
         }
         if (!$user->isAdmin()) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -240,7 +241,7 @@ class Templates extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $SqlQueryWhere = [];
@@ -248,7 +249,7 @@ class Templates extends RoutePackage
 
         if (isset($Query['filter']['id']) && '' !== $Query['filter']['id'] && null !== $Query['filter']['id']) {
             if (!is_int($Query['filter']['id'])) {
-                return new Response(json_encode(['error' => 'Invalid type for filter[id]. Expected integer.']), 400);
+                return new JsonResponse(['error' => 'Invalid type for filter[id]. Expected integer.'], 400);
             }
             $SqlQueryWhere[':id'] = 'id = :id';
             $SqlParameters[':id'] = $Query['filter']['id'];
@@ -256,7 +257,7 @@ class Templates extends RoutePackage
 
         if (isset($Query['filter']['name']) && '' !== $Query['filter']['name'] && null !== $Query['filter']['name']) {
             if (!is_string($Query['filter']['name'])) {
-                return new Response(json_encode(['error' => 'Invalid type for filter[name]. Expected string.']), 400);
+                return new JsonResponse(['error' => 'Invalid type for filter[name]. Expected string.'], 400);
             }
             $SqlQueryWhere[':name'] = 'name LIKE :name';
             $SqlParameters[':name'] = '%' . $Query['filter']['name'] . '%';
@@ -264,7 +265,7 @@ class Templates extends RoutePackage
 
         if (isset($Query['filter']['active']) && '' !== $Query['filter']['active'] && null !== $Query['filter']['active']) {
             if (!is_int($Query['filter']['active']) || !in_array($Query['filter']['active'], [0, 1])) {
-                return new Response(json_encode(['error' => 'Invalid value for filter[active].  Must be 0 or 1.']), 400);
+                return new JsonResponse(['error' => 'Invalid value for filter[active].  Must be 0 or 1.'], 400);
             }
             $SqlQueryWhere[':active'] = 'active = :active';
             $SqlParameters[':active'] = $Query['filter']['active'];
@@ -272,7 +273,7 @@ class Templates extends RoutePackage
 
         if (isset($Query['filter']['key']) && '' !== $Query['filter']['key'] && null !== $Query['filter']['key']) {
             if (!is_string($Query['filter']['key'])) {
-                return new Response(json_encode(['error' => 'Invalid type for filter[key]. Expected string.']), 400);
+                return new JsonResponse(['error' => 'Invalid type for filter[key]. Expected string.'], 400);
             }
             $SqlQueryWhere[':key'] = '`key` LIKE :key';
             $SqlParameters[':key'] = $Query['filter']['key'];
@@ -296,7 +297,7 @@ class Templates extends RoutePackage
                 $SqlParameters,
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
         $total = (int) $countResult[0]['total'];
 
@@ -321,10 +322,10 @@ class Templates extends RoutePackage
                 $SqlParameters,
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
 
-        return new Response(json_encode(ListHelper::wrapResponse($Templates, $pagination['meta']), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(ListHelper::wrapResponse($Templates, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -345,7 +346,7 @@ class Templates extends RoutePackage
         );
 
         if (empty($TemplateData)) {
-            return new Response(json_encode(['error' => 'Template not found']), 404);
+            return new JsonResponse(['error' => 'Template not found'], 404);
         }
 
         $TemplateData[0]['is_in_use'] = true;
@@ -353,7 +354,7 @@ class Templates extends RoutePackage
             $TemplateData[0]['is_in_use'] = false;
         }
 
-        return new Response(json_encode($TemplateData[0], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($TemplateData[0], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -368,21 +369,21 @@ class Templates extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         if (null === $Data['name'] || '' === $Data['name']) {
-            return new Response(json_encode(['error' => 'name is required']), 400);
+            return new JsonResponse(['error' => 'name is required'], 400);
         }
 
         if (null === $Data['content'] || '' === $Data['content']) {
-            return new Response(json_encode(['error' => 'content is required']), 400);
+            return new JsonResponse(['error' => 'content is required'], 400);
         }
 
         $Data['active'] = (1 === $Data['active']) ? 1 : 0;
@@ -425,12 +426,12 @@ class Templates extends RoutePackage
             ]));
         } catch (rex_sql_exception $e) {
             if (rex_sql::ERROR_VIOLATE_UNIQUE_KEY == $e->getErrorCode()) {
-                return new Response(json_encode(['error' => 'key already exists']), 409);
+                return new JsonResponse(['error' => 'key already exists'], 409);
             }
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
-        return new Response(json_encode(['message' => 'Template created', 'id' => $templateId]), 201);
+        return new JsonResponse(['message' => 'Template created', 'id' => $templateId], 201);
     }
 
     /** @api */
@@ -446,20 +447,20 @@ class Templates extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $templateSql = rex_sql::factory();
         $Template = $templateSql->setQuery('SELECT ' . implode(',', self::TemplateFields) . ',attributes FROM ' . rex::getTable('template') . ' WHERE id = :id', [':id' => $templateId]);
 
         if (0 === $Template->getRows()) {
-            return new Response(json_encode(['error' => 'Template not found']), 404);
+            return new JsonResponse(['error' => 'Template not found'], 404);
         }
 
         if (null === $Data['active']) {
@@ -467,10 +468,10 @@ class Templates extends RoutePackage
         }
         if (0 == $Data['active'] && 1 == $Template->getValue('active')) {
             if (false !== rex_template::templateIsInUse($templateId, 'cant_delete_template_because_its_in_use')) {
-                return new Response(json_encode(['error' => 'Template is in use. Active status to 0 is not possible', 'id' => $templateId]), 409);
+                return new JsonResponse(['error' => 'Template is in use. Active status to 0 is not possible', 'id' => $templateId], 409);
             }
             if (rex_template::getDefaultId() == $templateId) {
-                return new Response(json_encode(['error' => 'Template is default template', 'id' => $templateId]), 409);
+                return new JsonResponse(['error' => 'Template is default template', 'id' => $templateId], 409);
             }
         }
 
@@ -513,14 +514,14 @@ class Templates extends RoutePackage
                 'categories' => $attributes['categories'],
             ]));
 
-            return new Response(json_encode(['message' => 'Template updated', 'id' => $templateId]), 200);
+            return new JsonResponse(['message' => 'Template updated', 'id' => $templateId], 200);
         } catch (rex_sql_exception $e) {
             if (rex_sql::ERROR_VIOLATE_UNIQUE_KEY == $e->getErrorCode()) {
-                return new Response(json_encode(['error' => 'key already exists']), 409);
+                return new JsonResponse(['error' => 'key already exists'], 409);
             }
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -539,15 +540,15 @@ class Templates extends RoutePackage
         $checkSql->setQuery('SELECT id FROM ' . rex::getTable('template') . ' WHERE id = :id', [':id' => $templateId]);
 
         if (0 === $checkSql->getRows()) {
-            return new Response(json_encode(['error' => 'Template not found']), 404);
+            return new JsonResponse(['error' => 'Template not found'], 404);
         }
 
         if (false !== rex_template::templateIsInUse($templateId, 'cant_delete_template_because_its_in_use')) {
-            return new Response(json_encode(['error' => 'Template is in use', 'id' => $templateId]), 409);
+            return new JsonResponse(['error' => 'Template is in use', 'id' => $templateId], 409);
         }
 
         if (rex_template::getDefaultId() == $templateId) {
-            return new Response(json_encode(['error' => 'Template is default template', 'id' => $templateId]), 409);
+            return new JsonResponse(['error' => 'Template is default template', 'id' => $templateId], 409);
         }
 
         try {
@@ -562,9 +563,9 @@ class Templates extends RoutePackage
                 'id' => $templateId,
             ]));
 
-            return new Response(json_encode(['message' => 'Template deleted', 'id' => $templateId]), 200);
+            return new JsonResponse(['message' => 'Template deleted', 'id' => $templateId], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 }

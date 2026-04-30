@@ -13,6 +13,7 @@ use rex_clang_service;
 use rex_extension;
 use rex_extension_point;
 use rex_user;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -214,7 +215,7 @@ class Clangs extends RoutePackage
             return null;
         }
         if (!$user->isAdmin()) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -225,7 +226,7 @@ class Clangs extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         // Get all languages from rex_clang
@@ -289,7 +290,7 @@ class Clangs extends RoutePackage
 
         $result = ListHelper::paginateArray($filteredClangs, $sortDefs, $page, $per_page);
 
-        return new Response(json_encode($result, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($result, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -299,14 +300,14 @@ class Clangs extends RoutePackage
         $clang = rex_clang::get($clangId);
 
         if (!$clang) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+            return new JsonResponse(['error' => 'Language not found'], 404);
         }
 
         $user = RouteCollection::getBackendUser($Route);
         if (null !== $user && !$user->isAdmin()) {
             $clangPerm = $user->getComplexPerm('clang');
             if (!$clangPerm->hasPerm($clang->getId())) {
-                return new Response(json_encode(['error' => 'Permission denied']), 403);
+                return new JsonResponse(['error' => 'Permission denied'], 403);
             }
         }
 
@@ -318,7 +319,7 @@ class Clangs extends RoutePackage
             'status' => $clang->isOnline() ? 1 : 0,
         ];
 
-        return new Response(json_encode($clangData, JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode($clangData, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -333,13 +334,13 @@ class Clangs extends RoutePackage
         $Data = json_decode(rex::getRequest()->getContent(), true);
 
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $Data['status'] = (1 == $Data['status']) ? 1 : 0;
@@ -347,10 +348,10 @@ class Clangs extends RoutePackage
         $allClangs = rex_clang::getAll();
         foreach ($allClangs as $clang) {
             if ($clang->getCode() === $Data['code']) {
-                return new Response(json_encode(['error' => 'Language code already exists']), 409);
+                return new JsonResponse(['error' => 'Language code already exists'], 409);
             }
             if ($clang->getName() === $Data['name']) {
-                return new Response(json_encode(['error' => 'Language name already exists']), 409);
+                return new JsonResponse(['error' => 'Language name already exists'], 409);
             }
         }
 
@@ -366,18 +367,18 @@ class Clangs extends RoutePackage
             rex_clang_service::addCLang($Data['code'], $Data['name'], $Data['priority'], $Data['status']);
 
             if (null === $clangId) {
-                return new Response(json_encode(['error' => 'Failed to create language']), 500);
+                return new JsonResponse(['error' => 'Failed to create language'], 500);
             }
 
             rex_clang::reset(); // Ensure we get fresh data
             $clang = rex_clang::get($clangId);
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Language created',
                 'id' => $clangId,
-            ]), 201);
+            ], 201);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -392,18 +393,18 @@ class Clangs extends RoutePackage
 
         $Data = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         $Clang = rex_clang::get($Parameter['id']);
         if (!$Clang) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+            return new JsonResponse(['error' => 'Language not found'], 404);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         foreach ($Data as $key => $value) {
@@ -413,7 +414,7 @@ class Clangs extends RoutePackage
         }
 
         if (0 === count($Data)) {
-            return new Response(json_encode(['error' => 'No data provided']), 400);
+            return new JsonResponse(['error' => 'No data provided'], 400);
         }
 
         if (null !== $Data['code']) {
@@ -421,10 +422,10 @@ class Clangs extends RoutePackage
             foreach ($allClangs as $allClang) {
                 if ($allClang->getId() != $Parameter['id']) {
                     if ($Data['code'] && $allClang->getCode() === $Data['code']) {
-                        return new Response(json_encode(['error' => 'Language code already exists']), 409);
+                        return new JsonResponse(['error' => 'Language code already exists'], 409);
                     }
                     if ($Data['name'] && $allClang->getName() === $Data['name']) {
-                        return new Response(json_encode(['error' => 'Language code already exists']), 409);
+                        return new JsonResponse(['error' => 'Language code already exists'], 409);
                     }
                 }
             }
@@ -441,15 +442,15 @@ class Clangs extends RoutePackage
             $result = rex_clang_service::editCLang($Parameter['id'], $code, $name, $priority, $status);
 
             if (false === $result) {
-                return new Response(json_encode(['error' => 'Failed to update language']), 500);
+                return new JsonResponse(['error' => 'Failed to update language'], 500);
             }
 
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Language updated',
                 'id' => $Parameter['id'],
-            ]), 200);
+            ], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 
@@ -465,21 +466,21 @@ class Clangs extends RoutePackage
         $clang = rex_clang::get($Parameter['id']);
 
         if (!$clang) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+            return new JsonResponse(['error' => 'Language not found'], 404);
         }
 
         if (count(rex_clang::getAll()) <= 1) {
-            return new Response(json_encode(['error' => 'Cannot delete the last language']), 409);
+            return new JsonResponse(['error' => 'Cannot delete the last language'], 409);
         }
 
         try {
             rex_clang_service::deleteCLang($Parameter['id']);
-            return new Response(json_encode([
+            return new JsonResponse([
                 'message' => 'Language deleted',
                 'id' => $Parameter['id'],
-            ]), 200);
+            ], 200);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
     }
 }

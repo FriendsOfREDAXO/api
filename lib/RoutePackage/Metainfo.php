@@ -22,6 +22,7 @@ use rex_metainfo_default_type;
 use rex_sql;
 use rex_sql_exception;
 use rex_user;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
@@ -431,7 +432,7 @@ class Metainfo extends RoutePackage
                 'SELECT id, label, dbtype, dblength FROM ' . rex::getTable('metainfo_type') . ' ORDER BY id',
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
 
         $data = array_map(static fn(array $row): array => [
@@ -441,7 +442,7 @@ class Metainfo extends RoutePackage
             'dblength' => (int) $row['dblength'],
         ], $rows);
 
-        return new Response(json_encode(['data' => $data], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(['data' => $data], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     // =====================================================================
@@ -460,7 +461,7 @@ class Metainfo extends RoutePackage
         try {
             $Query = RouteCollection::getQuerySet($_REQUEST, $Parameter['query']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'query field: ' . $e->getMessage() . ' is required']), 400);
+            return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
         $where = [];
@@ -469,7 +470,7 @@ class Metainfo extends RoutePackage
         $prefix = $Query['filter']['prefix'] ?? null;
         if (null !== $prefix && '' !== $prefix) {
             if (!in_array($prefix, self::PREFIXES, true)) {
-                return new Response(json_encode(['error' => 'Invalid prefix. Allowed: ' . implode(', ', self::PREFIXES)]), 400);
+                return new JsonResponse(['error' => 'Invalid prefix. Allowed: ' . implode(', ', self::PREFIXES)], 400);
             }
             $where[] = 'name LIKE :prefix';
             $params[':prefix'] = $prefix . '%';
@@ -502,7 +503,7 @@ class Metainfo extends RoutePackage
                 $params,
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
         $total = (int) $countResult[0]['total'];
 
@@ -527,12 +528,12 @@ class Metainfo extends RoutePackage
                 $params,
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
 
         $data = array_map(self::shapeFieldRow(...), $rows);
 
-        return new Response(json_encode(ListHelper::wrapResponse($data, $pagination['meta']), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(ListHelper::wrapResponse($data, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -550,14 +551,14 @@ class Metainfo extends RoutePackage
                 [':id' => (int) $Parameter['id']],
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
 
         if (0 === count($rows)) {
-            return new Response(json_encode(['error' => 'Metainfo field not found']), 404);
+            return new JsonResponse(['error' => 'Metainfo field not found'], 404);
         }
 
-        return new Response(json_encode(self::shapeFieldRow($rows[0]), JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(self::shapeFieldRow($rows[0]), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -573,18 +574,18 @@ class Metainfo extends RoutePackage
 
         $Data = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($Data)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         $name = (string) $Data['name'];
         if (1 !== preg_match('/^(?:art_|cat_|med_|clang_)[a-z0-9_]+$/i', $name)) {
-            return new Response(json_encode(['error' => 'name must start with art_, cat_, med_ or clang_ and only contain a-z, 0-9, _']), 400);
+            return new JsonResponse(['error' => 'name must start with art_, cat_, med_ or clang_ and only contain a-z, 0-9, _'], 400);
         }
 
         $result = rex_metainfo_add_field(
@@ -601,7 +602,7 @@ class Metainfo extends RoutePackage
         );
 
         if (is_string($result)) {
-            return new Response(json_encode(['error' => $result]), 409);
+            return new JsonResponse(['error' => $result], 409);
         }
 
         try {
@@ -610,7 +611,7 @@ class Metainfo extends RoutePackage
                 [':name' => $name],
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Field created but lookup failed: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Field created but lookup failed: ' . $e->getMessage()], 500);
         }
 
         $newId = isset($row[0]['id']) ? (int) $row[0]['id'] : 0;
@@ -619,11 +620,11 @@ class Metainfo extends RoutePackage
             self::stampApiUser((int) $newId, true);
         }
 
-        return new Response(json_encode([
+        return new JsonResponse([
             'message' => 'Metainfo field created',
             'id' => $newId,
             'name' => $name,
-        ]), 201);
+        ], 201);
     }
 
     /** @api */
@@ -637,17 +638,17 @@ class Metainfo extends RoutePackage
 
         $raw = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($raw)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         if (isset($raw['name']) || isset($raw['type_id'])) {
-            return new Response(json_encode(['error' => 'Renaming or changing the type of a metainfo field is not supported via the API']), 422);
+            return new JsonResponse(['error' => 'Renaming or changing the type of a metainfo field is not supported via the API'], 422);
         }
 
         try {
             $Data = RouteCollection::getQuerySet($raw, $Parameter['Body']);
         } catch (Exception $e) {
-            return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
         try {
@@ -656,11 +657,11 @@ class Metainfo extends RoutePackage
                 [':id' => (int) $Parameter['id']],
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => 'Database error: ' . $e->getMessage()]), 500);
+            return new JsonResponse(['error' => 'Database error: ' . $e->getMessage()], 500);
         }
 
         if (0 === count($existing)) {
-            return new Response(json_encode(['error' => 'Metainfo field not found']), 404);
+            return new JsonResponse(['error' => 'Metainfo field not found'], 404);
         }
 
         $sql = rex_sql::factory();
@@ -677,7 +678,7 @@ class Metainfo extends RoutePackage
         }
 
         if (!$touched) {
-            return new Response(json_encode(['error' => 'No updatable fields provided']), 400);
+            return new JsonResponse(['error' => 'No updatable fields provided'], 400);
         }
 
         $sql->setValue('updatedate', date('Y-m-d H:i:s'));
@@ -686,10 +687,10 @@ class Metainfo extends RoutePackage
         try {
             $sql->update();
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
-        return new Response(json_encode(['message' => 'Metainfo field updated', 'id' => (int) $Parameter['id']]), 200);
+        return new JsonResponse(['message' => 'Metainfo field updated', 'id' => (int) $Parameter['id']], 200);
     }
 
     /** @api */
@@ -706,13 +707,13 @@ class Metainfo extends RoutePackage
         $result = rex_metainfo_delete_field((int) $Parameter['id']);
 
         if (is_string($result)) {
-            return new Response(json_encode(['error' => $result]), 404);
+            return new JsonResponse(['error' => $result], 404);
         }
         if (false === $result) {
-            return new Response(json_encode(['error' => 'Failed to delete metainfo field']), 500);
+            return new JsonResponse(['error' => 'Failed to delete metainfo field'], 500);
         }
 
-        return new Response(json_encode(['message' => 'Metainfo field deleted', 'id' => (int) $Parameter['id']]), 200);
+        return new JsonResponse(['message' => 'Metainfo field deleted', 'id' => (int) $Parameter['id']], 200);
     }
 
     // =====================================================================
@@ -748,7 +749,7 @@ class Metainfo extends RoutePackage
     {
         $filename = (string) $Parameter['filename'];
         if (null === self::getMediaIdByFilename($filename)) {
-            return new Response(json_encode(['error' => 'Media not found']), 404);
+            return new JsonResponse(['error' => 'Media not found'], 404);
         }
 
         $permResponse = self::checkMediaValuePerm($Route, $filename);
@@ -759,7 +760,7 @@ class Metainfo extends RoutePackage
         $fields = self::loadFieldsForPrefix('med_');
         $values = self::readValuesFromTable(rex::getTable('media'), 'filename = :filename', [':filename' => $filename], $fields);
 
-        return new Response(json_encode(['filename' => $filename, 'data' => $values], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(['filename' => $filename, 'data' => $values], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -767,7 +768,7 @@ class Metainfo extends RoutePackage
     {
         $filename = (string) $Parameter['filename'];
         if (null === self::getMediaIdByFilename($filename)) {
-            return new Response(json_encode(['error' => 'Media not found']), 404);
+            return new JsonResponse(['error' => 'Media not found'], 404);
         }
 
         $permResponse = self::checkMediaValuePerm($Route, $filename);
@@ -777,7 +778,7 @@ class Metainfo extends RoutePackage
 
         $body = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($body)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         $fields = self::loadFieldsForPrefix('med_');
@@ -789,13 +790,13 @@ class Metainfo extends RoutePackage
         try {
             self::applyValuePatch(rex::getTable('media'), ['filename' => $filename], $body, $fields);
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
         rex_media_cache::delete($filename);
 
         $values = self::readValuesFromTable(rex::getTable('media'), 'filename = :filename', [':filename' => $filename], $fields);
-        return new Response(json_encode(['message' => 'Metainfo values updated', 'filename' => $filename, 'data' => $values], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(['message' => 'Metainfo values updated', 'filename' => $filename, 'data' => $values], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -803,7 +804,7 @@ class Metainfo extends RoutePackage
     {
         $clangId = (int) $Parameter['id'];
         if (null === rex_clang::get($clangId)) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+            return new JsonResponse(['error' => 'Language not found'], 404);
         }
 
         $permResponse = self::checkClangValuePerm($Route);
@@ -814,7 +815,7 @@ class Metainfo extends RoutePackage
         $fields = self::loadFieldsForPrefix('clang_');
         $values = self::readValuesFromTable(rex::getTable('clang'), 'id = :id', [':id' => $clangId], $fields);
 
-        return new Response(json_encode(['data' => $values], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(['data' => $values], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /** @api */
@@ -822,7 +823,7 @@ class Metainfo extends RoutePackage
     {
         $clangId = (int) $Parameter['id'];
         if (null === rex_clang::get($clangId)) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+            return new JsonResponse(['error' => 'Language not found'], 404);
         }
 
         $permResponse = self::checkClangValuePerm($Route);
@@ -832,7 +833,7 @@ class Metainfo extends RoutePackage
 
         $body = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($body)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         $fields = self::loadFieldsForPrefix('clang_');
@@ -844,13 +845,13 @@ class Metainfo extends RoutePackage
         try {
             self::applyValuePatch(rex::getTable('clang'), ['id' => $clangId], $body, $fields);
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
         rex_clang_service::generateCache();
 
         $values = self::readValuesFromTable(rex::getTable('clang'), 'id = :id', [':id' => $clangId], $fields);
-        return new Response(json_encode(['message' => 'Metainfo values updated', 'data' => $values], JSON_PRETTY_PRINT));
+        return new JsonResponse(json_encode(['message' => 'Metainfo values updated', 'data' => $values], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     private static function readArticleOrCategoryValues(array $Parameter, bool $isArticle, array $Route = []): Response
@@ -877,10 +878,10 @@ class Metainfo extends RoutePackage
             $fields,
         );
 
-        return new Response(json_encode([
+        return new JsonResponse(json_encode([
             'clang_id' => $clangId,
             'data' => $values,
-        ], JSON_PRETTY_PRINT));
+        ], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     private static function writeArticleOrCategoryValues(array $Parameter, bool $isArticle, array $Route = []): Response
@@ -900,7 +901,7 @@ class Metainfo extends RoutePackage
 
         $body = json_decode(rex::getRequest()->getContent(), true);
         if (!is_array($body)) {
-            return new Response(json_encode(['error' => 'Invalid input']), 400);
+            return new JsonResponse(['error' => 'Invalid input'], 400);
         }
 
         $prefix = $isArticle ? 'art_' : 'cat_';
@@ -918,7 +919,7 @@ class Metainfo extends RoutePackage
                 $fields,
             );
         } catch (rex_sql_exception $e) {
-            return new Response(json_encode(['error' => $e->getMessage()]), 500);
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
 
         if ($isArticle) {
@@ -938,30 +939,30 @@ class Metainfo extends RoutePackage
             $fields,
         );
 
-        return new Response(json_encode([
+        return new JsonResponse(json_encode([
             'message' => 'Metainfo values updated',
             'clang_id' => $clangId,
             'data' => $values,
-        ], JSON_PRETTY_PRINT));
+        ], JSON_PRETTY_PRINT), 200, [], true);
     }
 
     private static function resolveArticleOrCategory(int $id, int $clangId, bool $isArticle): ?Response
     {
         if (null === rex_clang::get($clangId)) {
-            return new Response(json_encode(['error' => 'Language not found']), 404);
+            return new JsonResponse(['error' => 'Language not found'], 404);
         }
 
         if ($isArticle) {
             $article = rex_article::get($id, $clangId);
             if (null === $article || $article->isStartArticle()) {
-                return new Response(json_encode(['error' => 'Article not found']), 404);
+                return new JsonResponse(['error' => 'Article not found'], 404);
             }
             return null;
         }
 
         $category = rex_category::get($id, $clangId);
         if (null === $category) {
-            return new Response(json_encode(['error' => 'Category not found']), 404);
+            return new JsonResponse(['error' => 'Category not found'], 404);
         }
         return null;
     }
@@ -991,7 +992,7 @@ class Metainfo extends RoutePackage
 
         $perm = $user->getComplexPerm('structure');
         if (!$perm->hasCategoryPerm($categoryId)) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -1009,7 +1010,7 @@ class Metainfo extends RoutePackage
         if (null === $user || $user->isAdmin()) {
             return null;
         }
-        return new Response(json_encode(['error' => 'Permission denied']), 403);
+        return new JsonResponse(['error' => 'Permission denied'], 403);
     }
 
     /**
@@ -1034,7 +1035,7 @@ class Metainfo extends RoutePackage
 
         $perm = $user->getComplexPerm('media');
         if (!$perm->hasCategoryPerm($categoryId)) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -1065,7 +1066,7 @@ class Metainfo extends RoutePackage
             return null;
         }
         if (!$user->isAdmin()) {
-            return new Response(json_encode(['error' => 'Permission denied']), 403);
+            return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
     }
@@ -1211,10 +1212,10 @@ class Metainfo extends RoutePackage
         }
 
         if (count($unknown) > 0) {
-            return new Response(json_encode([
+            return new JsonResponse([
                 'error' => 'Unknown metainfo field(s): ' . implode(', ', $unknown),
                 'allowed' => array_keys($known),
-            ]), 422);
+            ], 422);
         }
 
         return null;
