@@ -26,7 +26,7 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/structure/articles/{id}                   | GET       | Artikel anzeigen                | ✅      | ✅    | ✅       | ✅            |
 | /api/structure/articles/{id}                   | PUT/PATCH | Artikel ändern                  | ✅      | ✅    | ✅       | ✅            |
 | /api/structure/articles/{id}                   | DELETE    | Artikel löschen                 | ✅      | ✅    | ✅       | ✅            |
-| /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ✅      | ✅    | ✅       | ❌            |
+| /api/structure/articles/{id}/slices            | GET       | Slices eines Artikel anzeigen   | ✅      | ✅    | ✅       | ✅            |
 | /api/structure/articles/{id}/slices            | POST      | ArticleSlice erstellen          | ✅      | ✅    | ✅       | ✅            |
 | /api/structure/articles/{id}/slices/{slice_id} | GET       | Slice eines Artikel anzeigen    | ✅      | ✅    | ✅       | ✅            |
 | /api/structure/articles/{id}/slices/{slice_id} | PUT/PATCH | Slice eines Artikel ändern      | ✅      | ✅    | ✅       | ✅            |
@@ -35,11 +35,11 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/structure/categories/{id}                 | PUT/PATCH | Kategorie ändern                | ✅      | ✅    | ✅       | ✅            |
 | /api/structure/categories/{id}                 | DELETE    | Kategorie löschen               | ✅      | ✅    | ✅       | ✅            |
 | /api/media                                     | GET       | Medienliste                     | ✅      | ✅    | ✅       | ✅            |
-| /api/media                                     | POST      | Medium anlegen                  | ✅      | ✅    | ✅       | ❌            |
-| /api/media/{filename}                          | GET       | Mediametadaten                  | ✅      | ✅    | ✅       | ❌            |
-| /api/media/{filename}                          | PUT/PATCH | Medium ändern                   | ✅      | ✅    | ✅       | ❌            |
-| /api/media/{filename}                          | DELETE    | Medium löschen                  | ✅      | ✅    | ✅       | ❌            |
-| /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      | ✅    | ✅       | ❌            |
+| /api/media                                     | POST      | Medium anlegen (multipart)      | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}/info                     | GET       | Mediametadaten                  | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}/update                   | PUT/PATCH | Medium ändern                   | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}/delete                   | DELETE    | Medium löschen                  | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      | ✅    | ✅       | ✅            |
 | /api/media/category                            | GET       | Mediakategorienliste            | ✅      | ✅    | ✅       | ✅            |
 | /api/media/category                            | POST      | Mediakategorie anlegen          | ✅      | ✅    | ✅       | ✅            |
 | /api/media/category/{id}                       | PUT/PATCH | Mediakategorie ändern           | ✅      | ✅    | ✅       | ✅            |
@@ -67,26 +67,26 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/users/roles/{id}                          | GET       | Rolle holen                     | ✅      | ✅    | ✅       | ✅            |
 | /api/users/roles/{id}                          | PUT/PATCH | Rolle ändern                    | ✅      | ✅    | ✅       | ✅            |
 | /api/users/roles/{id}                          | DELETE    | Rolle löschen                   | ✅      | ✅    | ✅       | ✅            |
-| /api/users/roles/{id}/duplicate                | POST      | Rolle duplizieren               | ✅      | ✅    | ✅       | ❌            |
+| /api/users/roles/{id}/duplicate                | POST      | Rolle duplizieren               | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs                             | GET       | Sprachenliste                   | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs                             | POST      | Sprache anlegen                 | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}                        | GET       | Sprache auslesen                | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}                        | PUT/PATCH | Sprache ändern                  | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}                        | DELETE    | Sprache löschen                 | ✅      | ✅    | ✅       | ✅            |
-| /api/metainfo/types                            | GET       | Verfügbare Feldtypen            | ✅      | ✅    | ✅       | ❌            |
-| /api/metainfo/fields                           | GET       | Felddefinitionen Liste          | ✅      | ✅    | ✅       | ❌            |
-| /api/metainfo/fields                           | POST      | Felddefinition anlegen          | ✅      | ✅    | ✅       | ❌            |
-| /api/metainfo/fields/{id}                      | GET       | Felddefinition holen            | ✅      | ✅    | ✅       | ❌            |
-| /api/metainfo/fields/{id}                      | PUT/PATCH | Felddefinition ändern           | ✅      | ✅    | ✅       | ❌            |
-| /api/metainfo/fields/{id}                      | DELETE    | Felddefinition löschen          | ✅      | ✅    | ✅       | ❌            |
-| /api/structure/articles/{id}/metainfo          | GET       | Artikel-Metainfo lesen          | ✅      | ✅    | ✅       | ❌            |
-| /api/structure/articles/{id}/metainfo          | PUT/PATCH | Artikel-Metainfo ändern         | ✅      | ✅    | ✅       | ❌            |
-| /api/structure/categories/{id}/metainfo        | GET       | Kategorie-Metainfo lesen        | ✅      | ✅    | ✅       | ❌            |
-| /api/structure/categories/{id}/metainfo        | PUT/PATCH | Kategorie-Metainfo ändern       | ✅      | ✅    | ✅       | ❌            |
-| /api/media/{filename}/metainfo                 | GET       | Medien-Metainfo lesen           | ✅      | ✅    | ✅       | ❌            |
-| /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ✅       | ❌            |
-| /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ✅       | ❌            |
-| /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ✅       | ❌            |
+| /api/metainfo/types                            | GET       | Verfügbare Feldtypen            | ✅      | ✅    | ❌       | —            |
+| /api/metainfo/fields                           | GET       | Felddefinitionen Liste          | ✅      | ✅    | ❌       | —            |
+| /api/metainfo/fields                           | POST      | Felddefinition anlegen          | ✅      | ✅    | ❌       | —            |
+| /api/metainfo/fields/{id}                      | GET       | Felddefinition holen            | ✅      | ✅    | ❌       | —            |
+| /api/metainfo/fields/{id}                      | PUT/PATCH | Felddefinition ändern           | ✅      | ✅    | ❌       | —            |
+| /api/metainfo/fields/{id}                      | DELETE    | Felddefinition löschen          | ✅      | ✅    | ❌       | —            |
+| /api/structure/articles/{id}/metainfo          | GET       | Artikel-Metainfo lesen          | ✅      | ✅    | ❌       | —            |
+| /api/structure/articles/{id}/metainfo          | PUT/PATCH | Artikel-Metainfo ändern         | ✅      | ✅    | ❌       | —            |
+| /api/structure/categories/{id}/metainfo        | GET       | Kategorie-Metainfo lesen        | ✅      | ✅    | ❌       | —            |
+| /api/structure/categories/{id}/metainfo        | PUT/PATCH | Kategorie-Metainfo ändern       | ✅      | ✅    | ❌       | —            |
+| /api/media/{filename}/metainfo                 | GET       | Medien-Metainfo lesen           | ✅      | ✅    | ❌       | —            |
+| /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ❌       | —            |
+| /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ❌       | —            |
+| /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ❌       | —            |
 
 ## Bei Problemen mit Authorization
 
