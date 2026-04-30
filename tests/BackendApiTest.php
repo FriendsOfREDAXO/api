@@ -30,6 +30,9 @@ class BackendApiTest extends TestCase
     /** @var array<string, mixed> Created test resources for cleanup */
     protected array $createdResources = [];
 
+    /** Pfad zum Test-Bild für Media-Upload-Tests. */
+    private static string $testImagePath = '';
+
     public static function setUpBeforeClass(): void
     {
         parent::setUpBeforeClass();
@@ -61,6 +64,20 @@ class BackendApiTest extends TestCase
         if ('' === self::$restrictedCookie) {
             self::markTestSkipped('Could not login as restricted user.');
         }
+
+        // Test-Bild für Media-Upload-Tests anlegen.
+        self::$testImagePath = sys_get_temp_dir() . '/api_backend_test.png';
+        $im = imagecreatetruecolor(50, 50);
+        imagepng($im, self::$testImagePath);
+        // imagedestroy() ist seit PHP 8.0 wirkungslos und in 8.5 deprecated — weglassen.
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        if ('' !== self::$testImagePath && file_exists(self::$testImagePath)) {
+            @unlink(self::$testImagePath);
+        }
+        parent::tearDownAfterClass();
     }
 
     protected function tearDown(): void
@@ -241,6 +258,52 @@ class BackendApiTest extends TestCase
     protected function restrictedDelete(string $endpoint): array
     {
         return $this->backendRequest('DELETE', $endpoint, [], self::$restrictedCookie);
+    }
+
+    /**
+     * Multipart-POST mit Backend-Cookie. Setzt KEINEN Content-Type-Header — den
+     * generiert curl mit der korrekten Boundary, sobald POSTFIELDS ein Array ist.
+     *
+     * @param array<string, mixed>  $data  Form-Felder
+     * @param array<string, string> $files Map fieldName => filePath
+     */
+    protected function backendMultipart(string $endpoint, array $data, array $files, string $cookieJar): array
+    {
+        $url = self::$baseUrl . '/api/backend/' . ltrim($endpoint, '/');
+
+        foreach ($files as $fieldName => $filePath) {
+            if (file_exists($filePath)) {
+                $data[$fieldName] = new \CURLFile($filePath);
+            }
+        }
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $data,
+            CURLOPT_COOKIEFILE => $cookieJar,
+            CURLOPT_HTTPHEADER => ['Accept: application/json'],
+            CURLOPT_TIMEOUT => 30,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        return [
+            'success' => $httpCode >= 200 && $httpCode < 300,
+            'status' => $httpCode,
+            'data' => is_string($response) ? json_decode($response, true) : null,
+            'raw' => $response,
+        ];
+    }
+
+    protected function adminMultipartPost(string $endpoint, array $data, array $files): array
+    {
+        return $this->backendMultipart($endpoint, $data, $files, self::$adminCookie);
     }
 
     protected function trackResource(string $endpoint, int|string $id): void
@@ -775,6 +838,108 @@ class BackendApiTest extends TestCase
     }
 
     // ==================== ADMIN CRUD: Roles ====================
+
+    public function testAdminCanListSlices(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $response = $this->adminGet('structure/articles/' . $articleId . '/slices');
+
+        $this->assertSame(200, $response['status']);
+        $this->assertIsArray($response['data']['data']);
+        $this->assertArrayHasKey('meta', $response['data']);
+    }
+
+    public function testAdminCanDuplicateRole(): void
+    {
+        $name = 'BACKEND_TEST_role_dup_' . uniqid();
+        $createResponse = $this->adminPost('users/roles', [
+            'name' => $name,
+            'description' => 'Source role',
+            'perms' => ['general' => '|structure|'],
+        ]);
+        $this->assertSame(201, $createResponse['status']);
+        $sourceId = $createResponse['data']['id'];
+
+        $duplicateId = null;
+        try {
+            $duplicateName = $name . '_copy';
+            $dupResponse = $this->adminPost('users/roles/' . $sourceId . '/duplicate', [
+                'name' => $duplicateName,
+            ]);
+            $this->assertSame(201, $dupResponse['status'], 'Admin should duplicate role. Response: ' . json_encode($dupResponse['data']));
+            $this->assertArrayHasKey('id', $dupResponse['data']);
+            $duplicateId = $dupResponse['data']['id'];
+            $this->assertNotSame($sourceId, $duplicateId);
+        } finally {
+            if (null !== $duplicateId) {
+                $this->adminDelete('users/roles/' . $duplicateId);
+            }
+            $this->adminDelete('users/roles/' . $sourceId);
+        }
+    }
+
+    // ==================== ADMIN: Media (file lifecycle) ====================
+
+    public function testAdminMediaCRUD(): void
+    {
+        if (!file_exists(self::$testImagePath)) {
+            $this->markTestSkipped('Test-Bild nicht vorhanden.');
+        }
+
+        $createResponse = $this->adminMultipartPost('media', [
+            'category_id' => 0,
+            'title' => 'BACKEND_TEST_media_' . uniqid(),
+        ], [
+            'file' => self::$testImagePath,
+        ]);
+        $this->assertSame(201, $createResponse['status'], 'Admin should upload media. Response: ' . json_encode($createResponse['data']));
+        $this->assertArrayHasKey('filename', $createResponse['data']);
+        $filename = $createResponse['data']['filename'];
+
+        try {
+            $infoResponse = $this->adminGet('media/' . $filename . '/info');
+            $this->assertSame(200, $infoResponse['status']);
+            $this->assertSame($filename, $infoResponse['data']['filename']);
+
+            $newTitle = 'BACKEND_TEST_renamed_' . uniqid();
+            $updateResponse = $this->adminPut('media/' . $filename . '/update', [
+                'title' => $newTitle,
+            ]);
+            $this->assertSame(200, $updateResponse['status']);
+
+            $verifyResponse = $this->adminGet('media/' . $filename . '/info');
+            $this->assertSame($newTitle, $verifyResponse['data']['title']);
+        } finally {
+            $deleteResponse = $this->adminDelete('media/' . $filename . '/delete');
+            $this->assertSame(200, $deleteResponse['status']);
+        }
+    }
+
+    public function testAdminCanGetMediaFile(): void
+    {
+        if (!file_exists(self::$testImagePath)) {
+            $this->markTestSkipped('Test-Bild nicht vorhanden.');
+        }
+
+        $createResponse = $this->adminMultipartPost('media', [
+            'category_id' => 0,
+            'title' => 'BACKEND_TEST_filefetch_' . uniqid(),
+        ], [
+            'file' => self::$testImagePath,
+        ]);
+        $this->assertSame(201, $createResponse['status']);
+        $filename = $createResponse['data']['filename'];
+
+        try {
+            $fileResponse = $this->adminGet('media/' . $filename . '/file');
+            $this->assertSame(200, $fileResponse['status']);
+            // Raw response: PNG-Magic-Bytes statt JSON.
+            $this->assertNotEmpty($fileResponse['raw']);
+            $this->assertStringStartsWith("\x89PNG", (string) $fileResponse['raw'], 'Erwartet PNG-Bytes als Raw-Response.');
+        } finally {
+            $this->adminDelete('media/' . $filename . '/delete');
+        }
+    }
 
     public function testAdminRoleCRUD(): void
     {
