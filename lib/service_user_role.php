@@ -48,11 +48,8 @@ final class rex_user_role_service
         $sql->insert();
         $roleId = (int) $sql->getLastId();
 
-        rex_extension::registerPoint(new rex_extension_point('USER_ROLE_ADDED', '', [
-            'id' => $roleId,
-            'name' => $data['name'],
-            'data' => $data,
-        ]));
+        // No EP fired here — REDAXO core's users/pages/roles.php uses rex_form for role CRUD
+        // and does NOT fire any role-specific extension point. Mirroring core exactly: stay silent.
 
         return [
             'id' => $roleId,
@@ -110,10 +107,7 @@ final class rex_user_role_service
         $sql->addGlobalUpdateFields(self::getUser());
         $sql->update();
 
-        rex_extension::registerPoint(new rex_extension_point('USER_ROLE_UPDATED', '', [
-            'id' => $roleId,
-            'data' => $data,
-        ]));
+        // No EP fired — see comment in addRole(). Core's roles page does not fire one either.
 
         return [
             'id' => $roleId,
@@ -154,10 +148,7 @@ final class rex_user_role_service
         $sql = rex_sql::factory();
         $sql->setQuery('DELETE FROM ' . rex::getTable('user_role') . ' WHERE id = ? LIMIT 1', [$roleId]);
 
-        rex_extension::registerPoint(new rex_extension_point('USER_ROLE_DELETED', '', [
-            'id' => $roleId,
-            'name' => $roleName,
-        ]));
+        // No EP fired — see comment in addRole(). Core's roles page does not fire one either.
 
         return [
             'id' => $roleId,

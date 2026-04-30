@@ -8,9 +8,11 @@ use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
+use rex_functional_exception;
 use rex_media;
 use rex_media_cache;
 use rex_media_category;
+use rex_media_category_service;
 use rex_media_service;
 use rex_mediapool;
 use rex_path;
@@ -361,13 +363,7 @@ class Media extends RoutePackage
                     'Body' => [
                         'name' => [
                             'type' => 'string',
-                            'required' => false,
-                            'default' => null,
-                        ],
-                        'parent_id' => [
-                            'type' => 'integer',
-                            'required' => false,
-                            'default' => null,
+                            'required' => true,
                         ],
                     ],
                 ],
@@ -376,7 +372,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['PUT', 'PATCH']),
-            'Update a media category',
+            'Update a media category (only name — REDAXO core does not allow parent_id changes via the page)',
             null,
             new BearerAuth(),
         );
@@ -953,51 +949,51 @@ class Media extends RoutePackage
     /** @api */
     public static function handleAddCategory($Parameter, array $Route = []): Response
     {
-        $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, (int) (json_decode(rex::getRequest()->getContent(), true)['parent_id'] ?? 0));
-        if (null !== $permResponse) {
-            return $permResponse;
-        }
-
         $Data = json_decode(rex::getRequest()->getContent(), true);
-
         if (!is_array($Data)) {
             return new Response(json_encode(['error' => 'Invalid input']), 400);
         }
 
         try {
-            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
-        if (0 !== $Data['parent_id'] && !rex_media_category::get($Data['parent_id'])) {
-            return new Response(json_encode(['error' => 'Parent category not found']), 404);
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkMediaPerm($user, (int) ($Data['parent_id'] ?? 0));
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
+        $parentId = (int) ($Data['parent_id'] ?? 0);
+        $parent = null;
+        if (0 !== $parentId) {
+            $parent = rex_media_category::get($parentId);
+            if (null === $parent) {
+                return new Response(json_encode(['error' => 'Parent category not found']), 404);
+            }
+        }
+
+        // Mirror mediapool/pages/structure.php (add_file_cat): rex_media_category_service::addCategory()
+        // fires MEDIA_CATEGORY_ADDED and handles cache invalidation.
         try {
-            $sql = rex_sql::factory();
-            $sql->setTable(rex::getTable('media_category'));
-            $sql->setValue('name', $Data['name']);
-            $sql->setValue('parent_id', $Data['parent_id']);
-            $sql->setValue('path', $Data['parent_id'] ? rex_media_category::get($Data['parent_id'])->getPath() . $Data['parent_id'] . '|' : '|');
-            $sql->setValue('createdate', date('Y-m-d H:i:s'));
-            $sql->setValue('createuser', 'API');
-            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
-            $sql->setValue('updateuser', 'API');
-            $sql->insert();
-
-            $categoryId = $sql->getLastId();
-
-            rex_media_cache::deleteCategoryList($Data['parent_id']);
-
-            return new Response(json_encode([
-                'message' => 'Media category created',
-                'id' => $categoryId,
-            ]), 201);
+            rex_media_category_service::addCategory($Data['name'], $parent);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
+
+        // Service does not return the new id — fetch the most recent id for this parent_id.
+        $row = rex_sql::factory()->getArray(
+            'SELECT id FROM ' . rex::getTable('media_category') . ' WHERE parent_id = :p AND name = :n ORDER BY id DESC LIMIT 1',
+            [':p' => $parentId, ':n' => $Data['name']],
+        );
+        $newId = isset($row[0]['id']) ? (int) $row[0]['id'] : null;
+
+        return new Response(json_encode([
+            'message' => 'Media category created',
+            'id' => $newId,
+        ]), 201);
     }
 
     /** @api */
@@ -1015,28 +1011,21 @@ class Media extends RoutePackage
             return $permResponse;
         }
 
-        if (count($Category->getChildren()) > 0) {
-            return new Response(json_encode(['error' => 'Category has subcategories']), 409);
-        }
-
-        if (count($Category->getMedia()) > 0) {
-            return new Response(json_encode(['error' => 'Category contains media files']), 409);
-        }
-
+        // Mirror mediapool/pages/structure.php (delete_file_cat): rex_media_category_service::deleteCategory()
+        // checks for children/media and the MEDIA_CATEGORY_IS_IN_USE EP itself, then fires
+        // MEDIA_CATEGORY_DELETED. Map rex_functional_exception → 409.
         try {
-            $sql = rex_sql::factory();
-            $sql->setQuery('DELETE FROM ' . rex::getTable('media_category') . ' WHERE id = ? LIMIT 1', [$Parameter['id']]);
-
-            rex_media_cache::deleteCategory($Parameter['id']);
-            rex_media_cache::deleteCategoryList($Category->getParentId());
-
-            return new Response(json_encode([
-                'message' => 'Media category deleted',
-                'id' => $Parameter['id'],
-            ]), 200);
+            rex_media_category_service::deleteCategory((int) $Parameter['id']);
+        } catch (rex_functional_exception $e) {
+            return new Response(json_encode(['error' => $e->getMessage()]), 409);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
+
+        return new Response(json_encode([
+            'message' => 'Media category deleted',
+            'id' => $Parameter['id'],
+        ]), 200);
     }
 
     /** @api */
@@ -1055,50 +1044,28 @@ class Media extends RoutePackage
         }
 
         $Data = json_decode(rex::getRequest()->getContent(), true);
-
         if (!is_array($Data)) {
             return new Response(json_encode(['error' => 'Invalid input']), 400);
         }
 
         try {
-            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => 'Body field: `' . $e->getMessage() . '` is required']), 400);
         }
 
+        // Mirror mediapool/pages/structure.php (edit_file_cat): rex_media_category_service::editCategory()
+        // takes only the name and fires MEDIA_CATEGORY_UPDATED. Core does not support parent_id changes
+        // via the page, so the API does not either.
         try {
-            $sql = rex_sql::factory();
-            $sql->setTable(rex::getTable('media_category'));
-            $sql->setWhere(['id' => $Parameter['id']]);
-
-            if (null !== $Data['name']) {
-                $sql->setValue('name', $Data['name']);
-            }
-
-            if (null !== $Data['parent_id']) {
-                if ($Data['parent_id'] === $Parameter['id']) {
-                    return new Response(json_encode(['error' => 'Category cannot be its own parent']), 400);
-                }
-                if (0 !== $Data['parent_id'] && !rex_media_category::get($Data['parent_id'])) {
-                    return new Response(json_encode(['error' => 'Parent category not found']), 404);
-                }
-                $sql->setValue('parent_id', $Data['parent_id']);
-                $sql->setValue('path', $Data['parent_id'] ? rex_media_category::get($Data['parent_id'])->getPath() . $Data['parent_id'] . '|' : '|');
-            }
-
-            $sql->setValue('updatedate', date('Y-m-d H:i:s'));
-            $sql->setValue('updateuser', 'API');
-            $sql->update();
-
-            rex_media_cache::deleteCategory($Parameter['id']);
-            rex_media_cache::deleteCategoryList($Category->getParentId());
-
-            return new Response(json_encode([
-                'message' => 'Media category updated',
-                'id' => $Parameter['id'],
-            ]), 200);
+            rex_media_category_service::editCategory((int) $Parameter['id'], ['name' => $Data['name']]);
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
+
+        return new Response(json_encode([
+            'message' => 'Media category updated',
+            'id' => $Parameter['id'],
+        ]), 200);
     }
 }

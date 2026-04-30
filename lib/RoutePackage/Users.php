@@ -866,6 +866,10 @@ class Users extends RoutePackage
     }
 
     /**
+     * Persists role IDs to rex_user.role and mirrors the side-effects the backend
+     * users page performs after any user update: clear the user instance cache and
+     * fire USER_UPDATED. Same param shape as users/pages/users.php uses.
+     *
      * @param array<int> $roleIds
      */
     private static function storeUserRoleIds(int $userId, array $roleIds): void
@@ -876,6 +880,15 @@ class Users extends RoutePackage
         $update->setValue('role', implode(',', $roleIds));
         $update->addGlobalUpdateFields();
         $update->update();
+
+        rex_user::clearInstance($userId);
+        $user = rex_user::require($userId);
+
+        rex_extension::registerPoint(new rex_extension_point('USER_UPDATED', '', [
+            'id' => $userId,
+            'user' => $user,
+            'password' => null,
+        ], true));
     }
 
     /** @api */

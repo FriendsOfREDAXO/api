@@ -921,6 +921,31 @@ class Structure extends RoutePackage
                 $SliceData,
             );
 
+            // Backend content.php fires the deprecated STRUCTURE_CONTENT_SLICE_ADDED right after
+            // the service call (the service itself only fires SLICE_ADDED + art_content_updated).
+            // Mirror that to keep BC for listeners that still hook into the deprecated EP.
+            $articleRevision = 0;
+            $sliceRevision = 0;
+            $epParams = [
+                'article_id' => (int) $Parameter['id'],
+                'clang' => (int) $Data['clang_id'],
+                'function' => '',
+                'slice_id' => (int) $SliceId,
+                'page' => '',
+                'ctype' => (int) $Data['ctype_id'],
+                'category_id' => $Article->getCategoryId(),
+                'module_id' => (int) $Data['module_id'],
+                'article_revision' => &$articleRevision,
+                'slice_revision' => &$sliceRevision,
+            ];
+            /* deprecated */ rex_extension::registerPoint(new rex_extension_point('STRUCTURE_CONTENT_SLICE_ADDED', '', $epParams));
+
+            // Backend content.php:298-308 stamps the article (updatedate/updateuser), invalidates
+            // the article cache and fires STRUCTURE_CONTENT_ARTICLE_UPDATED after every slice
+            // mutation. Update + Delete handlers already do this via stampArticleAndInvalidate;
+            // Add was missing it.
+            self::stampArticleAndInvalidate((int) $Parameter['id'], (int) $Data['clang_id']);
+
             return new Response(json_encode([
                 'message' => 'ArticleSlice created',
                 'slice_id' => $SliceId,
