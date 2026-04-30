@@ -806,6 +806,11 @@ class Metainfo extends RoutePackage
             return new Response(json_encode(['error' => 'Language not found']), 404);
         }
 
+        $permResponse = self::checkClangValuePerm($Route);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
         $fields = self::loadFieldsForPrefix('clang_');
         $values = self::readValuesFromTable(rex::getTable('clang'), 'id = :id', [':id' => $clangId], $fields);
 
@@ -818,6 +823,11 @@ class Metainfo extends RoutePackage
         $clangId = (int) $Parameter['id'];
         if (null === rex_clang::get($clangId)) {
             return new Response(json_encode(['error' => 'Language not found']), 404);
+        }
+
+        $permResponse = self::checkClangValuePerm($Route);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $body = json_decode(rex::getRequest()->getContent(), true);
@@ -984,6 +994,22 @@ class Metainfo extends RoutePackage
             return new Response(json_encode(['error' => 'Permission denied']), 403);
         }
         return null;
+    }
+
+    /**
+     * Backend-only Admin-Check für Clang-Metainfo. REDAXO core's Sprachen-Page
+     * (`pages/system.clangs.php`) ist via `setRequiredPermissions('isAdmin')`
+     * Admin-only — Backend-User ohne Admin-Flag haben dort keinen Zugriff.
+     * Wir spiegeln das exakt: Backend-Reads UND -Writes nur für Admin.
+     * Im Bearer-Modus (User === null) greift weiter der Token-Scope.
+     */
+    private static function checkClangValuePerm(array $Route): ?Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        if (null === $user || $user->isAdmin()) {
+            return null;
+        }
+        return new Response(json_encode(['error' => 'Permission denied']), 403);
     }
 
     /**

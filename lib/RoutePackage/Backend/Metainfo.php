@@ -9,13 +9,14 @@ use FriendsOfRedaxo\Api\RoutePackage\Metainfo as TokenMetainfo;
 use function in_array;
 
 /**
- * Mirror nur die Wert-Endpoints (article/category/media) in den /api/backend/-Pfad.
- * Field-CRUD und Clang-Werte bleiben bewusst Bearer-only — Backend-User sollen
- * Metainfo-Werte an Inhalten pflegen können, aber keine Felddefinitionen anlegen
- * oder Sprach-Metainfo bearbeiten.
+ * Mirror der Wert-Endpoints (article/category/media/clang) in den /api/backend/-Pfad.
+ * Field-CRUD bleibt bewusst Bearer-only — Backend-User sollen Werte an Inhalten
+ * pflegen können, aber keine Felddefinitionen anlegen.
  *
- * Permissions werden in den Handlern selbst geprüft (checkStructureValuePerm /
- * checkMediaValuePerm in Metainfo.php).
+ * Permissions werden in den Handlern selbst geprüft:
+ *   checkStructureValuePerm — Article/Category, structure-Perm gegen Kategorie
+ *   checkMediaValuePerm     — Media, media-Perm gegen Media-Kategorie
+ *   checkClangValuePerm     — Clang, admin-only (wie core system.clangs.php)
  */
 class Metainfo extends TokenMetainfo
 {
@@ -26,6 +27,8 @@ class Metainfo extends TokenMetainfo
         'metainfo/categories/values/update',
         'metainfo/media/values/get',
         'metainfo/media/values/update',
+        'metainfo/clangs/values/get',
+        'metainfo/clangs/values/update',
     ];
 
     public function loadRoutes(): void

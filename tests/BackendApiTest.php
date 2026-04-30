@@ -1034,6 +1034,33 @@ class BackendApiTest extends TestCase
         }
     }
 
+    public function testAdminCanReadAndWriteClangMetainfo(): void
+    {
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $fieldName = 'clang_backend_test_' . uniqid();
+        $bearerToken = self::$config['api_token'];
+        $fieldId = $this->createMetainfoFieldViaBearer($fieldName, $bearerToken);
+
+        try {
+            $get = $this->adminGet('system/clangs/' . $clangId . '/metainfo');
+            $this->assertSame(200, $get['status'], 'Admin should read clang metainfo. Response: ' . json_encode($get['data']));
+            $this->assertArrayHasKey($fieldName, $get['data']['data']);
+
+            $payload = 'clang-admin-' . uniqid();
+            $put = $this->adminPut('system/clangs/' . $clangId . '/metainfo', [$fieldName => $payload]);
+            $this->assertSame(200, $put['status']);
+            $this->assertSame($payload, $put['data']['data'][$fieldName]);
+
+            $verify = $this->adminGet('system/clangs/' . $clangId . '/metainfo');
+            $this->assertSame($payload, $verify['data']['data'][$fieldName]);
+
+            $this->adminPut('system/clangs/' . $clangId . '/metainfo', [$fieldName => '']);
+        } finally {
+            $this->deleteMetainfoFieldViaBearer($fieldId, $bearerToken);
+        }
+    }
+
     public function testMetainfoFieldsCrudIsNotMirroredToBackend(): void
     {
         // Bewusste Architektur-Entscheidung: Field-Management bleibt Bearer-only.
