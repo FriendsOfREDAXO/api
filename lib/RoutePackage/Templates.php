@@ -388,13 +388,18 @@ class Templates extends RoutePackage
 
         $Data['active'] = (1 === $Data['active']) ? 1 : 0;
 
+        // Mirror the default-template attributes from REDAXO core's install.php
+        // (structure/plugins/content/install.php): {"ctype":[],"modules":{"1":{"all":"1"}},
+        // "categories":{"all":"1"}}. With all=1 the template is selectable in every
+        // category and every module is permitted in ctype 1. With all=0 the template
+        // would never appear in the structure picker and slice-add would fail with
+        // "Template has no module in such ctype" (rex_template::hasModule).
+        // The backend page exposes the all-flags + per-category/module lists as
+        // checkboxes; the API does not — so we ship the install-default, which is
+        // the only sensible neutral state.
         $ctypes = [];
-
-        $categories = [];
-        $categories['all'] = 0;
-
-        $modules = [];
-        $modules[1]['all'] = 0;
+        $categories = ['all' => 1];
+        $modules = [1 => ['all' => 1]];
 
         $TPL = rex_sql::factory();
         $TPL->setTable(rex::getTable('template'));

@@ -126,4 +126,67 @@ class TemplatesApiTest extends ApiTestCase
         $this->assertStatus(404, $response);
         $this->assertError($response);
     }
+
+    /**
+     * Regression test for FriendsOfREDAXO/api#34: API-erstellte Templates müssen
+     * im Strukturbaum auswählbar sein UND ihre Slices müssen editierbar sein.
+     * Das schlägt fehl, wenn `attributes.categories.all` oder
+     * `attributes.modules.1.all` auf 0 stehen — dann ist das Template global
+     * unsichtbar bzw. der Modul-Check beim Slice-Save blockt.
+     *
+     * Wichtig: rex_article_service::addArticle() macht einen SILENT FALLBACK auf
+     * das Default-Template, wenn das gewünschte Template nicht in
+     * rex_template::getTemplatesForCategory($categoryId) auftaucht. Der Test muss
+     * also explizit prüfen, ob der Artikel danach tatsächlich das angelegte
+     * Template referenziert — sonst rutscht der Bug durch (Slice geht dann auch,
+     * weil das Default-Template korrekt konfiguriert ist).
+     */
+    public function testCreatedTemplateIsUsableForArticleAndSlice(): void
+    {
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $tplResponse = $this->post('templates', [
+            'name' => $this->generateTestName('regression_tpl'),
+            'content' => 'REX_ARTICLE_CONTENT_TYPE[ctype=1]',
+            'active' => 1,
+        ]);
+        $this->assertStatus(201, $tplResponse);
+        $templateId = (int) $tplResponse['data']['id'];
+        $this->trackResource('templates', $templateId);
+
+        $articleResponse = $this->post('structure/articles', [
+            'name' => $this->generateTestName('regression_article'),
+            'category_id' => 0,
+            'priority' => 1,
+            'status' => 0,
+            'template_id' => $templateId,
+        ]);
+        $this->assertStatus(201, $articleResponse);
+        $articleId = (int) $articleResponse['data']['id'];
+        $this->trackResource('structure/articles', $articleId);
+
+        // Verifiziert das eigentliche Symptom des Issues: der Artikel muss das
+        // gewünschte Template behalten — sonst hat addArticle() es weggeworfen,
+        // weil es nicht in getTemplatesForCategory() auftaucht (= attributes.categories.all=0).
+        $articleGet = $this->get('structure/articles/' . $articleId);
+        $this->assertSuccess($articleGet);
+        $this->assertSame(
+            $templateId,
+            (int) $articleGet['data']['template_id'],
+            'Artikel sollte das angelegte Template referenzieren. Wenn 0 oder eine andere ID → Template ist nicht in der Struktur auswählbar (Bug #34).',
+        );
+
+        $sliceResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'regression test',
+        ]);
+        $this->assertStatus(
+            201,
+            $sliceResponse,
+            'Slice-Add sollte 201 liefern. Wenn 404 mit "Template has no module in such ctype" → Bug aus Issue #34 ist zurück.',
+        );
+    }
 }
