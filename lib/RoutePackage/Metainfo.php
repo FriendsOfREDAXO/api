@@ -722,25 +722,25 @@ class Metainfo extends RoutePackage
     /** @api */
     public static function handleArticleValuesGet($Parameter, array $Route = []): Response
     {
-        return self::readArticleOrCategoryValues($Parameter, true);
+        return self::readArticleOrCategoryValues($Parameter, true, $Route);
     }
 
     /** @api */
     public static function handleArticleValuesUpdate($Parameter, array $Route = []): Response
     {
-        return self::writeArticleOrCategoryValues($Parameter, true);
+        return self::writeArticleOrCategoryValues($Parameter, true, $Route);
     }
 
     /** @api */
     public static function handleCategoryValuesGet($Parameter, array $Route = []): Response
     {
-        return self::readArticleOrCategoryValues($Parameter, false);
+        return self::readArticleOrCategoryValues($Parameter, false, $Route);
     }
 
     /** @api */
     public static function handleCategoryValuesUpdate($Parameter, array $Route = []): Response
     {
-        return self::writeArticleOrCategoryValues($Parameter, false);
+        return self::writeArticleOrCategoryValues($Parameter, false, $Route);
     }
 
     /** @api */
@@ -749,6 +749,11 @@ class Metainfo extends RoutePackage
         $filename = (string) $Parameter['filename'];
         if (null === self::getMediaIdByFilename($filename)) {
             return new Response(json_encode(['error' => 'Media not found']), 404);
+        }
+
+        $permResponse = self::checkMediaValuePerm($Route, $filename);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $fields = self::loadFieldsForPrefix('med_');
@@ -763,6 +768,11 @@ class Metainfo extends RoutePackage
         $filename = (string) $Parameter['filename'];
         if (null === self::getMediaIdByFilename($filename)) {
             return new Response(json_encode(['error' => 'Media not found']), 404);
+        }
+
+        $permResponse = self::checkMediaValuePerm($Route, $filename);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $body = json_decode(rex::getRequest()->getContent(), true);
@@ -833,7 +843,7 @@ class Metainfo extends RoutePackage
         return new Response(json_encode(['message' => 'Metainfo values updated', 'data' => $values], JSON_PRETTY_PRINT));
     }
 
-    private static function readArticleOrCategoryValues(array $Parameter, bool $isArticle): Response
+    private static function readArticleOrCategoryValues(array $Parameter, bool $isArticle, array $Route = []): Response
     {
         $id = (int) $Parameter['id'];
         $clangId = isset($_REQUEST['clang_id']) && '' !== $_REQUEST['clang_id'] ? (int) $_REQUEST['clang_id'] : rex_clang::getStartId();
@@ -841,6 +851,11 @@ class Metainfo extends RoutePackage
         $resolved = self::resolveArticleOrCategory($id, $clangId, $isArticle);
         if ($resolved instanceof Response) {
             return $resolved;
+        }
+
+        $permResponse = self::checkStructureValuePerm($Route, $id, $clangId, $isArticle);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $prefix = $isArticle ? 'art_' : 'cat_';
@@ -858,7 +873,7 @@ class Metainfo extends RoutePackage
         ], JSON_PRETTY_PRINT));
     }
 
-    private static function writeArticleOrCategoryValues(array $Parameter, bool $isArticle): Response
+    private static function writeArticleOrCategoryValues(array $Parameter, bool $isArticle, array $Route = []): Response
     {
         $id = (int) $Parameter['id'];
         $clangId = isset($_REQUEST['clang_id']) && '' !== $_REQUEST['clang_id'] ? (int) $_REQUEST['clang_id'] : rex_clang::getStartId();
@@ -866,6 +881,11 @@ class Metainfo extends RoutePackage
         $resolved = self::resolveArticleOrCategory($id, $clangId, $isArticle);
         if ($resolved instanceof Response) {
             return $resolved;
+        }
+
+        $permResponse = self::checkStructureValuePerm($Route, $id, $clangId, $isArticle);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $body = json_decode(rex::getRequest()->getContent(), true);
@@ -932,6 +952,63 @@ class Metainfo extends RoutePackage
         $category = rex_category::get($id, $clangId);
         if (null === $category) {
             return new Response(json_encode(['error' => 'Category not found']), 404);
+        }
+        return null;
+    }
+
+    /**
+     * Backend-only structure-perm-Check für Article-/Category-Metainfo.
+     * Im Bearer-Modus (User === null) greift der Token-Scope statt User-Rechte.
+     * Admin-User passieren immer. Nicht-Admins brauchen Strukturrecht für die
+     * zugehörige Kategorie.
+     */
+    private static function checkStructureValuePerm(array $Route, int $id, int $clangId, bool $isArticle): ?Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        if (null === $user || $user->isAdmin()) {
+            return null;
+        }
+
+        if ($isArticle) {
+            $article = rex_article::get($id, $clangId);
+            if (null === $article) {
+                return null; // wurde bereits in resolveArticleOrCategory abgefangen
+            }
+            $categoryId = $article->getCategoryId();
+        } else {
+            $categoryId = $id;
+        }
+
+        $perm = $user->getComplexPerm('structure');
+        if (!$perm->hasCategoryPerm($categoryId)) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
+        }
+        return null;
+    }
+
+    /**
+     * Backend-only mediapool-perm-Check für Media-Metainfo.
+     * Im Bearer-Modus (User === null) greift der Token-Scope.
+     */
+    private static function checkMediaValuePerm(array $Route, string $filename): ?Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        if (null === $user || $user->isAdmin()) {
+            return null;
+        }
+
+        $rows = rex_sql::factory()->getArray(
+            'SELECT category_id FROM ' . rex::getTable('media') . ' WHERE filename = :filename LIMIT 1',
+            [':filename' => $filename],
+        );
+        if (empty($rows)) {
+            return null; // wurde bereits in handleMedia*-Methoden über getMediaIdByFilename abgefangen
+        }
+        $categoryId = (int) $rows[0]['category_id'];
+
+        $perm = $user->getComplexPerm('media');
+        if (!$perm->hasCategoryPerm($categoryId)) {
+            return new Response(json_encode(['error' => 'Permission denied']), 403);
         }
         return null;
     }

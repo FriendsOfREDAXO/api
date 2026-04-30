@@ -941,6 +941,190 @@ class BackendApiTest extends TestCase
         }
     }
 
+    // ==================== ADMIN: Metainfo (Werte an Article/Category/Media) ====================
+
+    public function testAdminCanReadAndWriteArticleMetainfo(): void
+    {
+        // Eigenen Nicht-Start-Artikel anlegen (Metainfo-Handler lehnt Start-Artikel ab —
+        // deren Werte gehören zur Kategorie). Existierende article_id=1 ist meist Start-Artikel.
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $createResponse = $this->adminPost('structure/articles', [
+            'name' => 'BACKEND_TEST_metainfo_' . uniqid(),
+            'category_id' => 0,
+            'priority' => 1,
+            'status' => 0,
+        ]);
+        $this->assertSame(201, $createResponse['status']);
+        $articleId = $createResponse['data']['id'];
+
+        $fieldName = 'art_backend_test_' . uniqid();
+        $bearerToken = self::$config['api_token'];
+        $fieldId = $this->createMetainfoFieldViaBearer($fieldName, $bearerToken);
+
+        try {
+            $get = $this->adminGet('structure/articles/' . $articleId . '/metainfo?clang_id=' . $clangId);
+            $this->assertSame(200, $get['status'], 'Admin should read article metainfo. Response: ' . json_encode($get['data']));
+            $this->assertArrayHasKey($fieldName, $get['data']['data']);
+
+            $payload = 'admin-set-' . uniqid();
+            $put = $this->adminPut('structure/articles/' . $articleId . '/metainfo?clang_id=' . $clangId, [
+                $fieldName => $payload,
+            ]);
+            $this->assertSame(200, $put['status']);
+            $this->assertSame($payload, $put['data']['data'][$fieldName]);
+        } finally {
+            $this->deleteMetainfoFieldViaBearer($fieldId, $bearerToken);
+            $this->adminDelete('structure/articles/' . $articleId);
+        }
+    }
+
+    public function testAdminCanReadAndWriteCategoryMetainfo(): void
+    {
+        $fieldName = 'cat_backend_test_' . uniqid();
+        $bearerToken = self::$config['api_token'];
+        $fieldId = $this->createMetainfoFieldViaBearer($fieldName, $bearerToken);
+
+        try {
+            $categoryId = self::$config['test_data']['existing_category_id'];
+            $clangId = self::$config['test_data']['existing_clang_id'];
+
+            $get = $this->adminGet('structure/categories/' . $categoryId . '/metainfo?clang_id=' . $clangId);
+            $this->assertSame(200, $get['status']);
+            $this->assertArrayHasKey($fieldName, $get['data']['data']);
+
+            $payload = 'cat-admin-' . uniqid();
+            $put = $this->adminPut('structure/categories/' . $categoryId . '/metainfo?clang_id=' . $clangId, [
+                $fieldName => $payload,
+            ]);
+            $this->assertSame(200, $put['status']);
+            $this->assertSame($payload, $put['data']['data'][$fieldName]);
+
+            $this->adminPut('structure/categories/' . $categoryId . '/metainfo?clang_id=' . $clangId, [$fieldName => '']);
+        } finally {
+            $this->deleteMetainfoFieldViaBearer($fieldId, $bearerToken);
+        }
+    }
+
+    public function testAdminCanReadAndWriteMediaMetainfo(): void
+    {
+        $fieldName = 'med_backend_test_' . uniqid();
+        $bearerToken = self::$config['api_token'];
+        $fieldId = $this->createMetainfoFieldViaBearer($fieldName, $bearerToken);
+
+        try {
+            // Existierendes Medium suchen.
+            $list = $this->adminGet('media?per_page=1');
+            if (200 !== $list['status'] || empty($list['data']['data'])) {
+                $this->markTestSkipped('Keine Media-Items in der DB für Backend-Metainfo-Test.');
+            }
+            $filename = $list['data']['data'][0]['filename'];
+
+            $get = $this->adminGet('media/' . $filename . '/metainfo');
+            $this->assertSame(200, $get['status']);
+            $this->assertArrayHasKey($fieldName, $get['data']['data']);
+
+            $payload = 'media-admin-' . uniqid();
+            $put = $this->adminPut('media/' . $filename . '/metainfo', [$fieldName => $payload]);
+            $this->assertSame(200, $put['status']);
+            $this->assertSame($payload, $put['data']['data'][$fieldName]);
+
+            $this->adminPut('media/' . $filename . '/metainfo', [$fieldName => '']);
+        } finally {
+            $this->deleteMetainfoFieldViaBearer($fieldId, $bearerToken);
+        }
+    }
+
+    public function testMetainfoFieldsCrudIsNotMirroredToBackend(): void
+    {
+        // Bewusste Architektur-Entscheidung: Field-Management bleibt Bearer-only.
+        $response = $this->adminGet('metainfo/types');
+        $this->assertSame(404, $response['status'], 'metainfo/types darf NICHT als /backend/-Variante existieren.');
+    }
+
+    /**
+     * Legt ein Metainfo-Feld via Bearer an. Backend-Metainfo-Routen mirrorn Field-CRUD nicht,
+     * also nutzen wir den Bearer-Pfad für Setup/Teardown.
+     */
+    private function createMetainfoFieldViaBearer(string $name, string $token): int
+    {
+        $url = self::$baseUrl . '/api/metainfo/fields';
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode(['name' => $name, 'title' => 'Backend-Metainfo Test', 'type_id' => 1]),
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $token,
+                'Accept: application/json',
+                'Content-Type: application/json',
+            ],
+        ]);
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $data = json_decode((string) $body, true);
+        $this->assertSame(201, $code, 'Setup: Metainfo-Feld konnte nicht angelegt werden. Response: ' . (string) $body);
+        return (int) $data['id'];
+    }
+
+    private function deleteMetainfoFieldViaBearer(int $fieldId, string $token): void
+    {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => self::$baseUrl . '/api/metainfo/fields/' . $fieldId,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_CUSTOMREQUEST => 'DELETE',
+            CURLOPT_HTTPHEADER => ['Authorization: Bearer ' . $token, 'Accept: application/json'],
+        ]);
+        curl_exec($ch);
+    }
+
+    public function testAdminCanAssignAndRemoveUserRole(): void
+    {
+        // Eigenen User + Rolle anlegen, Zuweisung + Entfernen testen.
+        $login = strtolower('backend_test_userrole_' . uniqid());
+        $userResponse = $this->adminPost('users', [
+            'login' => $login,
+            'name' => 'Backend RoleAssign User',
+            'password' => 'TestPassword123!',
+            'email' => $login . '@example.com',
+            'status' => 1,
+            'admin' => 0,
+        ]);
+        $this->assertSame(201, $userResponse['status']);
+        $userId = $userResponse['data']['id'];
+
+        $roleResponse = $this->adminPost('users/roles', [
+            'name' => 'BACKEND_TEST_assignrole_' . uniqid(),
+            'description' => 'For role assignment test',
+            'perms' => ['general' => '|structure|'],
+        ]);
+        $this->assertSame(201, $roleResponse['status']);
+        $roleId = $roleResponse['data']['id'];
+
+        try {
+            $assign = $this->adminPost('users/' . $userId . '/role/' . $roleId);
+            $this->assertSame(200, $assign['status'], 'Admin should assign role. Response: ' . json_encode($assign['data']));
+            $this->assertContains($roleId, $assign['data']['roles']);
+
+            $list = $this->adminGet('users/' . $userId . '/role');
+            $this->assertSame(200, $list['status']);
+            $this->assertCount(1, $list['data']['data']);
+            $this->assertSame($roleId, $list['data']['data'][0]['id']);
+
+            $remove = $this->adminDelete('users/' . $userId . '/role/' . $roleId);
+            $this->assertSame(200, $remove['status']);
+            $this->assertNotContains($roleId, $remove['data']['roles']);
+        } finally {
+            $this->adminDelete('users/roles/' . $roleId);
+            $this->adminDelete('users/' . $userId);
+        }
+    }
+
     public function testAdminRoleCRUD(): void
     {
         $name = 'BACKEND_TEST_role_' . uniqid();

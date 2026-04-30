@@ -3,6 +3,7 @@
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Clangs as BackendClangs;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Media as BackendMedia;
+use FriendsOfRedaxo\Api\RoutePackage\Backend\Metainfo as BackendMetainfo;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Modules as BackendModules;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Structure as BackendStructure;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Templates as BackendTemplates;
@@ -24,6 +25,7 @@ RouteCollection::registerRoutePackage(new Users());
 RouteCollection::registerRoutePackage(new Metainfo());
 RouteCollection::registerRoutePackage(new BackendClangs());
 RouteCollection::registerRoutePackage(new BackendMedia());
+RouteCollection::registerRoutePackage(new BackendMetainfo());
 RouteCollection::registerRoutePackage(new BackendModules());
 RouteCollection::registerRoutePackage(new BackendStructure());
 RouteCollection::registerRoutePackage(new BackendTemplates());
