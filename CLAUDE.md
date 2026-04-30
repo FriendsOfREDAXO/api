@@ -112,6 +112,28 @@ RouteCollection::registerRoute(
 - **Service-Exceptions**: `rex_api_exception` trägt eine i18n-übersetzte Message. Status-Code daher nicht über `str_contains($e->getMessage(), 'not found')` ermitteln (locale-abhängig), sondern über einen Helper, der EN- und DE-Marker prüft (siehe `Users::statusFromApiException`).
 - Rückgabe: `new Response(json_encode($data), $statusCode)`
 
+### Verbindlich: Exaktes Spiegeln des REDAXO-Core-Verhaltens
+
+Die API ist **kein eigenständiges System**, sondern ein HTTP-Frontend für die existierenden Backend-Workflows. Sie muss sich exakt so verhalten wie der entsprechende Schritt in `pages/*.php` oder im jeweiligen `rex_*_service`. Das ist eine harte Anforderung, keine Empfehlung.
+
+**Konkret heißt das:**
+
+- **Erst Service, dann SQL.** Wenn REDAXO eine Service-Methode anbietet (`rex_article_service`, `rex_category_service`, `rex_clang_service`, `rex_media_service`, `rex_media_category_service`, `rex_content_service`, …), wird diese aufgerufen — Punkt. Direktes SQL ist nur erlaubt, wenn der entsprechende Backend-Pfad ebenfalls direktes SQL verwendet (Beispiele: Slice-Update/Delete, Templates, Module — die werden in `pages/*.php` über `rex_sql` gespeichert).
+- **EPs feuern wie auf der Seite.** Wenn die Backend-Page nach einem Service-Call zusätzliche EPs feuert (z.B. `STRUCTURE_CONTENT_SLICE_ADDED` deprecated, `STRUCTURE_CONTENT_ARTICLE_UPDATED` nach Slice-Mutationen), feuert die API diese EPs ebenfalls — mit identischen Param-Schlüsseln und -Typen. Reihenfolge bewahren: PRE → Save → POST → deprecated POST → `art_content_updated`.
+- **Keine erfundenen EPs.** Wenn REDAXO-Core für eine Operation **keinen** EP feuert (Rollen-CRUD via `pages/roles.php` ist so ein Fall), feuert die API auch keinen. EPs sind ein öffentliches API-Versprechen — wir erfinden hier keins.
+- **Keine zusätzlichen Felder im EP-Payload.** Param-Liste 1:1 vom Core-Pfad übernehmen. Was der Core nicht setzt, setzen wir nicht.
+- **Keine zusätzlichen Felder im Body-Schema.** Wenn der Core `editCategory` nur `name` ändert, akzeptiert auch unser PUT-Body nur `name`. Vermeintlich nützliche Erweiterungen (z.B. parent-Wechsel) werden ausgelassen, sonst weicht das Verhalten zwischen Backend und API ab.
+- **Cache-Invalidierungen 1:1.** Was die Backend-Page nach dem Save ruft (`rex_article_cache::delete`, `rex_template_cache::delete`, `rex_media_cache::deleteCategory`, `rex_user::clearInstance`, …), ruft die API ebenfalls — und zwar an der gleichen Stelle.
+
+**Bevor ein neuer/geänderter Endpoint committet wird, gegen das Core-Pendant verifizieren:**
+
+1. Welche `pages/*.php` oder Service-Methode bildet das ab?
+2. Welche EPs feuert dieser Pfad — in welcher Reihenfolge, mit welchen Params?
+3. Welche Cache-/Instance-Invalidierungen passieren?
+4. Was passiert bei Fehlern (Exception-Typ, gemappter Status)?
+
+Erst wenn diese vier Punkte abgehakt sind, ist der Endpoint korrekt. Tests gehören dazu, um Regressionen abzufangen — aber Tests ersetzen nicht die direkte Code-Diffs zwischen API-Handler und Backend-Page.
+
 ### Service-Klassen
 
 - `rex_user_service` (`lib/service_user.php`) — Benutzer-CRUD-Operationen mit Passwort-Richtlinien und Admin-Schutz
