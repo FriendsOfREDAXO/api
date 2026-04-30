@@ -59,7 +59,7 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/users/{id}                                | GET       | User holen                      | ✅      | ✅    | ✅       | ✅            |
 | /api/users/{id}                                | PUT/PATCH | User ändern                     | ✅      | ✅    | ✅       | ✅            |
 | /api/users/{id}                                | DELETE    | User löschen                    | ✅      | ✅    | ✅       | ✅            |
-| /api/users/{id}/role                           | GET       | Userrollen eines Users auflisten | ✅      | ✅    | ✅       | ❌            |
+| /api/users/{id}/role                           | GET       | Userrollen eines Users auflisten | ✅      | ✅    | ✅       | ✅            |
 | /api/users/{id}/role/{role_id}                 | POST      | Userrolle einem User zuweisen   | ✅      | ✅    | ✅       | ✅            |
 | /api/users/{id}/role/{role_id}                 | DELETE    | Userrolle eines Users entfernen | ✅      | ✅    | ✅       | ✅            |
 | /api/users/roles                               | GET       | Rollenliste                     | ✅      | ✅    | ✅       | ✅            |
