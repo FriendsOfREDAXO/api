@@ -59,9 +59,9 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/users/{id}                                | GET       | User holen                      | ✅      | ✅    | ✅       | ✅            |
 | /api/users/{id}                                | PUT/PATCH | User ändern                     | ✅      | ✅    | ✅       | ✅            |
 | /api/users/{id}                                | DELETE    | User löschen                    | ✅      | ✅    | ✅       | ✅            |
-| /api/users/{id}/role                           | GET       | Userrollen eines Users auflisten | ❌      |      |         |              |
-| /api/users/{id}/role                           | POST      | Userrole einem User hinzufügen  | ❌      |      |         |              |
-| /api/users/{id}/role                           | DELETE    | Userrole eines Users löschen    | ❌      |      |         |              |
+| /api/users/{id}/role                           | GET       | Userrollen eines Users auflisten | ✅      | ✅    | ✅       | ❌            |
+| /api/users/{id}/role/{role_id}                 | POST      | Userrolle einem User zuweisen   | ✅      | ✅    | ✅       | ✅            |
+| /api/users/{id}/role/{role_id}                 | DELETE    | Userrolle eines Users entfernen | ✅      | ✅    | ✅       | ✅            |
 | /api/users/roles                               | GET       | Rollenliste                     | ✅      | ✅    | ✅       | ✅            |
 | /api/users/roles                               | POST      | Rolle anlegen                   | ✅      | ✅    | ✅       | ✅            |
 | /api/users/roles/{id}                          | GET       | Rolle holen                     | ✅      | ✅    | ✅       | ✅            |
@@ -79,14 +79,16 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/metainfo/fields/{id}                      | GET       | Felddefinition holen            | ✅      | ✅    | ❌       | —            |
 | /api/metainfo/fields/{id}                      | PUT/PATCH | Felddefinition ändern           | ✅      | ✅    | ❌       | —            |
 | /api/metainfo/fields/{id}                      | DELETE    | Felddefinition löschen          | ✅      | ✅    | ❌       | —            |
-| /api/structure/articles/{id}/metainfo          | GET       | Artikel-Metainfo lesen          | ✅      | ✅    | ❌       | —            |
-| /api/structure/articles/{id}/metainfo          | PUT/PATCH | Artikel-Metainfo ändern         | ✅      | ✅    | ❌       | —            |
-| /api/structure/categories/{id}/metainfo        | GET       | Kategorie-Metainfo lesen        | ✅      | ✅    | ❌       | —            |
-| /api/structure/categories/{id}/metainfo        | PUT/PATCH | Kategorie-Metainfo ändern       | ✅      | ✅    | ❌       | —            |
-| /api/media/{filename}/metainfo                 | GET       | Medien-Metainfo lesen           | ✅      | ✅    | ❌       | —            |
-| /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ❌       | —            |
+| /api/structure/articles/{id}/metainfo          | GET       | Artikel-Metainfo lesen          | ✅      | ✅    | ✅       | ✅            |
+| /api/structure/articles/{id}/metainfo          | PUT/PATCH | Artikel-Metainfo ändern         | ✅      | ✅    | ✅       | ✅            |
+| /api/structure/categories/{id}/metainfo        | GET       | Kategorie-Metainfo lesen        | ✅      | ✅    | ✅       | ✅            |
+| /api/structure/categories/{id}/metainfo        | PUT/PATCH | Kategorie-Metainfo ändern       | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}/metainfo                 | GET       | Medien-Metainfo lesen           | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ❌       | —            |
 | /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ❌       | —            |
+
+**Metainfo & Backend:** Wert-Endpunkte (Article/Category/Media) sind via Backend-Session erreichbar und prüfen die Strukturrechte des Backend-Users (`structure`-Perm für Article/Category, `media`-Perm für Media). Field-Management (`/metainfo/types`, `/metainfo/fields`, `/metainfo/fields/{id}`) und Sprach-Metainfo bleiben bewusst Bearer-only — Schema-Änderungen sind Admin-Workflows, kein typischer Backend-User-Job.
 
 ## Bei Problemen mit Authorization
 
