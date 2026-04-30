@@ -141,6 +141,63 @@ class Users extends RoutePackage
             new BearerAuth()
         );
 
+        // List roles assigned to a user
+        RouteCollection::registerRoute(
+            'users/role/list',
+            new Route(
+                'users/{id}/role',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleListUserRoles',
+                ],
+                ['id' => '\d+'],
+                [],
+                '',
+                [],
+                ['GET'],
+            ),
+            'List roles assigned to a user',
+            null,
+            new BearerAuth()
+        );
+
+        // Assign a role to a user
+        RouteCollection::registerRoute(
+            'users/role/assign',
+            new Route(
+                'users/{id}/role/{role_id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleAssignUserRole',
+                ],
+                ['id' => '\d+', 'role_id' => '\d+'],
+                [],
+                '',
+                [],
+                ['POST'],
+            ),
+            'Assign a role to a user',
+            null,
+            new BearerAuth()
+        );
+
+        // Remove a role from a user
+        RouteCollection::registerRoute(
+            'users/role/remove',
+            new Route(
+                'users/{id}/role/{role_id}',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Users::handleRemoveUserRole',
+                ],
+                ['id' => '\d+', 'role_id' => '\d+'],
+                [],
+                '',
+                [],
+                ['DELETE'],
+            ),
+            'Remove a role from a user',
+            null,
+            new BearerAuth()
+        );
+
         // User Roles List ✅
         RouteCollection::registerRoute(
             'users/roles/list',
@@ -656,6 +713,169 @@ class Users extends RoutePackage
         } catch (Exception $e) {
             return new Response(json_encode(['error' => $e->getMessage()]), 500);
         }
+    }
+
+    /** @api */
+    public static function handleListUserRoles($Parameter, array $Route = []): Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
+        $userId = (int) $Parameter['id'];
+        $sql = rex_sql::factory();
+        $rows = $sql->getArray('SELECT role FROM ' . rex::getTable('user') . ' WHERE id = :id', [':id' => $userId]);
+        if (0 === count($rows)) {
+            return new Response(json_encode(['error' => 'User not found']), 404);
+        }
+
+        $roleIds = self::parseRoleIds((string) ($rows[0]['role'] ?? ''));
+        $roles = [];
+        if (count($roleIds) > 0) {
+            $placeholders = implode(',', array_fill(0, count($roleIds), '?'));
+            $roles = rex_sql::factory()->getArray(
+                'SELECT id, name, description FROM ' . rex::getTable('user_role') . ' WHERE id IN (' . $placeholders . ') ORDER BY id',
+                $roleIds,
+            );
+            $roles = array_map(static fn(array $r): array => [
+                'id' => (int) $r['id'],
+                'name' => (string) $r['name'],
+                'description' => (string) $r['description'],
+            ], $roles);
+        }
+
+        return new Response(json_encode([
+            'user_id' => $userId,
+            'data' => $roles,
+        ], JSON_PRETTY_PRINT));
+    }
+
+    /** @api */
+    public static function handleAssignUserRole($Parameter, array $Route = []): Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
+        $userId = (int) $Parameter['id'];
+        $roleId = (int) $Parameter['role_id'];
+
+        $current = self::loadUserRoleIds($userId);
+        if (null === $current) {
+            return new Response(json_encode(['error' => 'User not found']), 404);
+        }
+
+        $roleRows = rex_sql::factory()->getArray(
+            'SELECT id FROM ' . rex::getTable('user_role') . ' WHERE id = :id',
+            [':id' => $roleId],
+        );
+        if (0 === count($roleRows)) {
+            return new Response(json_encode(['error' => 'Role not found']), 404);
+        }
+
+        if (in_array($roleId, $current, true)) {
+            return new Response(json_encode(['error' => 'Role already assigned']), 409);
+        }
+
+        $current[] = $roleId;
+        sort($current);
+        self::storeUserRoleIds($userId, $current);
+
+        return new Response(json_encode([
+            'message' => 'Role assigned',
+            'user_id' => $userId,
+            'role_id' => $roleId,
+            'roles' => $current,
+        ]), 200);
+    }
+
+    /** @api */
+    public static function handleRemoveUserRole($Parameter, array $Route = []): Response
+    {
+        $user = RouteCollection::getBackendUser($Route);
+        $permResponse = self::checkAdminPerm($user);
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+
+        $userId = (int) $Parameter['id'];
+        $roleId = (int) $Parameter['role_id'];
+
+        $current = self::loadUserRoleIds($userId);
+        if (null === $current) {
+            return new Response(json_encode(['error' => 'User not found']), 404);
+        }
+
+        if (!in_array($roleId, $current, true)) {
+            return new Response(json_encode(['error' => 'Role not assigned to user']), 404);
+        }
+
+        $remaining = array_values(array_filter($current, static fn(int $r): bool => $r !== $roleId));
+        self::storeUserRoleIds($userId, $remaining);
+
+        return new Response(json_encode([
+            'message' => 'Role removed',
+            'user_id' => $userId,
+            'role_id' => $roleId,
+            'roles' => $remaining,
+        ]), 200);
+    }
+
+    /**
+     * Returns sorted, unique role IDs from a comma-separated user.role string.
+     * Empty string and bogus tokens (non-digits) are dropped.
+     *
+     * @return array<int>
+     */
+    private static function parseRoleIds(string $value): array
+    {
+        if ('' === $value) {
+            return [];
+        }
+        $ids = [];
+        foreach (explode(',', $value) as $part) {
+            $part = trim($part);
+            if ('' !== $part && ctype_digit($part)) {
+                $ids[(int) $part] = (int) $part;
+            }
+        }
+        $ids = array_values($ids);
+        sort($ids);
+        return $ids;
+    }
+
+    /**
+     * Returns sorted role IDs of a user, or null if the user does not exist.
+     *
+     * @return array<int>|null
+     */
+    private static function loadUserRoleIds(int $userId): ?array
+    {
+        $rows = rex_sql::factory()->getArray(
+            'SELECT role FROM ' . rex::getTable('user') . ' WHERE id = :id',
+            [':id' => $userId],
+        );
+        if (0 === count($rows)) {
+            return null;
+        }
+        return self::parseRoleIds((string) ($rows[0]['role'] ?? ''));
+    }
+
+    /**
+     * @param array<int> $roleIds
+     */
+    private static function storeUserRoleIds(int $userId, array $roleIds): void
+    {
+        $update = rex_sql::factory();
+        $update->setTable(rex::getTable('user'));
+        $update->setWhere(['id' => $userId]);
+        $update->setValue('role', implode(',', $roleIds));
+        $update->addGlobalUpdateFields();
+        $update->update();
     }
 
     /** @api */

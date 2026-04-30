@@ -458,4 +458,90 @@ class UsersApiTest extends ApiTestCase
         $this->assertStatus(404, $response);
         $this->assertError($response);
     }
+
+    // ==================== USER ↔ ROLE ASSIGNMENT TESTS ====================
+
+    public function testListUserRoles(): void
+    {
+        // User 1 (admin) hat normalerweise keine zugewiesenen Rollen — nur das admin-Flag.
+        $response = $this->get('users/1/role');
+
+        $this->assertSuccess($response);
+        $this->assertSame(1, $response['data']['user_id']);
+        $this->assertIsArray($response['data']['data']);
+    }
+
+    public function testListUserRolesNotFound(): void
+    {
+        $response = $this->get('users/999999/role');
+
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
+    }
+
+    public function testAssignAndRemoveUserRole(): void
+    {
+        // Wir erstellen einen Test-User und eine Test-Rolle, weisen zu, listen, entfernen.
+        $login = strtolower($this->generateTestName('roleuser'));
+        $createUser = $this->post('users', [
+            'login' => $login,
+            'name' => 'Role Test User',
+            'password' => 'TestPassword123!',
+            'email' => $login . '@example.com',
+            'status' => 1,
+            'admin' => 0,
+        ]);
+        $this->assertStatus(201, $createUser);
+        $userId = (int) $createUser['data']['id'];
+        $this->trackResource('users', $userId);
+
+        $createRole = $this->post('users/roles', [
+            'name' => $this->generateTestName('test_role'),
+            'description' => 'Assignment test role',
+            'perms' => ['general' => '|structure|'],
+        ]);
+        $this->assertStatus(201, $createRole);
+        $roleId = (int) $createRole['data']['id'];
+        $this->trackResource('users/roles', $roleId);
+
+        // Assign
+        $assign = $this->post('users/' . $userId . '/role/' . $roleId);
+        $this->assertStatus(200, $assign);
+        $this->assertSame($userId, $assign['data']['user_id']);
+        $this->assertSame($roleId, $assign['data']['role_id']);
+        $this->assertContains($roleId, $assign['data']['roles']);
+
+        // List
+        $list = $this->get('users/' . $userId . '/role');
+        $this->assertSuccess($list);
+        $this->assertCount(1, $list['data']['data']);
+        $this->assertSame($roleId, $list['data']['data'][0]['id']);
+
+        // Duplicate-Assign → 409
+        $duplicate = $this->post('users/' . $userId . '/role/' . $roleId);
+        $this->assertStatus(409, $duplicate);
+
+        // Remove
+        $remove = $this->delete('users/' . $userId . '/role/' . $roleId);
+        $this->assertStatus(200, $remove);
+        $this->assertNotContains($roleId, $remove['data']['roles']);
+
+        // Remove again → 404 (nicht zugewiesen)
+        $removeAgain = $this->delete('users/' . $userId . '/role/' . $roleId);
+        $this->assertStatus(404, $removeAgain);
+    }
+
+    public function testAssignRoleToNonexistentUser(): void
+    {
+        $response = $this->post('users/999999/role/1');
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
+    }
+
+    public function testAssignNonexistentRoleToUser(): void
+    {
+        $response = $this->post('users/1/role/999999');
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
+    }
 }
