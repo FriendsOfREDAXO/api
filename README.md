@@ -85,10 +85,10 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/structure/categories/{id}/metainfo        | PUT/PATCH | Kategorie-Metainfo ändern       | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/metainfo                 | GET       | Medien-Metainfo lesen           | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
-| /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ❌       | —            |
-| /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ❌       | —            |
+| /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ✅       | ✅            |
+| /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
 
-**Metainfo & Backend:** Wert-Endpunkte (Article/Category/Media) sind via Backend-Session erreichbar und prüfen die Strukturrechte des Backend-Users (`structure`-Perm für Article/Category, `media`-Perm für Media). Field-Management (`/metainfo/types`, `/metainfo/fields`, `/metainfo/fields/{id}`) und Sprach-Metainfo bleiben bewusst Bearer-only — Schema-Änderungen sind Admin-Workflows, kein typischer Backend-User-Job.
+**Metainfo & Backend:** Wert-Endpunkte (Article/Category/Media/Clang) sind via Backend-Session erreichbar und prüfen die jeweiligen User-Rechte: `structure`-Perm für Article/Category, `media`-Perm für Media, **admin-only für Clang** (REDAXO-Core's Sprachen-Page `pages/system.clangs.php` ist via `setRequiredPermissions('isAdmin')` ebenfalls admin-only — wir spiegeln das exakt). Field-Management (`/metainfo/types`, `/metainfo/fields`, `/metainfo/fields/{id}`) bleibt bewusst Bearer-only — Schema-Änderungen sind kein typischer Backend-User-Job.
 
 ## Bei Problemen mit Authorization
 
