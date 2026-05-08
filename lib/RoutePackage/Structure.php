@@ -671,6 +671,14 @@ class Structure extends RoutePackage
                 return new JsonResponse(['error' => 'Article not created - reason unknown'], 500);
             }
 
+            // rex_article_service::addArticle() ignores $data['status'] and hardcodes
+            // status=0 in REDAXO core — apply the requested status explicitly per clang.
+            if (1 === (int) $Data['status']) {
+                foreach (rex_clang::getAllIds() as $clangId) {
+                    rex_article_service::articleStatus($ArticleId, $clangId, 1);
+                }
+            }
+
             return new JsonResponse([
                 'message' => 'Article created',
                 'id' => $ArticleId,
@@ -1042,7 +1050,7 @@ class Structure extends RoutePackage
             if (null !== $Data['status']) {
                 $currentStatus = $Article->isOnline() ? 1 : 0;
                 if ($currentStatus !== $Data['status']) {
-                    rex_article_service::changeStatus($Parameter['id'], $Article->getClangId(), $Data['status']);
+                    rex_article_service::articleStatus($Parameter['id'], $Article->getClangId(), $Data['status']);
                 }
             }
 
@@ -1101,7 +1109,7 @@ class Structure extends RoutePackage
             if (null !== $Data['status']) {
                 $currentStatus = $Category->isOnline() ? 1 : 0;
                 if ($currentStatus !== $Data['status']) {
-                    rex_category_service::changeStatus($Parameter['id'], $Category->getClangId(), $Data['status']);
+                    rex_category_service::categoryStatus($Parameter['id'], $Category->getClangId(), $Data['status']);
                 }
             }
 
