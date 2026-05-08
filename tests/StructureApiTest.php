@@ -131,6 +131,30 @@ class StructureApiTest extends ApiTestCase
         $this->assertError($response);
     }
 
+    public function testCreateArticleWithStatusOnline(): void
+    {
+        // Regression: rex_article_service::addArticle() ignores $data['status']
+        // and hardcodes status=0 in REDAXO core. The api addon must explicitly
+        // promote the article to status=1 after creation.
+        $name = $this->generateTestName('article_online');
+        $categoryId = self::$config['test_data']['existing_category_id'];
+
+        $createResponse = $this->post('structure/articles', [
+            'name' => $name,
+            'category_id' => $categoryId,
+            'priority' => 1,
+            'status' => 1,
+        ]);
+
+        $this->assertStatus(201, $createResponse);
+        $articleId = $createResponse['data']['id'];
+        $this->trackResource('structure/articles', $articleId);
+
+        $getResponse = $this->get('structure/articles/' . $articleId);
+        $this->assertSuccess($getResponse);
+        $this->assertSame(1, $getResponse['data']['status'], 'Article should be online when created with status=1');
+    }
+
     public function testUpdateArticle(): void
     {
         // Erst Artikel erstellen
@@ -154,6 +178,34 @@ class StructureApiTest extends ApiTestCase
 
         $this->assertSuccess($updateResponse);
         $this->assertHasField($updateResponse, 'message');
+    }
+
+    public function testUpdateArticleStatus(): void
+    {
+        // Regression: handleUpdateArticle previously called the non-existent
+        // rex_article_service::changeStatus() (correct name: articleStatus).
+        // PUT with {status:1} on an offline article must turn it online.
+        $name = $this->generateTestName('article_status');
+        $createResponse = $this->post('structure/articles', [
+            'name' => $name,
+            'category_id' => 0,
+            'priority' => 1,
+            'status' => 0,
+        ]);
+        $this->assertStatus(201, $createResponse);
+        $articleId = $createResponse['data']['id'];
+        $this->trackResource('structure/articles', $articleId);
+
+        $updateResponse = $this->put('structure/articles/' . $articleId, ['status' => 1]);
+        $this->assertSuccess($updateResponse);
+
+        $getResponse = $this->get('structure/articles/' . $articleId);
+        $this->assertSame(1, $getResponse['data']['status'], 'Article must be online after PUT status=1');
+
+        // Flip back to offline as a second regression check.
+        $this->put('structure/articles/' . $articleId, ['status' => 0]);
+        $getResponse = $this->get('structure/articles/' . $articleId);
+        $this->assertSame(0, $getResponse['data']['status'], 'Article must be offline after PUT status=0');
     }
 
     public function testDeleteArticle(): void
@@ -217,6 +269,24 @@ class StructureApiTest extends ApiTestCase
             'name' => $newName,
         ]);
 
+        $this->assertSuccess($updateResponse);
+    }
+
+    public function testUpdateCategoryStatus(): void
+    {
+        // Regression: handleUpdateCategory previously called the non-existent
+        // rex_category_service::changeStatus() (correct name: categoryStatus).
+        $name = $this->generateTestName('category_status');
+        $createResponse = $this->post('structure/categories', [
+            'name' => $name,
+            'category_id' => 0,
+            'status' => 1,
+        ]);
+        $this->assertStatus(201, $createResponse);
+        $categoryId = $createResponse['data']['id'];
+        $this->trackResource('structure/categories', $categoryId);
+
+        $updateResponse = $this->put('structure/categories/' . $categoryId, ['status' => 0]);
         $this->assertSuccess($updateResponse);
     }
 
