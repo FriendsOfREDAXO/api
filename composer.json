@@ -2,7 +2,7 @@
     "require": {
         "symfony/http-foundation": "^6",
         "symfony/http-kernel": "^7.2",
-        "symfony/routing": "^7.2"
+        "symfony/routing": "^8.0"
     },
     "replace": {
         "psr/log": "*",
