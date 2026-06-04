@@ -77,7 +77,7 @@ class Token
 
     public static function get(int $Id): ?self
     {
-        $Token = rex_sql::factory()->getArray('select * from ' . rex::getTable('api_token') . ' where id = ? and status = ?,', [$Id, 1]);
+        $Token = rex_sql::factory()->getArray('select * from ' . rex::getTable('api_token') . ' where id = ? and status = ?', [$Id, 1]);
         if (0 == count($Token)) {
             return null;
         }

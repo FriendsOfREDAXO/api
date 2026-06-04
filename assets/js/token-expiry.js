@@ -45,15 +45,8 @@
         var isFirstInit = checkbox.dataset.apiExpiryInit !== '1';
         checkbox.dataset.apiExpiryInit = '1';
 
-        var funcInput = document.querySelector('input[type="hidden"][name*="[func]"]');
-        var isAdd = !!(funcInput && funcInput.value === 'add');
-
         if (isFirstInit) {
-            if (isAdd) {
-                checkbox.checked = true;
-            } else {
-                checkbox.checked = hasDateValue(expiresGroup);
-            }
+            checkbox.checked = hasDateValue(expiresGroup);
         }
 
         applyVisibility(checkbox.checked);

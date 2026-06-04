@@ -35,20 +35,6 @@ $normalizeExpiresAt = static function (int $tokenId, bool $forceNull = false) us
     );
 };
 
-$setExpiresAt = static function (int $tokenId, string $expiresAt) use ($table): void {
-    if ($tokenId < 1) {
-        return;
-    }
-
-    rex_sql::factory()->setQuery(
-        'UPDATE ' . $table . ' SET expires_at = :expiresAt WHERE id = :id',
-        [
-            'id' => $tokenId,
-            'expiresAt' => $expiresAt,
-        ],
-    );
-};
-
 if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     echo rex_view::error(rex_i18n::msg('csrf_token_invalid'));
 } elseif ('delete' == $func) {
@@ -129,8 +115,6 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
 
             if (!$isExpiresActive) {
                 $normalizeExpiresAt($tokenId, true);
-            } elseif ('' === $expiresAtValue || '0000-00-00 00:00:00' === $expiresAtValue) {
-                $setExpiresAt($tokenId, date('Y-m-d H:i:s', strtotime('+2 hours')));
             } else {
                 $normalizeExpiresAt($tokenId, false);
             }

@@ -61,6 +61,18 @@ class AuthApiTest extends TestCase
         $this->assertSame(401, $response['status']);
     }
 
+    public function testExpiredTokenReturns401(): void
+    {
+        $expiredToken = (string) (self::$config['expired_token'] ?? '');
+        if ('' === $expiredToken) {
+            self::markTestSkipped('Kein Expired-Token in tests/.env (API_TEST_EXPIRED_TOKEN).');
+        }
+
+        $response = $this->doRequest(['Authorization: Bearer ' . $expiredToken]);
+        $this->assertSame(401, $response['status']);
+        $this->assertSame('Authorization failed', $response['data']['error'] ?? null);
+    }
+
     public function testMalformedAuthorizationHeader(): void
     {
         // Kein "Bearer "-Prefix — Token::getFromBearerToken() kann nichts extrahieren.
