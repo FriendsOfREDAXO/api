@@ -15,7 +15,11 @@ class Token
     private ?int $id = null;
     private string $name = '';
     private string $token = '';
+    private ?string $expiresAt = null;
 
+    /**
+     * @param array<string, mixed> $data
+     */
     public function __construct(array $data)
     {
         $this->id = (int) $data['id'];
@@ -23,8 +27,15 @@ class Token
         $this->status = (1 == $data['status']) ? true : false;
         $this->scopes = $data['scopes'];
         $this->token = $data['token'];
+        $expiresAt = (string) ($data['expires_at'] ?? '');
+        if ('' !== $expiresAt && '0000-00-00 00:00:00' !== $expiresAt) {
+            $this->expiresAt = $expiresAt;
+        }
     }
 
+    /**
+     * @return list<string>
+     */
     public function getScopes(): array
     {
         return ('' === $this->scopes) ? [] : explode(',', $this->scopes);
@@ -47,10 +58,24 @@ class Token
 
     public function isActive(): bool
     {
-        return $this->status;
+        return $this->status && !$this->isExpired();
     }
 
-    public static function get(int $Id)
+    public function getExpiresAt(): ?string
+    {
+        return $this->expiresAt;
+    }
+
+    public function isExpired(): bool
+    {
+        if (null === $this->expiresAt) {
+            return false;
+        }
+
+        return strtotime($this->expiresAt) <= time();
+    }
+
+    public static function get(int $Id): ?self
     {
         $Token = rex_sql::factory()->getArray('select * from ' . rex::getTable('api_token') . ' where id = ? and status = ?,', [$Id, 1]);
         if (0 == count($Token)) {
@@ -59,9 +84,12 @@ class Token
         return new self($Token[0]);
     }
 
-    public static function getByToken(string $Token)
+    public static function getByToken(string $Token): ?self
     {
-        $Token = rex_sql::factory()->getArray('select * from ' . rex::getTable('api_token') . ' where token = ? and status = ?', [$Token, 1]);
+        $Token = rex_sql::factory()->getArray(
+            'select * from ' . rex::getTable('api_token') . ' where token = ? and status = ? and (expires_at is null or expires_at = ? or expires_at = ? or expires_at > now())',
+            [$Token, 1, '', '0000-00-00 00:00:00'],
+        );
         if (0 == count($Token)) {
             return null;
         }
@@ -80,6 +108,9 @@ class Token
         return self::getByToken($BearerToken);
     }
 
+    /**
+     * @return list<string>
+     */
     public static function getAvailableScopes(): array
     {
         $Scopes = [];

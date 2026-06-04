@@ -14,6 +14,41 @@ $data_id = rex_request('data_id', 'int');
 $content = '';
 $show_list = true;
 
+$normalizeExpiresAt = static function (int $tokenId, bool $forceNull = false) use ($table): void {
+    if ($tokenId < 1) {
+        return;
+    }
+
+    $sql = rex_sql::factory();
+    if ($forceNull) {
+        $sql->setQuery('UPDATE ' . $table . ' SET expires_at = NULL WHERE id = :id', ['id' => $tokenId]);
+        return;
+    }
+
+    $sql->setQuery(
+        'UPDATE ' . $table . ' SET expires_at = NULL WHERE id = :id AND (expires_at = :zeroDate OR expires_at = :emptyValue)',
+        [
+            'id' => $tokenId,
+            'zeroDate' => '0000-00-00 00:00:00',
+            'emptyValue' => '',
+        ],
+    );
+};
+
+$setExpiresAt = static function (int $tokenId, string $expiresAt) use ($table): void {
+    if ($tokenId < 1) {
+        return;
+    }
+
+    rex_sql::factory()->setQuery(
+        'UPDATE ' . $table . ' SET expires_at = :expiresAt WHERE id = :id',
+        [
+            'id' => $tokenId,
+            'expiresAt' => $expiresAt,
+        ],
+    );
+};
+
 if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     echo rex_view::error(rex_i18n::msg('csrf_token_invalid'));
 } elseif ('delete' == $func) {
@@ -26,6 +61,8 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $form_data[] = 'text|name|translate:api_token_name';
     $form_data[] = 'validate|empty|name|translate:api_token_name_validate';
     $form_data[] = 'text|token|translate:api_token_token|#notice:' . rex_i18n::msg('api_token_token_notice', bin2hex(random_bytes((32 - (32 % 2)) / 2)));
+    $form_data[] = 'checkbox|expires_active|translate:api_token_expire_active|0|no_db';
+    $form_data[] = 'datetime|expires_at|translate:api_token_expires_at|||Y-m-d H:i:s|1';
     $form_data[] = 'validate|empty|token|translate:api_token_token_validate';
     $form_data[] = 'choice|scopes|translate:api_token_token_scopes|' . implode(',', Token::getAvailableScopes()) . '||1';
 
@@ -36,6 +73,7 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $yform->setFormData(implode("\n", $form_data));
     $yform->setObjectparams('form_showformafterupdate', 1);
 
+    /** @var rex_yform $yform_clone */
     $yform_clone = clone $yform;
 
     if ('edit' == $func) {
@@ -71,6 +109,33 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $content = $yform->executeActions();
 
     if ($yform->objparams['actions_executed']) {
+        $tokenId = (int) ($yform->objparams['main_id'] ?? 0);
+        if ($tokenId > 0) {
+            $isExpiresActive = false;
+            $expiresAtValue = '';
+
+            foreach ($yform->objparams['values'] as $fieldValue) {
+                if (!is_object($fieldValue) || !method_exists($fieldValue, 'getName') || !method_exists($fieldValue, 'getValue')) {
+                    continue;
+                }
+
+                $fieldName = (string) $fieldValue->getName();
+                if ('expires_active' === $fieldName) {
+                    $isExpiresActive = '1' === (string) $fieldValue->getValue();
+                } elseif ('expires_at' === $fieldName) {
+                    $expiresAtValue = trim((string) $fieldValue->getValue());
+                }
+            }
+
+            if (!$isExpiresActive) {
+                $normalizeExpiresAt($tokenId, true);
+            } elseif ('' === $expiresAtValue || '0000-00-00 00:00:00' === $expiresAtValue) {
+                $setExpiresAt($tokenId, date('Y-m-d H:i:s', strtotime('+2 hours')));
+            } else {
+                $normalizeExpiresAt($tokenId, false);
+            }
+        }
+
         switch ($func) {
             case 'edit':
                 if (2 == $submit_type) {
@@ -92,6 +157,7 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
                     $data_id = $yform->objparams['main_id'];
                     $func = 'edit';
 
+                    /** @var rex_yform $yform */
                     $yform = $yform_clone;
                     $yform->setHiddenField('func', $func);
                     $yform->setHiddenField('data_id', $data_id);
@@ -148,6 +214,15 @@ if ($show_list) {
 
     $list->setColumnFormat('status', 'custom', static function ($params) {
         return (1 == $params['subject']) ? rex_i18n::msg('active') : rex_i18n::msg('inactive');
+    });
+
+    $list->setColumnFormat('expires_at', 'custom', static function ($params) {
+        $expiresAt = (string) $params['subject'];
+        if ('' === $expiresAt || '0000-00-00 00:00:00' === $expiresAt) {
+            return '-';
+        }
+
+        return $expiresAt;
     });
 
     $list->setColumnLabel('name', rex_i18n::msg('api_token_name'));
