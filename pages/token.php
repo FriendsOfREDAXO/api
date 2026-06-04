@@ -197,7 +197,7 @@ if ($show_list) {
     $list->removeColumn('token');
 
     $list->setColumnFormat('status', 'custom', static function ($params) {
-        return (1 == $params['subject']) ? rex_i18n::msg('active') : rex_i18n::msg('inactive');
+        return (1 == $params['subject']) ? rex_i18n::msg('api_active') : rex_i18n::msg('api_inactive');
     });
 
     $list->setColumnFormat('expires_at', 'custom', static function ($params) {
