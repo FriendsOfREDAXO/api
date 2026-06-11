@@ -759,6 +759,90 @@ class BackendApiTest extends TestCase
         }
     }
 
+    public function testAdminCreateArticleSliceAtTop(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $createResponse = $this->adminPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'priority' => 1,
+            'value1' => 'BACKEND_TEST_top_' . uniqid(),
+        ]);
+        if (201 !== $createResponse['status']) {
+            $this->markTestSkipped('Slice konnte nicht angelegt werden (Template/Modul-Zuordnung fehlt).');
+        }
+        $sliceId = (int) $createResponse['data']['slice_id'];
+
+        try {
+            $getResponse = $this->adminGet('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSame(200, $getResponse['status']);
+            $this->assertSame(1, (int) $getResponse['data']['priority']);
+        } finally {
+            $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testAdminMoveArticleSlice(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $first = $this->adminPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'priority' => 1, 'value1' => 'BACKEND_TEST_first_' . uniqid(),
+        ]);
+        if (201 !== $first['status']) {
+            $this->markTestSkipped('Slice konnte nicht angelegt werden.');
+        }
+        $firstId = (int) $first['data']['slice_id'];
+
+        $second = $this->adminPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'priority' => 2, 'value1' => 'BACKEND_TEST_second_' . uniqid(),
+        ]);
+        $this->assertSame(201, $second['status']);
+        $secondId = (int) $second['data']['slice_id'];
+
+        try {
+            $moveResponse = $this->adminPost(
+                'structure/articles/' . $articleId . '/slices/' . $secondId . '/move',
+                ['direction' => 'moveup'],
+            );
+            $this->assertSame(200, $moveResponse['status']);
+
+            $getSecond = $this->adminGet('structure/articles/' . $articleId . '/slices/' . $secondId);
+            $getFirst = $this->adminGet('structure/articles/' . $articleId . '/slices/' . $firstId);
+            $this->assertLessThan(
+                (int) $getFirst['data']['priority'],
+                (int) $getSecond['data']['priority'],
+                'After moveup the second slice should now have a lower priority than the first',
+            );
+        } finally {
+            $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $secondId);
+            $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $firstId);
+        }
+    }
+
+    public function testRestrictedUserCannotMoveArticleSlice(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+
+        $response = $this->restrictedPost(
+            'structure/articles/' . $articleId . '/slices/1/move',
+            ['direction' => 'moveup'],
+        );
+
+        // Restricted user lacks both moveSlice[] perm and likely the structure category perm.
+        // Either 403 (Permission denied) or 404 (slice not visible) is acceptable; what we
+        // must NOT see is a 200.
+        $this->assertContains($response['status'], [403, 404]);
+    }
+
     // ==================== ADMIN CRUD: Media Category ====================
 
     public function testAdminMediaCategoryCRUD(): void

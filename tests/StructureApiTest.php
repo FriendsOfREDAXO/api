@@ -481,4 +481,200 @@ class StructureApiTest extends ApiTestCase
         $this->assertStatus(404, $response);
         $this->assertError($response);
     }
+
+    public function testCreateArticleSliceAtTop(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+
+        $createResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'priority' => 1,
+            'value1' => 'top-' . uniqid(),
+        ]);
+
+        if (201 !== $createResponse['status']) {
+            $this->markTestSkipped('Slice create not available (module/template wiring): status ' . $createResponse['status']);
+        }
+        $sliceId = (int) $createResponse['data']['slice_id'];
+
+        try {
+            $listResponse = $this->get('structure/articles/' . $articleId . '/slices', [
+                'clang_id' => $clangId,
+                'revision' => 0,
+            ]);
+            $this->assertSuccess($listResponse);
+
+            $slicesInCtype = array_values(array_filter(
+                $listResponse['data']['data'],
+                static fn (array $s): bool => 1 === (int) $s['ctype_id'],
+            ));
+            $this->assertNotEmpty($slicesInCtype);
+            $this->assertSame($sliceId, (int) $slicesInCtype[0]['id'], 'Slice with priority=1 should be first in the ctype');
+            $this->assertSame(1, (int) $slicesInCtype[0]['priority']);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testCreateArticleSliceWithoutPriorityAppends(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+
+        $createResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'tail-' . uniqid(),
+        ]);
+        if (201 !== $createResponse['status']) {
+            $this->markTestSkipped('Slice create not available (module/template wiring): status ' . $createResponse['status']);
+        }
+        $sliceId = (int) $createResponse['data']['slice_id'];
+
+        try {
+            $listResponse = $this->get('structure/articles/' . $articleId . '/slices', [
+                'clang_id' => $clangId,
+                'revision' => 0,
+            ]);
+            $slicesInCtype = array_values(array_filter(
+                $listResponse['data']['data'],
+                static fn (array $s): bool => 1 === (int) $s['ctype_id'],
+            ));
+
+            $maxPriority = 0;
+            $newSlicePriority = null;
+            foreach ($slicesInCtype as $slice) {
+                $maxPriority = max($maxPriority, (int) $slice['priority']);
+                if ((int) $slice['id'] === $sliceId) {
+                    $newSlicePriority = (int) $slice['priority'];
+                }
+            }
+            $this->assertNotNull($newSlicePriority);
+            $this->assertSame($maxPriority, $newSlicePriority, 'Slice without priority should be appended at the end');
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testMoveArticleSliceUp(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+
+        $first = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'priority' => 1, 'value1' => 'move-up-first-' . uniqid(),
+        ]);
+        if (201 !== $first['status']) {
+            $this->markTestSkipped('Slice create not available: status ' . $first['status']);
+        }
+        $firstId = (int) $first['data']['slice_id'];
+
+        $second = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'priority' => 2, 'value1' => 'move-up-second-' . uniqid(),
+        ]);
+        $this->assertStatus(201, $second);
+        $secondId = (int) $second['data']['slice_id'];
+
+        try {
+            $moveResponse = $this->post(
+                'structure/articles/' . $articleId . '/slices/' . $secondId . '/move',
+                ['direction' => 'moveup'],
+            );
+            $this->assertSuccess($moveResponse);
+            $this->assertSame('moveup', $moveResponse['data']['direction']);
+
+            $getSecond = $this->get('structure/articles/' . $articleId . '/slices/' . $secondId);
+            $getFirst = $this->get('structure/articles/' . $articleId . '/slices/' . $firstId);
+            $this->assertLessThan((int) $getFirst['data']['priority'], (int) $getSecond['data']['priority']);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $secondId);
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $firstId);
+        }
+    }
+
+    public function testMoveArticleSliceDown(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+
+        $first = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'priority' => 1, 'value1' => 'move-down-first-' . uniqid(),
+        ]);
+        if (201 !== $first['status']) {
+            $this->markTestSkipped('Slice create not available: status ' . $first['status']);
+        }
+        $firstId = (int) $first['data']['slice_id'];
+
+        $second = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'priority' => 2, 'value1' => 'move-down-second-' . uniqid(),
+        ]);
+        $this->assertStatus(201, $second);
+        $secondId = (int) $second['data']['slice_id'];
+
+        try {
+            $moveResponse = $this->post(
+                'structure/articles/' . $articleId . '/slices/' . $firstId . '/move',
+                ['direction' => 'movedown'],
+            );
+            $this->assertSuccess($moveResponse);
+            $this->assertSame('movedown', $moveResponse['data']['direction']);
+
+            $getFirst = $this->get('structure/articles/' . $articleId . '/slices/' . $firstId);
+            $getSecond = $this->get('structure/articles/' . $articleId . '/slices/' . $secondId);
+            $this->assertGreaterThan((int) $getSecond['data']['priority'], (int) $getFirst['data']['priority']);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $secondId);
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $firstId);
+        }
+    }
+
+    public function testMoveArticleSliceInvalidDirection(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+
+        $createResponse = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId, 'clang_id' => $clangId, 'ctype_id' => 1,
+            'value1' => 'bad-direction-' . uniqid(),
+        ]);
+        if (201 !== $createResponse['status']) {
+            $this->markTestSkipped('Slice create not available: status ' . $createResponse['status']);
+        }
+        $sliceId = (int) $createResponse['data']['slice_id'];
+
+        try {
+            $response = $this->post(
+                'structure/articles/' . $articleId . '/slices/' . $sliceId . '/move',
+                ['direction' => 'sideways'],
+            );
+            $this->assertStatus(400, $response);
+            $this->assertError($response);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testMoveArticleSliceNotFound(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $response = $this->post(
+            'structure/articles/' . $articleId . '/slices/999999/move',
+            ['direction' => 'moveup'],
+        );
+        $this->assertStatus(404, $response);
+        $this->assertError($response);
+    }
 }
