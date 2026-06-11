@@ -8,6 +8,7 @@ use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
+use rex_api_exception;
 use rex_article;
 use rex_article_cache;
 use rex_article_service;
@@ -526,6 +527,34 @@ class Structure extends RoutePackage
                 [],
                 ['DELETE']),
             'Delete a slice of an article',
+            null,
+            new BearerAuth()
+        );
+
+        // Slice eines Artikels verschieben (moveup/movedown) ✅
+        RouteCollection::registerRoute(
+            'structure/articles/slices/move',
+            new Route(
+                'structure/articles/{id}/slices/{slice_id}/move',
+                [
+                    '_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Structure::handleMoveArticleSlice',
+                    'Body' => [
+                        'direction' => [
+                            'type' => 'string',
+                            'required' => true,
+                            'default' => null,
+                        ],
+                    ],
+                ],
+                [
+                    'id' => '\d+',
+                    'slice_id' => '\d+',
+                ],
+                [],
+                '',
+                [],
+                ['POST']),
+            'Move a slice up or down within its ctype',
             null,
             new BearerAuth()
         );
@@ -1434,6 +1463,87 @@ class Structure extends RoutePackage
         } catch (Exception $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }
+    }
+
+    /** @api */
+    public static function handleMoveArticleSlice($Parameter, array $Route = []): Response
+    {
+        $Data = json_decode(rex::getRequest()->getContent(), true);
+
+        if (!is_array($Data)) {
+            return new JsonResponse(['error' => 'Invalid input'], 400);
+        }
+
+        try {
+            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
+        } catch (Exception $e) {
+            return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
+        }
+
+        $direction = $Data['direction'];
+        if ('moveup' !== $direction && 'movedown' !== $direction) {
+            return new JsonResponse([
+                'error' => 'Invalid direction',
+                'direction' => rex_escape((string) $direction),
+                'allowed' => ['moveup', 'movedown'],
+            ], 400);
+        }
+
+        $sliceId = (int) $Parameter['slice_id'];
+        $articleId = (int) $Parameter['id'];
+
+        $Slice = self::loadSliceForArticle($sliceId, $articleId);
+        if (null === $Slice) {
+            return new JsonResponse(['error' => 'Slice not found'], 404);
+        }
+
+        $clangId = (int) $Slice['clang_id'];
+        $moduleId = (int) $Slice['module_id'];
+
+        $Article = rex_article::get($articleId, $clangId);
+        if (!$Article) {
+            return new JsonResponse(['error' => 'Article not found'], 404);
+        }
+
+        // Permission cascade mirrors rex_api_content_move_slice::execute()
+        // (addons/structure/plugins/content/lib/api_functions/api_content.php:29-50).
+        // For Bearer token calls (`$user === null`), scope grants access.
+        $user = RouteCollection::getBackendUser($Route);
+        if (null !== $user && !$user->isAdmin() && !$user->hasPerm('moveSlice[]')) {
+            return new JsonResponse(['error' => 'Permission denied'], 403);
+        }
+        $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+        if (null !== $user && !$user->getComplexPerm('modules')->hasPerm($moduleId)) {
+            return new JsonResponse(['error' => 'Permission denied'], 403);
+        }
+
+        try {
+            // rex_content_service::moveSlice() handles everything: fires SLICE_MOVE, swaps the
+            // priority, calls rex_sql_util::organizePriorities(), invalidates the content cache
+            // via rex_article_cache::deleteContent(), and fires art_content_updated.
+            // We mirror api_content.php exactly — no extra EPs, no extra cache calls.
+            $message = rex_content_service::moveSlice($sliceId, $clangId, $direction);
+        } catch (rex_api_exception $e) {
+            // moveSlice throws when the slice is already at the boundary (top can't moveup, etc.)
+            // — surface as 422 rather than 500 since the request was structurally valid but the
+            // requested state transition is not possible.
+            return new JsonResponse([
+                'error' => $e->getMessage(),
+                'slice_id' => $sliceId,
+                'direction' => $direction,
+            ], 422);
+        } catch (Exception $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 500);
+        }
+
+        return new JsonResponse([
+            'message' => $message,
+            'slice_id' => $sliceId,
+            'direction' => $direction,
+        ], 200);
     }
 
     /**
