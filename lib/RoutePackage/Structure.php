@@ -428,6 +428,11 @@ class Structure extends RoutePackage
                                 'required' => true,
                                 'default' => null,
                             ],
+                            'priority' => [
+                                'type' => 'int',
+                                'required' => false,
+                                'default' => null,
+                            ],
                         ],
                         $Values, // value1...19
                         $Medias, // media1...10
@@ -910,6 +915,14 @@ class Structure extends RoutePackage
                 $SliceData['link' . $i] = $Data['link' . $i];
                 $SliceData['linklist' . $i] = $Data['linklist' . $i];
             }
+        }
+
+        // Optional priority: rex_content_service::addSlice() accepts a `priority` key in $data
+        // (content_service.php:17-24). If omitted, the service appends at the end (MAX(priority)+1).
+        // priority <= 0 is normalised to 1 by the service. After insert the service calls
+        // rex_sql_util::organizePriorities() to renormalise the sequence.
+        if (null !== $Data['priority']) {
+            $SliceData['priority'] = (int) $Data['priority'];
         }
 
         try {
