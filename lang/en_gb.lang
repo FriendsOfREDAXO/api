@@ -1,0 +1,45 @@
+api_title = API
+api_perm_api = Use API addon
+
+api_token = Token
+api_openapi = OpenAPI
+api_readme = ReadMe
+
+api_token_caption = Tokens
+api_token_name = Name/description
+api_token_token = Token
+api_token_not_found = No tokens yet
+api_token_status = active
+api_token_active = active
+api_token_inactive = inactive
+api_token_create = Create API token
+api_token_token_notice = How about this token {0}
+api_token_token_scopes = Scopes
+api_token_scopes_notice = Without a selected scope the token cannot call any endpoint.
+api_token_update = Edit API token
+api_token_updated = API token has been updated
+api_token_deleted = API token has been deleted
+api_token_added = API token has been added
+api_token_header_summary = Overview of the API tokens
+api_token_name_validate = Please enter a name
+api_token_token_validate = Please enter a token
+api_token_token_exists = This token already exists
+api_token_delete_confirm = Really delete this token?
+
+api_openapi_title = OpenAPI documentation
+api_openapi_description = All registered endpoints are listed here and can be inspected and tested. To use them, a token with the matching scopes has to be created first.
+
+api_openapi_tag_default_description = Endpoints called with a bearer token.
+api_openapi_tag_backend_description = Mirror of the endpoints below /api/backend/, authenticated via the backend session.
+
+# User Service
+api_user_not_found = User not found
+api_user_admin_delete_notallowed = The last admin user cannot be deleted
+
+# User Role Service
+api_user_role_not_found = Role not found
+api_user_role_name_required = The role name is required
+api_user_role_name_exists = Role name already exists
+api_user_role_in_use = Role is still in use and cannot be deleted
+api_user_role_updated = Role has been updated
+api_copy = copy

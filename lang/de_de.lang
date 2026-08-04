@@ -1,0 +1,45 @@
+api_title = API
+api_perm_api = API-Addon nutzen
+
+api_token = Token
+api_openapi = OpenAPI
+api_readme = ReadMe
+
+api_token_caption = Tokens
+api_token_name = Name/Beschreibung
+api_token_token = Token
+api_token_not_found = Keine Tokens bisher vorhanden
+api_token_status = aktiv
+api_token_active = aktiv
+api_token_inactive = inaktiv
+api_token_create = API-Token erstellen
+api_token_token_notice = Wie wäre es mit diesem Token {0}
+api_token_token_scopes = Scopes
+api_token_scopes_notice = Ohne ausgewählten Scope kann der Token keinen Endpunkt aufrufen.
+api_token_update = API-Token bearbeiten
+api_token_updated = API-Token Eintrag wurde aktualisiert
+api_token_deleted = API-Token wurde gelöscht
+api_token_added = API-Token wurde hinzugefügt
+api_token_header_summary = Übersicht der API-Token
+api_token_name_validate = Bitte einen Namen angeben
+api_token_token_validate = Bitte einen Token angeben
+api_token_token_exists = Dieser Token existiert bereits
+api_token_delete_confirm = Token wirklich löschen?
+
+api_openapi_title = OpenAPI Dokumentation
+api_openapi_description = Hier werden alle erfassten Endpunkte ausgegeben und können eingesehen und getestet werden. Um sie nutzen zu können, muss vorher ein Token mit den entsprechenden Zugriffen erstellt werden.
+
+api_openapi_tag_default_description = Endpunkte, die per Bearer-Token aufgerufen werden.
+api_openapi_tag_backend_description = Spiegel der Endpunkte unter /api/backend/, authentifiziert über die Backend-Session.
+
+# User Service
+api_user_not_found = Benutzer nicht gefunden
+api_user_admin_delete_notallowed = Der letzte Admin-Benutzer kann nicht gelöscht werden
+
+# User Role Service
+api_user_role_not_found = Rolle nicht gefunden
+api_user_role_name_required = Der Rollenname ist erforderlich
+api_user_role_name_exists = Rollenname existiert bereits
+api_user_role_in_use = Rolle wird noch verwendet und kann nicht gelöscht werden
+api_user_role_updated = Rolle wurde aktualisiert
+api_copy = Kopie

@@ -1,0 +1,49 @@
+{
+    "name": "friendsofredaxo/api",
+    "type": "redaxo-addon",
+    "description": "REST API for REDAXO 6: bearer-token secured endpoints for structure, media, users, languages and metainfo",
+    "keywords": ["redaxo", "redaxo-addon", "api", "rest", "openapi"],
+    "license": "MIT",
+    "homepage": "https://github.com/FriendsOfREDAXO/api",
+    "authors": [
+        {
+            "name": "FriendsOfREDAXO",
+            "homepage": "https://github.com/FriendsOfREDAXO"
+        }
+    ],
+
+    "require": {
+        "php": "^8.5",
+        "redaxo/core": "^6.0@dev",
+        "symfony/routing": "^8.1"
+    },
+
+    "require-dev": {
+        "phpunit/phpunit": "^12.5 || ^13.1"
+    },
+
+    "autoload": {
+        "psr-4": {
+            "FriendsOfRedaxo\\Api\\": "src/"
+        }
+    },
+
+    "autoload-dev": {
+        "psr-4": {
+            "FriendsOfRedaxo\\Api\\Tests\\": "tests/"
+        }
+    },
+
+    "extra": {
+        "redaxo": {
+            "addon-class": "FriendsOfRedaxo\\Api\\ApiAddon"
+        }
+    },
+
+    "config": {
+        "allow-plugins": {
+            "symfony/runtime": true
+        },
+        "sort-packages": true
+    }
+}
