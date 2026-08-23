@@ -56,6 +56,10 @@ Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufe
 
 **Scope-freie Routen:** `Auth::requiresScope()` (Default `true`) entscheidet, ob der Route-Scope explizit vergeben sein muss. `new BearerAuth(false)` autorisiert jedes gültige Token ohne Scope-Prüfung — genutzt von `/api/me`, damit die Selbstauskunft nicht genau bei den Tokens fehlt, bei denen der Scope vergessen wurde. Solche Routen werden von `Token::getAvailableScopes()` ausgefiltert und erscheinen deshalb nicht als Checkbox auf der Token-Seite.
 
+**OpenAPI-Generator (`OpenAPIConfig`):** Parameter-Typen der Route-Definitionen (`int`, `bool`, `float`) werden über `getSchema()`/`getSchemaType()` auf OpenAPI-Typen gemappt; Typ und Default gehören ins `schema`, nicht an den Parameter. Tags ohne Sprachschlüssel (`api_openapi_tag_<tag>_description`) bekommen eine leere Beschreibung statt eines `[translate:…]`-Platzhalters — Tags können aus fremden AddOns kommen. `tags` muss ein Array bleiben (`array_values`), sonst ist das Dokument für getypte Parser ungültig. **Bekannte Lücke:** Der `Body`-Zweig läuft noch nicht über `getSchema()` — dort landen `type: int` und ein `required`-Bool je Property in der Spec.
+
+**Swagger-UI-Anzeige:** `pages/openapi.php` kürzt die Beschreibungen in der Endpunktliste per JS auf 50 Zeichen und legt den Originaltext ins `title`-Attribut (Hover). Nur Darstellung — die Spec bleibt vollständig. Der `MutationObserver` dort arbeitet ohne `requestAnimationFrame`, weil das in einem Hintergrund-Tab nicht ausgeführt wird.
+
 **Route-Objekte nicht mutieren:** `RouteCollection::handle()` klont jede Route, bevor es `/api` an den Pfad hängt. Die registrierten `Route`-Objekte behalten ihren unpräfixierten Pfad — Handler, die `RouteCollection::getRoutes()` auslesen (z.B. `Discovery`), würden sonst `/api` doppelt sehen.
 
 ### Route Packages (lib/RoutePackage/)

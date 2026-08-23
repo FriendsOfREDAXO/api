@@ -157,6 +157,8 @@ Bei einem gültigen Token ohne den benötigten Scope nennt die 401-Antwort den S
 
 Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet. Programmatisch übernimmt das `/api/me` (siehe oben).
 
+In der Endpunktliste der Swagger-UI wird die Beschreibung auf 50 Zeichen gekürzt, damit jeder Endpunkt eine Zeile bleibt — der vollständige Text erscheint beim Hover über der Beschreibung. Gekürzt wird nur die Anzeige: die ausgelieferte Spezifikation enthält die Beschreibung unverändert.
+
 ### Response-Format für Listen-Endpunkte
 
 Alle Listen-Endpunkte liefern ein einheitliches Response-Format mit Daten und Meta-Informationen:
@@ -210,6 +212,12 @@ Bei ungültigem Sortierfeld wird ein `400 Bad Request` zurückgegeben.
 Jeder Endpunkt hat eine eigene Whitelist erlaubter Sortierfelder (siehe OpenAPI-Dokumentation).
 
 ## Was funktioniert vielleicht nicht, und müssen AddOn Entwickler beachten
+
+Eigene Endpunkte anderer AddOns erscheinen automatisch in `/api/me` und in der OpenAPI-Spezifikation — es ist nichts zusätzlich zu registrieren. Ausgegeben wird dabei genau das, was die Route deklariert: gepflegte `query`- und `Body`-Definitionen samt `description` machen den Endpunkt für einen aufrufenden Client oder Agenten benutzbar, fehlende Definitionen lassen ihn ohne Parameter erscheinen. Datei-Uploads sollten `'type' => 'file'` verwenden, dann wird in der Spezifikation `multipart/form-data` mit `format: binary` erzeugt.
+
+Wer eigene Tags vergibt, sollte auch den Sprachschlüssel `api_openapi_tag_<tag>_description` mitliefern — sonst bleibt die Tag-Beschreibung in Swagger UI und in der Spezifikation leer.
+
+`new BearerAuth(false)` autorisiert jedes gültige Token ohne Scope-Prüfung. Das ist für Selbstauskunft-artige Endpunkte gedacht; alles, was Daten liest oder schreibt, gehört hinter `new BearerAuth()` mit eigenem Scope.
 
 Das API AddON funktioniert aus dem Frontend-User-Kontext heraus. Das heisst, sollte es registrierte Methoden an bestimmten
 ExtensionPoints geben, welche nur im Backend-User-Kontext gesetzt wurden, z.B. (rex::isBackend) -> registerEP, dann werden diese nicht in der dieser API ausgeführt.
