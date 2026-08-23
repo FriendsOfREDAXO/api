@@ -218,6 +218,45 @@ class MeApiTest extends TestCase
         $this->assertGreaterThan(0, $checked, 'Es wurde kein Parameter geprüft.');
     }
 
+    public function testOpenApiRequestBodiesAreValid(): void
+    {
+        // Body-Properties sind JSON-Schema-Objekte: gültiger Typ, kein required-Bool
+        // in der Property (das gehört als Liste auf Objektebene), kein leeres required.
+        $spec = $this->doRequest(self::$token, 'me', ['format' => 'openapi']);
+        $this->assertSame(200, $spec['status']);
+
+        $allowedTypes = ['integer', 'number', 'boolean', 'string', 'array', 'object'];
+        $checked = 0;
+
+        foreach ($spec['data']['paths'] as $path => $operations) {
+            foreach ($operations as $method => $operation) {
+                foreach ($operation['requestBody']['content'] ?? [] as $contentType => $content) {
+                    $schema = $content['schema'];
+                    $where = strtoupper($method) . ' ' . $path;
+
+                    $this->assertSame('object', $schema['type'], $where);
+                    $this->assertNotEmpty($schema['properties'], $where);
+
+                    if (array_key_exists('required', $schema)) {
+                        $this->assertNotEmpty($schema['required'], $where . ' → leeres required');
+                    }
+
+                    foreach ($schema['properties'] as $name => $property) {
+                        $this->assertContains($property['type'], $allowedTypes, $where . ' → ' . $name);
+                        $this->assertArrayNotHasKey('required', $property, $where . ' → ' . $name);
+
+                        if ('multipart/form-data' === $contentType && isset($property['format'])) {
+                            $this->assertSame('binary', $property['format'], $where . ' → ' . $name);
+                        }
+                        ++$checked;
+                    }
+                }
+            }
+        }
+
+        $this->assertGreaterThan(0, $checked, 'Es wurde kein Body-Feld geprüft.');
+    }
+
     public function testUnknownFormatIsRejected(): void
     {
         $response = $this->doRequest(self::$token, 'me', ['format' => 'yaml']);

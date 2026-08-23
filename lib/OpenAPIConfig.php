@@ -129,20 +129,16 @@ class OpenAPIConfig
             // in Body
             $hasFileField = false;
             foreach ($Route->getDefault('Body') ?? [] as $Key => $Parameter) {
+                $Schema = self::getSchema($Parameter, true);
+
                 if ('file' === ($Parameter['type'] ?? '')) {
                     $hasFileField = true;
-                    $RequestBodyProperties[$Key] = [
-                        'type' => 'string',
-                        'format' => 'binary',
-                        'description' => $Parameter['description'] ?? '',
-                    ];
-                } else {
-                    $RequestBodyProperties[$Key] = [
-                        'type' => $Parameter['type'],
-                        'description' => $Parameter['description'] ?? '',
-                        'required' => $Parameter['required'] ?? false,
-                    ];
+                    $Schema['format'] = 'binary';
                 }
+
+                $RequestBodyProperties[$Key] = $Schema;
+
+                // required gehört als Liste auf Objektebene, nicht in die Property
                 if ($Parameter['required'] ?? false) {
                     $RequestBodyRequired[] = $Key;
                 }
@@ -194,15 +190,20 @@ class OpenAPIConfig
 
             if (0 < count($RequestBodyProperties)) {
                 $contentType = $hasFileField ? 'multipart/form-data' : 'application/json';
+                $BodySchema = [
+                    'type' => 'object',
+                    'properties' => $RequestBodyProperties,
+                ];
+                // ein leeres required-Array ist kein gültiges JSON Schema
+                if (0 < count($RequestBodyRequired)) {
+                    $BodySchema['required'] = $RequestBodyRequired;
+                }
+
                 $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['requestBody'] = [
                     'required' => true,
                     'content' => [
                         $contentType => [
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => $RequestBodyProperties,
-                                'required' => $RequestBodyRequired,
-                            ],
+                            'schema' => $BodySchema,
                         ],
                     ],
                 ];
