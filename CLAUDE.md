@@ -52,7 +52,15 @@ Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufe
   - `BearerAuth` — Token-basierte Authentifizierung via `Authorization: Bearer <token>` Header, validiert gegen `rex_api_token`-Tabelle mit Scope-Prüfung
   - `BackendUser` — Session-Cookie-Authentifizierung für reine Backend-Endpunkte
 - **`Token`** (`lib/Token.php`) — Verwaltet API-Tokens in der `rex_api_token`-Tabelle. Tokens haben Scopes (kommagetrennte Route-Scope-Namen).
-- **`OpenAPIConfig`** (`lib/OpenAPIConfig.php`) — Generiert OpenAPI-3.0-Spezifikation aus registrierten Routen für Swagger UI.
+- **`OpenAPIConfig`** (`lib/OpenAPIConfig.php`) — Generiert OpenAPI-3.0-Spezifikation aus registrierten Routen für Swagger UI. Wird auch von `/api/me?format=openapi` genutzt, dort mit einer gefilterten Routen-Teilmenge.
+
+**Scope-freie Routen:** `Auth::requiresScope()` (Default `true`) entscheidet, ob der Route-Scope explizit vergeben sein muss. `new BearerAuth(false)` autorisiert jedes gültige Token ohne Scope-Prüfung — genutzt von `/api/me`, damit die Selbstauskunft nicht genau bei den Tokens fehlt, bei denen der Scope vergessen wurde. Solche Routen werden von `Token::getAvailableScopes()` ausgefiltert und erscheinen deshalb nicht als Checkbox auf der Token-Seite.
+
+**OpenAPI-Generator (`OpenAPIConfig`):** Alle Feld-Definitionen — `query` wie `Body` — laufen über `getSchema()`/`getSchemaType()`: die Typnamen der Route-Definitionen (`int`, `bool`, `float`) werden auf OpenAPI-Typen gemappt, Typ und Default gehören ins `schema`, nicht an den Parameter. `required` steht als Liste auf Objektebene, nie als Bool in der Property, und ein leeres `required` wird weggelassen. `'type' => 'file'` ergänzt `format: binary` und schaltet den Content-Type auf `multipart/form-data`. Tags ohne Sprachschlüssel (`api_openapi_tag_<tag>_description`) bekommen eine leere Beschreibung statt eines `[translate:…]`-Platzhalters — Tags können aus fremden AddOns kommen. `tags` muss ein Array bleiben (`array_values`), sonst ist das Dokument für getypte Parser ungültig. **Was weiter fehlt:** Response-Schemas pro Route (Listen liefern `{data, meta}`, Detail-Routen das Objekt flach).
+
+**Swagger-UI-Anzeige:** `pages/openapi.php` kürzt die Beschreibungen in der Endpunktliste per JS auf 50 Zeichen und legt den Originaltext ins `title`-Attribut (Hover). Nur Darstellung — die Spec bleibt vollständig. Der `MutationObserver` dort arbeitet ohne `requestAnimationFrame`, weil das in einem Hintergrund-Tab nicht ausgeführt wird.
+
+**Route-Objekte nicht mutieren:** `RouteCollection::handle()` klont jede Route, bevor es `/api` an den Pfad hängt. Die registrierten `Route`-Objekte behalten ihren unpräfixierten Pfad — Handler, die `RouteCollection::getRoutes()` auslesen (z.B. `Discovery`), würden sonst `/api` doppelt sehen.
 
 ### Route Packages (lib/RoutePackage/)
 
@@ -67,6 +75,7 @@ Jede Datei definiert Routen und Handler-Methoden für eine Ressourcengruppe:
 | `Templates.php`    | Templates CRUD                                         | `templates/`     |
 | `Clangs.php`       | Sprachen CRUD                                          | `system/clangs/` |
 | `Metainfo.php`     | Metainfo-Felddefinitionen + Werte (Artikel/Kategorie/Medium/Sprache) | `metainfo/`      |
+| `Discovery.php`    | Selbstauskunft `/api/me` (erlaubte Endpunkte, OpenAPI gefiltert)      | — (scope-frei)   |
 
 Die `lib/RoutePackage/Backend/`-Klassen erweitern jeweils ihre Bearer-Variante, klonen alle passenden Routen, hängen `backend/` an Pfad und Scope und ersetzen das Auth-Objekt durch `BackendUser`. Beim Anlegen eines neuen Bearer-Endpunkts entsteht der Backend-Spiegel automatisch — eigene `Backend/*.php`-Implementierungen sind nur nötig, wenn das Standardverhalten überschrieben werden soll (Beispiel: `Backend/Media.php`).
 
@@ -111,6 +120,7 @@ RouteCollection::registerRoute(
 - **PRE-Extension-Points & API-Kontext**: Manche Extension Points (z.B. `SLICE_UPDATE`, `SLICE_DELETE`) rufen `rex::requireUser()` auf — das schlägt im Bearer-Token-Kontext fehl. Im API-Kontext entweder den EP nur firen, wenn `rex::getUser() !== null`, oder die Service-Methode bewusst umgehen und nur den POST-EP firen (siehe `Structure::handleUpdateArticleSlice` / `handleDeleteArticleSlice`).
 - **Service-Exceptions**: `rex_api_exception` trägt eine i18n-übersetzte Message. Status-Code daher nicht über `str_contains($e->getMessage(), 'not found')` ermitteln (locale-abhängig), sondern über einen Helper, der EN- und DE-Marker prüft (siehe `Users::statusFromApiException`).
 - Rückgabe: `new Response(json_encode($data), $statusCode)`
+- **401 mit `required_scope`**: Ist das Bearer-Token gültig, fehlt aber der Scope, ergänzt `handle()` den benötigten Scope-Namen im Fehler-Body. Bei ungültigem Token bleibt das Feld weg — der Statuscode ist in beiden Fällen 401.
 
 ### Verbindlich: Exaktes Spiegeln des REDAXO-Core-Verhaltens
 

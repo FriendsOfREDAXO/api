@@ -87,6 +87,7 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
+| /api/me                                        | GET       | Selbstauskunft: erlaubte Endpunkte | ✅      | ✅    | ✅       | ✅            |
 
 **Metainfo & Backend:** Wert-Endpunkte (Article/Category/Media/Clang) sind via Backend-Session erreichbar und prüfen die jeweiligen User-Rechte: `structure`-Perm für Article/Category, `media`-Perm für Media, **admin-only für Clang** (REDAXO-Core's Sprachen-Page `pages/system.clangs.php` ist via `setRequiredPermissions('isAdmin')` ebenfalls admin-only — wir spiegeln das exakt). Field-Management (`/metainfo/types`, `/metainfo/fields`, `/metainfo/fields/{id}`) bleibt bewusst Bearer-only — Schema-Änderungen sind kein typischer Backend-User-Job.
 
@@ -105,9 +106,58 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 Die meisten APIs haben Authentifizierung. Das heisst, es muss ein API-Token im Backend angelegt werden, um die Endpunkte nutzen zu können, wie auch der entsprechende Scope gesetzt werden.
 Andere APIs haben eine Backend-Authentifizierung, die dann über den Backend-User läuft, d.h. es kann der Session Cookie verwendet werden, um die Endpunkte zu nutzen.
 
+## Selbstauskunft: /api/me
+
+`GET /api/me` beantwortet für den *aufrufenden* Zugang die Frage, was er darf. Gedacht für Clients und Agenten, die die API ohne externe Doku bedienen sollen:
+
+* Gelistet werden **nur Endpunkte, für die der Scope tatsächlich vorhanden ist** — nicht die komplette Routentabelle.
+* Der Endpunkt braucht **keinen eigenen Scope**. Jedes gültige Token bekommt eine Antwort, auch ein neu angelegtes.
+* Das Token selbst wird nicht ausgegeben, nur sein Name und seine Scopes.
+
+```bash
+curl -H "Authorization: Bearer DEIN_TOKEN" https://example.org/api/me
+```
+
+```json
+{
+  "meta": {
+    "api_base": "/api",
+    "auth": { "type": "bearer", "token_name": "Sync", "scopes": ["structure/articles/list", "..."] },
+    "endpoint_count": 26,
+    "openapi_url": "/api/me?format=openapi"
+  },
+  "endpoints": [
+    {
+      "scope": "structure/articles/get",
+      "methods": ["GET"],
+      "path": "/api/structure/articles/{id}",
+      "description": "Get article details",
+      "tags": ["default"],
+      "path_parameters": { "id": { "required": true, "type": "string", "pattern": "\\d+" } }
+    }
+  ]
+}
+```
+
+Pro Endpunkt werden `path_parameters`, `query` und `body` mit Typ, `required`, Default und Beschreibung ausgegeben — leere Blöcke werden weggelassen. `required` folgt der Validierung: ein Feld ohne explizites `required` **ist** erforderlich.
+
+`GET /api/me?format=openapi` liefert dieselbe Menge als vollständige OpenAPI-3.0-Spezifikation — gleicher Generator wie die Swagger-UI im Backend, nur auf die erlaubten Routen gefiltert. Das kompakte Format ist der Default, weil es bei vielen Routen deutlich weniger Kontext kostet. Parameter und Body-Felder tragen dort ihren Typ und Default im `schema`, sind also für Client-Generatoren verwendbar. Was die Spec nicht enthält, sind Response-Schemas pro Route: Listen liefern `{data, meta}` (siehe unten), Detail-Routen das Objekt flach.
+
+Für Backend-Session-Zugriffe gibt es `GET /api/backend/me`. Dort wird nicht vorab gefiltert: Backend-Permissions werden pro Request geprüft, ein gelisteter Endpunkt kann also weiterhin mit 403 antworten. Der Hinweis steht in `meta.note`.
+
+### Fehlender Scope ist unterscheidbar
+
+Bei einem gültigen Token ohne den benötigten Scope nennt die 401-Antwort den Scope, der fehlt. Bei ungültigem oder fehlendem Token fehlt das Feld:
+
+```json
+{ "error": "Authorization failed", "required_scope": "users/list" }
+```
+
 ## API Struktur
 
-Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet.
+Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet. Programmatisch übernimmt das `/api/me` (siehe oben).
+
+In der Endpunktliste der Swagger-UI wird die Beschreibung auf 50 Zeichen gekürzt, damit jeder Endpunkt eine Zeile bleibt — der vollständige Text erscheint beim Hover über der Beschreibung. Gekürzt wird nur die Anzeige: die ausgelieferte Spezifikation enthält die Beschreibung unverändert.
 
 ### Response-Format für Listen-Endpunkte
 
@@ -162,6 +212,12 @@ Bei ungültigem Sortierfeld wird ein `400 Bad Request` zurückgegeben.
 Jeder Endpunkt hat eine eigene Whitelist erlaubter Sortierfelder (siehe OpenAPI-Dokumentation).
 
 ## Was funktioniert vielleicht nicht, und müssen AddOn Entwickler beachten
+
+Eigene Endpunkte anderer AddOns erscheinen automatisch in `/api/me` und in der OpenAPI-Spezifikation — es ist nichts zusätzlich zu registrieren. Ausgegeben wird dabei genau das, was die Route deklariert: gepflegte `query`- und `Body`-Definitionen samt `description` machen den Endpunkt für einen aufrufenden Client oder Agenten benutzbar, fehlende Definitionen lassen ihn ohne Parameter erscheinen. Datei-Uploads sollten `'type' => 'file'` verwenden, dann wird in der Spezifikation `multipart/form-data` mit `format: binary` erzeugt.
+
+Wer eigene Tags vergibt, sollte auch den Sprachschlüssel `api_openapi_tag_<tag>_description` mitliefern — sonst bleibt die Tag-Beschreibung in Swagger UI und in der Spezifikation leer.
+
+`new BearerAuth(false)` autorisiert jedes gültige Token ohne Scope-Prüfung. Das ist für Selbstauskunft-artige Endpunkte gedacht; alles, was Daten liest oder schreibt, gehört hinter `new BearerAuth()` mit eigenem Scope.
 
 Das API AddON funktioniert aus dem Frontend-User-Kontext heraus. Das heisst, sollte es registrierte Methoden an bestimmten
 ExtensionPoints geben, welche nur im Backend-User-Kontext gesetzt wurden, z.B. (rex::isBackend) -> registerEP, dann werden diese nicht in der dieser API ausgeführt.
