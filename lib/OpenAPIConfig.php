@@ -17,9 +17,12 @@ class OpenAPIConfig
         foreach ($Routes as $Scope => $RouteArray) {
             foreach ($RouteArray['tags'] ?? [] as $Tag) {
                 if (!isset($tags[$Tag])) {
+                    // tags may come from other addons: without a language key, emit an
+                    // empty description instead of a "[translate:…]" placeholder
+                    $Key = 'api_openapi_tag_' . $Tag . '_description';
                     $tags[$Tag] = [
                         'name' => $Tag,
-                        'description' => rex_i18n::msg('api_openapi_tag_' . $Tag . '_description'),
+                        'description' => rex_i18n::hasMsg($Key) ? rex_i18n::msg($Key) : '',
                     ];
                 }
             }
@@ -44,7 +47,9 @@ class OpenAPIConfig
                 'description' => rex_i18n::msg('api_openapi_description'),
                 'version' => '1.0.0',
             ],
-            'tags' => $tags,
+            // array_values: OpenAPI requires "tags" to be an array, a keyed map
+            // makes the document invalid for typed parsers
+            'tags' => array_values($tags),
             'servers' => [
                 [
                     'url' => '/' . RouteCollection::$preRoute,

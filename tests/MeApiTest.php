@@ -170,6 +170,23 @@ class MeApiTest extends TestCase
         }
     }
 
+    public function testOpenApiTagsAreAList(): void
+    {
+        // OpenAPI verlangt für "tags" ein Array; ein Objekt (String-Keys) macht
+        // das Dokument für getypte Parser unlesbar.
+        $spec = $this->doRequest(self::$token, 'me', ['format' => 'openapi']);
+
+        $this->assertSame(200, $spec['status']);
+        $this->assertIsList($spec['data']['tags'] ?? null);
+        $this->assertNotEmpty($spec['data']['tags']);
+
+        foreach ($spec['data']['tags'] as $tag) {
+            $this->assertArrayHasKey('name', $tag);
+            $this->assertArrayHasKey('description', $tag);
+            $this->assertStringNotContainsString('[translate:', $tag['description'], 'Fehlender Sprachschlüssel für Tag ' . $tag['name']);
+        }
+    }
+
     public function testUnknownFormatIsRejected(): void
     {
         $response = $this->doRequest(self::$token, 'me', ['format' => 'yaml']);
