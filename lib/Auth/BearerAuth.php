@@ -12,12 +12,19 @@ class BearerAuth extends Auth
     private ?Token $Token = null;
 
     /**
+     * Declared with a class default instead of a promoted constructor property:
+     * a subclass in another addon may override __construct() without calling
+     * parent::__construct(), and requiresScope() must still work.
+     */
+    private bool $requireScope = true;
+
+    /**
      * @param bool $requireScope false: every valid token is authorized, no scope needed (discovery routes)
      */
-    public function __construct(
-        private bool $requireScope = true,
-    ) {
+    public function __construct(bool $requireScope = true)
+    {
         parent::__construct();
+        $this->requireScope = $requireScope;
     }
 
     public function requiresScope(): bool

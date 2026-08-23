@@ -154,7 +154,8 @@ class OpenAPIConfig
                     $Properties = [];
                     $RequiredProperties = [];
                     foreach ($Parameter['fields'] as $FieldKey => $Field) {
-                        $Properties[$FieldKey] = self::getSchema($Field);
+                        // description im Property: dort gibt es keine Parameter-Ebene
+                        $Properties[$FieldKey] = self::getSchema($Field, true);
                         if ($Field['required'] ?? false) {
                             $RequiredProperties[] = $FieldKey;
                         }
@@ -186,6 +187,7 @@ class OpenAPIConfig
                         'description' => $Parameter['description'] ?? '',
                         'required' => $Parameter['required'] ?? false,
                         'schema' => self::getSchema($Parameter),
+
                     ];
                 }
             }
@@ -219,9 +221,11 @@ class OpenAPIConfig
      * both at parameter level would make the document invalid.
      *
      * @param array<string, mixed> $Definition
+     * @param bool $withDescription true for object properties, which have no
+     *                              parameter level of their own to carry it
      * @return array<string, mixed>
      */
-    private static function getSchema(array $Definition): array
+    private static function getSchema(array $Definition, bool $withDescription = false): array
     {
         $Schema = [
             'type' => self::getSchemaType($Definition['type'] ?? 'string'),
@@ -231,7 +235,7 @@ class OpenAPIConfig
         if (isset($Definition['default'])) {
             $Schema['default'] = $Definition['default'];
         }
-        if (isset($Definition['description']) && '' !== $Definition['description']) {
+        if ($withDescription && isset($Definition['description']) && '' !== $Definition['description']) {
             $Schema['description'] = $Definition['description'];
         }
 
