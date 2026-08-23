@@ -141,7 +141,7 @@ curl -H "Authorization: Bearer DEIN_TOKEN" https://example.org/api/me
 
 Pro Endpunkt werden `path_parameters`, `query` und `body` mit Typ, `required`, Default und Beschreibung ausgegeben — leere Blöcke werden weggelassen. `required` folgt der Validierung: ein Feld ohne explizites `required` **ist** erforderlich.
 
-`GET /api/me?format=openapi` liefert dieselbe Menge als vollständige OpenAPI-3.0-Spezifikation — gleicher Generator wie die Swagger-UI im Backend, nur auf die erlaubten Routen gefiltert. Das kompakte Format ist der Default, weil es bei vielen Routen deutlich weniger Kontext kostet.
+`GET /api/me?format=openapi` liefert dieselbe Menge als vollständige OpenAPI-3.0-Spezifikation — gleicher Generator wie die Swagger-UI im Backend, nur auf die erlaubten Routen gefiltert. Das kompakte Format ist der Default, weil es bei vielen Routen deutlich weniger Kontext kostet. Response-Schemas pro Route enthält die Spec nicht: Listen liefern `{data, meta}` (siehe unten), Detail-Routen das Objekt flach.
 
 Für Backend-Session-Zugriffe gibt es `GET /api/backend/me`. Dort wird nicht vorab gefiltert: Backend-Permissions werden pro Request geprüft, ein gelisteter Endpunkt kann also weiterhin mit 403 antworten. Der Hinweis steht in `meta.note`.
 

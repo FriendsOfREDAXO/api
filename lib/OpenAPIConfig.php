@@ -152,22 +152,28 @@ class OpenAPIConfig
             foreach ($Route->getDefault('query') ?? [] as $Key => $Parameter) {
                 if (isset($Parameter['fields']) && is_array($Parameter['fields'])) {
                     $Properties = [];
+                    $RequiredProperties = [];
                     foreach ($Parameter['fields'] as $FieldKey => $Field) {
-                        $Properties[$FieldKey] = [
-                            'required' => $Field['required'] ?? false,
-                            'default' => $Field['default'] ?? null,
-                        ];
+                        $Properties[$FieldKey] = self::getSchema($Field);
+                        if ($Field['required'] ?? false) {
+                            $RequiredProperties[] = $FieldKey;
+                        }
+                    }
+
+                    $Schema = [
+                        'type' => 'object',
+                        'properties' => $Properties,
+                    ];
+                    if (0 < count($RequiredProperties)) {
+                        $Schema['required'] = $RequiredProperties;
                     }
 
                     $Parameters[] = [
                         'name' => $Key,
                         'in' => 'query',
-                        'description' => $Field['description'] ?? '',
-                        'required' => $Field['required'] ?? false,
-                        'schema' => [
-                            'type' => 'object',
-                            'properties' => $Properties,
-                        ],
+                        'description' => $Parameter['description'] ?? '',
+                        'required' => $Parameter['required'] ?? false,
+                        'schema' => $Schema,
                         'style' => 'deepObject',
                         'explode' => true,
                     ];
@@ -179,7 +185,7 @@ class OpenAPIConfig
                         'in' => 'query',
                         'description' => $Parameter['description'] ?? '',
                         'required' => $Parameter['required'] ?? false,
-                        'default' => $Parameter['default'] ?? null,
+                        'schema' => self::getSchema($Parameter),
                     ];
                 }
             }
@@ -204,5 +210,46 @@ class OpenAPIConfig
         }
 
         return $config;
+    }
+
+    /**
+     * Builds the OpenAPI schema object for a single parameter definition.
+     *
+     * OpenAPI requires a parameter to carry its type and default inside "schema";
+     * both at parameter level would make the document invalid.
+     *
+     * @param array<string, mixed> $Definition
+     * @return array<string, mixed>
+     */
+    private static function getSchema(array $Definition): array
+    {
+        $Schema = [
+            'type' => self::getSchemaType($Definition['type'] ?? 'string'),
+        ];
+
+        // a null default is left out: it would contradict the declared type
+        if (isset($Definition['default'])) {
+            $Schema['default'] = $Definition['default'];
+        }
+        if (isset($Definition['description']) && '' !== $Definition['description']) {
+            $Schema['description'] = $Definition['description'];
+        }
+
+        return $Schema;
+    }
+
+    /**
+     * Maps the addon's parameter types to the type names OpenAPI knows.
+     */
+    private static function getSchemaType(string $Type): string
+    {
+        return match ($Type) {
+            'int', 'integer' => 'integer',
+            'float', 'double' => 'number',
+            'bool', 'boolean' => 'boolean',
+            'array' => 'array',
+            'object' => 'object',
+            default => 'string',
+        };
     }
 }

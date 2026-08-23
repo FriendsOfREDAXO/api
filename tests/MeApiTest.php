@@ -187,6 +187,37 @@ class MeApiTest extends TestCase
         }
     }
 
+    public function testOpenApiParametersCarryASchema(): void
+    {
+        // OpenAPI verlangt schema (oder content) pro Parameter; Typ und Default
+        // direkt am Parameter machen das Dokument ungültig.
+        $spec = $this->doRequest(self::$token, 'me', ['format' => 'openapi']);
+        $this->assertSame(200, $spec['status']);
+
+        $allowedTypes = ['integer', 'number', 'boolean', 'string', 'array', 'object'];
+        $checked = 0;
+
+        foreach ($spec['data']['paths'] as $path => $operations) {
+            foreach ($operations as $method => $operation) {
+                foreach ($operation['parameters'] ?? [] as $parameter) {
+                    $where = strtoupper($method) . ' ' . $path . ' → ' . ($parameter['name'] ?? '?');
+
+                    $this->assertArrayHasKey('schema', $parameter, $where);
+                    $this->assertArrayNotHasKey('default', $parameter, $where);
+                    $this->assertContains($parameter['schema']['type'], $allowedTypes, $where);
+
+                    foreach ($parameter['schema']['properties'] ?? [] as $name => $property) {
+                        $this->assertContains($property['type'], $allowedTypes, $where . '[' . $name . ']');
+                        $this->assertArrayNotHasKey('required', $property, $where . '[' . $name . ']');
+                    }
+                    ++$checked;
+                }
+            }
+        }
+
+        $this->assertGreaterThan(0, $checked, 'Es wurde kein Parameter geprüft.');
+    }
+
     public function testUnknownFormatIsRejected(): void
     {
         $response = $this->doRequest(self::$token, 'me', ['format' => 'yaml']);
