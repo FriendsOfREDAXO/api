@@ -28,5 +28,6 @@ api_token_added = API-Token wurde hinzugefügt
 
 api_openapi_title = OpenAPI Dokumentation
 api_openapi_description = Hier werden alle erfassten Endpunkte ausgegeben und können eingesehen und getestet werden. Um sie nutzen zu können, muss vorher ein Token mit den entsprechenden Zugriffen erstellt werden.
+api_openapi_tag_meta_description = Selbstauskunft: welche Endpunkte das aktuelle Token bzw. der Backend-User nutzen darf
 
 readme = ReadMe

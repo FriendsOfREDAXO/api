@@ -87,6 +87,7 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/media/{filename}/metainfo                 | PUT/PATCH | Medien-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}/metainfo               | GET       | Sprach-Metainfo lesen           | ✅      | ✅    | ✅       | ✅            |
 | /api/system/clangs/{id}/metainfo               | PUT/PATCH | Sprach-Metainfo ändern          | ✅      | ✅    | ✅       | ✅            |
+| /api/me                                        | GET       | Selbstauskunft: erlaubte Endpunkte | ✅      | ✅    | ✅       | ✅            |
 
 **Metainfo & Backend:** Wert-Endpunkte (Article/Category/Media/Clang) sind via Backend-Session erreichbar und prüfen die jeweiligen User-Rechte: `structure`-Perm für Article/Category, `media`-Perm für Media, **admin-only für Clang** (REDAXO-Core's Sprachen-Page `pages/system.clangs.php` ist via `setRequiredPermissions('isAdmin')` ebenfalls admin-only — wir spiegeln das exakt). Field-Management (`/metainfo/types`, `/metainfo/fields`, `/metainfo/fields/{id}`) bleibt bewusst Bearer-only — Schema-Änderungen sind kein typischer Backend-User-Job.
 
@@ -105,9 +106,56 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 Die meisten APIs haben Authentifizierung. Das heisst, es muss ein API-Token im Backend angelegt werden, um die Endpunkte nutzen zu können, wie auch der entsprechende Scope gesetzt werden.
 Andere APIs haben eine Backend-Authentifizierung, die dann über den Backend-User läuft, d.h. es kann der Session Cookie verwendet werden, um die Endpunkte zu nutzen.
 
+## Selbstauskunft: /api/me
+
+`GET /api/me` beantwortet für den *aufrufenden* Zugang die Frage, was er darf. Gedacht für Clients und Agenten, die die API ohne externe Doku bedienen sollen:
+
+* Gelistet werden **nur Endpunkte, für die der Scope tatsächlich vorhanden ist** — nicht die komplette Routentabelle.
+* Der Endpunkt braucht **keinen eigenen Scope**. Jedes gültige Token bekommt eine Antwort, auch ein neu angelegtes.
+* Das Token selbst wird nicht ausgegeben, nur sein Name und seine Scopes.
+
+```bash
+curl -H "Authorization: Bearer DEIN_TOKEN" https://example.org/api/me
+```
+
+```json
+{
+  "meta": {
+    "api_base": "/api",
+    "auth": { "type": "bearer", "token_name": "Sync", "scopes": ["structure/articles/list", "..."] },
+    "endpoint_count": 26,
+    "openapi_url": "/api/me?format=openapi"
+  },
+  "endpoints": [
+    {
+      "scope": "structure/articles/get",
+      "methods": ["GET"],
+      "path": "/api/structure/articles/{id}",
+      "description": "Get article details",
+      "tags": ["default"],
+      "path_parameters": { "id": { "required": true, "type": "string", "pattern": "\\d+" } }
+    }
+  ]
+}
+```
+
+Pro Endpunkt werden `path_parameters`, `query` und `body` mit Typ, `required`, Default und Beschreibung ausgegeben — leere Blöcke werden weggelassen. `required` folgt der Validierung: ein Feld ohne explizites `required` **ist** erforderlich.
+
+`GET /api/me?format=openapi` liefert dieselbe Menge als vollständige OpenAPI-3.0-Spezifikation — gleicher Generator wie die Swagger-UI im Backend, nur auf die erlaubten Routen gefiltert. Das kompakte Format ist der Default, weil es bei vielen Routen deutlich weniger Kontext kostet.
+
+Für Backend-Session-Zugriffe gibt es `GET /api/backend/me`. Dort wird nicht vorab gefiltert: Backend-Permissions werden pro Request geprüft, ein gelisteter Endpunkt kann also weiterhin mit 403 antworten. Der Hinweis steht in `meta.note`.
+
+### Fehlender Scope ist unterscheidbar
+
+Bei einem gültigen Token ohne den benötigten Scope nennt die 401-Antwort den Scope, der fehlt. Bei ungültigem oder fehlendem Token fehlt das Feld:
+
+```json
+{ "error": "Authorization failed", "required_scope": "users/list" }
+```
+
 ## API Struktur
 
-Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet.
+Am besten direkt im AddOn unter OpenAPI nachsehen. Dort werden alle verfügbaren Endpunkte aufgelistet. Programmatisch übernimmt das `/api/me` (siehe oben).
 
 ### Response-Format für Listen-Endpunkte
 

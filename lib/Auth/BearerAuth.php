@@ -11,11 +11,28 @@ class BearerAuth extends Auth
 {
     private ?Token $Token = null;
 
+    /**
+     * @param bool $requireScope false: every valid token is authorized, no scope needed (discovery routes)
+     */
+    public function __construct(
+        private bool $requireScope = true,
+    ) {
+        parent::__construct();
+    }
+
+    public function requiresScope(): bool
+    {
+        return $this->requireScope;
+    }
+
     public function isAuthorized($parameters): bool
     {
         $this->Token = Token::getFromBearerToken();
         if (null === $this->Token) {
             return false;
+        }
+        if (!$this->requireScope) {
+            return true;
         }
         if (in_array($parameters['_route'], $this->Token->getScopes(), true)) {
             return true;
