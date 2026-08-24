@@ -319,7 +319,7 @@ class Structure extends RoutePackage
             new BearerAuth()
         );
 
-        for ($i = 1; $i <= 19; ++$i) {
+        for ($i = 1; $i <= 20; ++$i) {
             $Values['value' . $i] = [
                 'type' => 'string',
                 'required' => false,
@@ -431,7 +431,7 @@ class Structure extends RoutePackage
                                 'default' => 0,
                             ],
                         ],
-                        $Values, // value1...19
+                        $Values, // value1...20
                         $Medias, // media1...10
                         $Medialists, // medialist1...10
                         $Links, // link1...10
@@ -934,14 +934,14 @@ class Structure extends RoutePackage
             ], 404);
         }
 
-        // value1...19
-        // media1...19
+        // value1...20
+        // media1...10
         // medialist1...10
         // link1...10
         // linklist1...10
 
         $SliceData = ['revision' => (int) $Data['revision']];
-        for ($i = 1; $i <= 19; ++$i) {
+        for ($i = 1; $i <= 20; ++$i) {
             $SliceData['value' . $i] = $Data['value' . $i];
             if ($i <= 10) {
                 $SliceData['media' . $i] = $Data['media' . $i];
@@ -1312,7 +1312,7 @@ class Structure extends RoutePackage
         }
 
         $UpdateData = [];
-        for ($i = 1; $i <= 19; ++$i) {
+        for ($i = 1; $i <= 20; ++$i) {
             if (null !== $Data['value' . $i]) {
                 $UpdateData['value' . $i] = $Data['value' . $i];
             }
