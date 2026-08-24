@@ -32,6 +32,7 @@ return [
     'base_url' => $env('API_TEST_BASE_URL', 'https://redaxo.localhost'),
     'api_prefix' => $env('API_TEST_API_PREFIX', '/api'),
     'api_token' => $env('API_TEST_TOKEN'),
+    'expired_token' => $env('API_TEST_EXPIRED_TOKEN'),
     'restricted_token' => $env('API_TEST_RESTRICTED_TOKEN'),
     'restricted_token_allowed_path' => $env('API_TEST_RESTRICTED_TOKEN_ALLOWED_PATH', 'structure/articles'),
     'restricted_token_denied_path' => $env('API_TEST_RESTRICTED_TOKEN_DENIED_PATH', 'users'),

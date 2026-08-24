@@ -106,6 +106,12 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 Die meisten APIs haben Authentifizierung. Das heisst, es muss ein API-Token im Backend angelegt werden, um die Endpunkte nutzen zu können, wie auch der entsprechende Scope gesetzt werden.
 Andere APIs haben eine Backend-Authentifizierung, die dann über den Backend-User läuft, d.h. es kann der Session Cookie verwendet werden, um die Endpunkte zu nutzen.
 
+### Ablaufdatum für Tokens
+
+Ein Token kann optional ablaufen. Auf der Token-Seite schaltet die Checkbox **Ablauf aktiv** das Feld **Ablaufdatum** frei; ohne sie bleibt das Token unbegrenzt gültig — so verhalten sich auch alle Tokens, die vor dem Update angelegt wurden.
+
+Ist der Ablauf gesetzt und erreicht, wird das Token nicht mehr autorisiert: Anfragen bekommen `401` mit `{"error": "Authorization failed"}`, genau wie bei einem unbekannten Token. Der Vergleich läuft über die Datenbankzeit (`now()`), also über dieselbe Zeit, in der das Datum im Backend eingegeben wurde.
+
 ## Selbstauskunft: /api/me
 
 `GET /api/me` beantwortet für den *aufrufenden* Zugang die Frage, was er darf. Gedacht für Clients und Agenten, die die API ohne externe Doku bedienen sollen:

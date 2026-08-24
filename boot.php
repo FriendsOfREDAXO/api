@@ -46,4 +46,9 @@ if (!rex::getConsole()) {
         rex_view::addCssFile($addon->getAssetsUrl('css/swagger-ui-redaxo-theme.css'));
         rex_view::addJsFile($addon->getAssetsUrl('vendor/swagger-ui/js/swagger-ui-bundle.js'));
     }
+
+    if (rex::isBackend() && 'api/token' === rex_be_controller::getCurrentPage()) {
+        $addon = rex_addon::get('api');
+        rex_view::addJsFile($addon->getAssetsUrl('js/token-expiry.js'));
+    }
 }
