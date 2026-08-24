@@ -7,6 +7,7 @@ use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
+use InvalidArgumentException;
 use rex;
 use rex_article;
 use rex_article_cache;
@@ -25,8 +26,6 @@ use rex_user;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
-
-use InvalidArgumentException;
 
 use function count;
 use function in_array;
@@ -428,6 +427,13 @@ class Structure extends RoutePackage
                                 'required' => true,
                                 'default' => null,
                             ],
+                            // 0 = Live-Version, 1 = Arbeitsversion (structure/version).
+                            // rex_content_service::addSlice() liest den Wert aus $data.
+                            'revision' => [
+                                'type' => 'int',
+                                'required' => false,
+                                'default' => 0,
+                            ],
                         ],
                         $Values, // value1...19
                         $Medias, // media1...10
@@ -807,10 +813,20 @@ class Structure extends RoutePackage
         }
 
         try {
-            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
+            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body'], true);
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse([
+                'error' => $e->getMessage(),
+            ], 400);
         } catch (Exception $e) {
             return new JsonResponse([
                 'error' => 'Body field: `' . $e->getMessage() . '` is required',
+            ], 400);
+        }
+
+        if (0 > $Data['revision']) {
+            return new JsonResponse([
+                'error' => 'Invalid value for revision. Must be 0 (live) or greater.',
             ], 400);
         }
 
@@ -901,7 +917,7 @@ class Structure extends RoutePackage
         // link1...10
         // linklist1...10
 
-        $SliceData = [];
+        $SliceData = ['revision' => (int) $Data['revision']];
         for ($i = 1; $i <= 19; ++$i) {
             $SliceData['value' . $i] = $Data['value' . $i];
             if ($i <= 10) {
@@ -931,7 +947,7 @@ class Structure extends RoutePackage
             // the service call (the service itself only fires SLICE_ADDED + art_content_updated).
             // Mirror that to keep BC for listeners that still hook into the deprecated EP.
             $articleRevision = 0;
-            $sliceRevision = 0;
+            $sliceRevision = (int) $Data['revision'];
             $epParams = [
                 'article_id' => (int) $Parameter['id'],
                 'clang' => (int) $Data['clang_id'],
@@ -1235,7 +1251,12 @@ class Structure extends RoutePackage
         }
 
         try {
-            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+            // strict: die Revision eines bestehenden Slices ändert auch der Core nicht
+            // (rex_content_service::editSlice liest sie aus dem Datensatz), ein mitgesendetes
+            // `revision` wäre also wirkungslos und soll nicht still verschluckt werden.
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body'], true);
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }

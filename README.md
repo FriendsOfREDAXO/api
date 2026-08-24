@@ -112,6 +112,25 @@ Ein Token kann optional ablaufen. Auf der Token-Seite schaltet die Checkbox **Ab
 
 Ist der Ablauf gesetzt und erreicht, wird das Token nicht mehr autorisiert: Anfragen bekommen `401` mit `{"error": "Authorization failed"}`, genau wie bei einem unbekannten Token. Der Vergleich läuft über die Datenbankzeit (`now()`), also über dieselbe Zeit, in der das Datum im Backend eingegeben wurde.
 
+## Slices: Live-Version und Arbeitsversion
+
+Slices tragen eine Revision: `0` ist die Live-Version, `1` die Arbeitsversion des Plugins `structure/version`. Die API behandelt sie durchgehend:
+
+* `GET .../slices` liefert per Default die Live-Version. `?revision=1` liefert die Arbeitsversion.
+* `POST .../slices` legt per Default in der Live-Version an. `"revision": 1` im Body legt in der Arbeitsversion an — der Wert geht an `rex_content_service::addSlice()`, die Priorität wird innerhalb der Revision gezählt.
+* `GET`, `PUT/PATCH` und `DELETE` auf `.../slices/{slice_id}` arbeiten auf genau dem adressierten Slice, unabhängig von seiner Revision. Die Revision selbst ändern sie nicht — genau wie `rex_content_service::editSlice()`, das sie aus dem Datensatz liest. Ein `revision` im Update-Body wird darum mit `400` abgelehnt.
+
+```bash
+# in der Arbeitsversion anlegen
+curl -X POST -H "Authorization: Bearer DEIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"module_id":2,"clang_id":1,"ctype_id":1,"revision":1,"value1":"Entwurf"}' \
+  https://example.org/api/structure/articles/42/slices
+```
+
+Wer per API in die Live-Version schreibt, während im Backend eine Arbeitsversion gepflegt wird, verliert diese Slices beim nächsten „Arbeitsversion → Live": `rex_article_revision::copyContent()` leert das Ziel, bevor es kopiert. Die Revision gehört deshalb bewusst gesetzt.
+
+**Unbekannte Felder im Slice-Body werden abgelehnt** (`400 Unknown field(s): …`). Ein Tippfehler wie `revison` galt vorher als Erfolg, und der Slice landete in der Live-Version.
+
 ## Selbstauskunft: /api/me
 
 `GET /api/me` beantwortet für den *aufrufenden* Zugang die Frage, was er darf. Gedacht für Clients und Agenten, die die API ohne externe Doku bedienen sollen:
