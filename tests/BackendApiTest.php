@@ -564,15 +564,6 @@ class BackendApiTest extends TestCase
         $this->assertSame(200, $deleteResponse['status']);
     }
 
-    public function testRestrictedUserStructureAccessDependsOnPerm(): void
-    {
-        // Restricted user without structure perm should get 403
-        $response = $this->restrictedGet('structure/articles/1');
-
-        // Either 200 (has perm) or 403 (no perm)
-        $this->assertContains($response['status'], [200, 403]);
-    }
-
     // ==================== MEDIA ====================
 
     public function testAdminCanListMedia(): void

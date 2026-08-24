@@ -100,16 +100,11 @@ class MediaApiTest extends ApiTestCase
             'file' => self::$testImagePath,
         ]);
 
-        if ($response['success']) {
-            $this->assertStatus(201, $response);
-            $this->assertHasField($response, 'filename');
+        $this->assertStatus(201, $response);
+        $this->assertHasField($response, 'filename');
 
-            // Für Aufräumen registrieren
-            $this->trackResource('media', $response['data']['filename'] . '/delete');
-        } else {
-            // Upload kann fehlschlagen wenn z.B. Dateityp nicht erlaubt
-            $this->assertContains($response['status'], [400, 500]);
-        }
+        // Für Aufräumen registrieren
+        $this->trackResource('media', $response['data']['filename'] . '/delete');
     }
 
     public function testGetMediaInfo(): void

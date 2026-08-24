@@ -147,13 +147,4 @@ class ClangsApiTest extends ApiTestCase
         $this->assertStatus(404, $response);
         $this->assertError($response);
     }
-
-    public function testDeleteDefaultClangFails(): void
-    {
-        // Die Standard-Sprache (ID 1) sollte nicht löschbar sein
-        $response = $this->delete('system/clangs/1');
-
-        // Sollte entweder 403 (Forbidden) oder 409 (Conflict) sein
-        $this->assertContains($response['status'], [403, 409, 500]);
-    }
 }
