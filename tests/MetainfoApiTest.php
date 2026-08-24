@@ -284,6 +284,29 @@ class MetainfoApiTest extends ApiTestCase
      * mit 200 quittiert. Der zweite Wert im Body ist der Kontrollwert: er beweist,
      * dass der Patch als Ganzes abgelehnt wird und nicht teilweise durchläuft.
      */
+    /**
+     * Schlaegt das ALTER beim Anlegen fehl, meldete die API bis #67 trotzdem 201 und liess
+     * eine Zeile ohne Spalte zurueck, die sich danach nicht mehr loeschen liess. Der
+     * ueberlange Name erzwingt den Fehlschlag, ohne die Tabelle zu veraendern: MySQL
+     * erlaubt hoechstens 64 Zeichen fuer einen Spaltennamen.
+     */
+    public function testFieldAddRollsBackWhenColumnCannotBeCreated(): void
+    {
+        $name = 'art_' . str_repeat('x', 70);
+
+        $create = $this->post('metainfo/fields', [
+            'name' => $name,
+            'title' => 'Rollback probe',
+            'type_id' => 1,
+        ]);
+
+        $this->assertStatus(500, $create);
+
+        $list = $this->get('metainfo/fields', ['per_page' => 200]);
+        $names = array_column($list['data']['data'], 'name');
+        $this->assertNotContains($name, $names, 'Die Felddefinition darf nach dem fehlgeschlagenen ALTER nicht zurueckbleiben.');
+    }
+
     public function testMediaValuesRejectNonScalarOnScalarField(): void
     {
         $mediaList = $this->get('media', ['per_page' => 1]);
