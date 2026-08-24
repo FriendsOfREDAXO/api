@@ -605,6 +605,19 @@ class Metainfo extends RoutePackage
             return new JsonResponse(['error' => $result], 409);
         }
 
+        // rex_metainfo_add_field() fuegt erst die Zeile ein und legt dann die Spalte an;
+        // schlaegt das ALTER fehl, faengt rex_metainfo_table_manager::addColumn() die
+        // Exception ab und gibt false zurueck. Ohne diese Pruefung meldete die API 201
+        // fuer ein Feld, dessen Spalte fehlt -- und das war anschliessend unloeschbar,
+        // weil rex_metainfo_delete_field() ohne Spalte abbricht.
+        if (false === $result) {
+            self::deleteFieldRowByName($name);
+            return new JsonResponse([
+                'error' => 'Metainfo field could not be created: the database column was not added',
+                'name' => $name,
+            ], 500);
+        }
+
         try {
             $row = rex_sql::factory()->getArray(
                 'SELECT id FROM ' . rex::getTable('metainfo_field') . ' WHERE name = :name LIMIT 1',
@@ -703,6 +716,19 @@ class Metainfo extends RoutePackage
         }
 
         self::ensureMetainfoFunctions();
+
+        // Fehlt zu einer vorhandenen Zeile die Spalte, bricht rex_metainfo_delete_field()
+        // mit "invalid name" ab und der Datensatz bliebe dauerhaft stehen. Solche Reste
+        // entstehen, wenn das ALTER beim Anlegen scheitert; sie werden hier direkt entfernt.
+        $orphan = self::findOrphanFieldRow((int) $Parameter['id']);
+        if (null !== $orphan) {
+            self::deleteFieldRowByName($orphan);
+            return new JsonResponse([
+                'message' => 'Metainfo field deleted',
+                'id' => (int) $Parameter['id'],
+                'note' => 'The database column was missing; only the field definition was removed',
+            ], 200);
+        }
 
         $result = rex_metainfo_delete_field((int) $Parameter['id']);
 
@@ -1123,6 +1149,56 @@ class Metainfo extends RoutePackage
             return rex_metainfo_meta_prefix($name);
         } catch (InvalidArgumentException) {
             return '';
+        }
+    }
+
+    /**
+     * Gibt den Feldnamen zurueck, wenn die Zeile existiert, ihre Spalte in der
+     * Meta-Tabelle aber fehlt. Sonst null.
+     */
+    private static function findOrphanFieldRow(int $id): ?string
+    {
+        try {
+            $rows = rex_sql::factory()->getArray(
+                'SELECT name FROM ' . rex::getTable('metainfo_field') . ' WHERE id = :id LIMIT 1',
+                [':id' => $id],
+            );
+        } catch (rex_sql_exception) {
+            return null;
+        }
+
+        if (0 === count($rows)) {
+            return null;
+        }
+
+        $name = (string) $rows[0]['name'];
+        $table = self::tableForName($name);
+        if ('' === $table) {
+            return null;
+        }
+
+        try {
+            $columns = rex_sql::factory()->getArray(
+                'SELECT column_name FROM information_schema.columns WHERE table_schema = database() AND table_name = :table AND column_name = :column LIMIT 1',
+                [':table' => $table, ':column' => $name],
+            );
+        } catch (rex_sql_exception) {
+            return null;
+        }
+
+        return 0 === count($columns) ? $name : null;
+    }
+
+    private static function deleteFieldRowByName(string $name): void
+    {
+        try {
+            $sql = rex_sql::factory();
+            $sql->setQuery(
+                'DELETE FROM ' . rex::getTable('metainfo_field') . ' WHERE name = :name',
+                [':name' => $name],
+            );
+        } catch (rex_sql_exception) {
+            // Die Zeile bleibt dann stehen, der Aufrufer meldet den Fehler ohnehin.
         }
     }
 
