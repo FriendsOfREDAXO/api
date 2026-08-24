@@ -821,7 +821,7 @@ class BackendApiTest extends TestCase
             'value1' => 'BACKEND_TEST_live_admin_' . uniqid(),
         ]);
         if (201 !== $createResponse['status']) {
-            $this->assertContains($createResponse['status'], [400, 404]);
+            $this->assertSame(404, $createResponse['status'], 'Nur Template-/Modul-Zuordnung darf hier scheitern; 400 wäre ein Body-Fehler.');
             $this->markTestSkipped('Slice konnte nicht angelegt werden (Template/Modul-Zuordnung fehlt).');
         }
         $sliceId = $createResponse['data']['slice_id'];
@@ -878,7 +878,7 @@ class BackendApiTest extends TestCase
         ]);
         if (201 !== $createResponse['status']) {
             // Template hat das Modul evtl. nicht zugeordnet — wie im Bearer-Pendant tolerieren.
-            $this->assertContains($createResponse['status'], [400, 404]);
+            $this->assertSame(404, $createResponse['status'], 'Nur Template-/Modul-Zuordnung darf hier scheitern; 400 wäre ein Body-Fehler.');
             $this->markTestSkipped('Slice konnte nicht angelegt werden (Template/Modul-Zuordnung fehlt).');
         }
         $sliceId = $createResponse['data']['slice_id'];

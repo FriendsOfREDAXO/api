@@ -352,7 +352,7 @@ class StructureApiTest extends ApiTestCase
             $this->assertHasField($response, 'slice_id');
         } else {
             // Template hat möglicherweise das Modul nicht zugeordnet
-            $this->assertContains($response['status'], [400, 404]);
+            $this->assertSame(404, $response['status'], 'Nur Template-/Modul-Zuordnung darf hier scheitern; 400 wäre ein Body-Fehler.');
         }
     }
 
@@ -372,7 +372,7 @@ class StructureApiTest extends ApiTestCase
 
         if (201 !== $response['status']) {
             // Template hat das Modul im Ctype möglicherweise nicht zugeordnet
-            $this->assertContains($response['status'], [400, 404]);
+            $this->assertSame(404, $response['status'], 'Nur Template-/Modul-Zuordnung darf hier scheitern; 400 wäre ein Body-Fehler.');
             return;
         }
 
@@ -398,6 +398,48 @@ class StructureApiTest extends ApiTestCase
         $this->assertEquals(1, $detail['data']['revision']);
 
         $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+    }
+
+    public function testArticleSliceStoresValue20(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // rex_article_slice hat 20 value-Spalten. Die Body-Definition deckte nur 19 ab,
+        // value20 wurde still verworfen und der Slice trotzdem mit 201 quittiert.
+        $response = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value19' => 'neunzehn',
+            'value20' => 'zwanzig',
+        ]);
+
+        if (201 !== $response['status']) {
+            $this->assertSame(404, $response['status'], 'Nur Template-/Modul-Zuordnung darf hier scheitern; 400 wäre ein Body-Fehler.');
+            $this->markTestSkipped('Slice konnte nicht angelegt werden (Template/Modul-Zuordnung fehlt).');
+        }
+
+        $sliceId = (int) $response['data']['slice_id'];
+
+        try {
+            $detail = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSuccess($detail);
+            $this->assertSame('neunzehn', $detail['data']['value19']);
+            $this->assertSame('zwanzig', $detail['data']['value20']);
+
+            $update = $this->put('structure/articles/' . $articleId . '/slices/' . $sliceId, [
+                'value20' => 'zwanzig geaendert',
+            ]);
+            $this->assertSuccess($update);
+
+            $after = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSame('zwanzig geaendert', $after['data']['value20']);
+            $this->assertSame('neunzehn', $after['data']['value19']);
+        } finally {
+            $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
     }
 
     public function testCreateArticleSliceRejectsUnknownField(): void
