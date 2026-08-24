@@ -115,6 +115,7 @@ RouteCollection::registerRoute(
 
 - **GET-Liste**: Query-Parameter parsen via `RouteCollection::getQuerySet($_REQUEST, $Parameter['query'])`. Listen einheitlich über `ListHelper::paginateArray()` aufbauen (Pagination + Sort + Meta-Block).
 - **POST/PUT/PATCH**: Body parsen via `json_decode(rex::getRequest()->getContent(), true)`, dann validieren mit `RouteCollection::getQuerySet($Data, $Parameter['Body'])`
+- **Strikte Body-Prüfung**: `getQuerySet($Data, $Parameter['Body'], true)` lehnt Felder ab, die die Definition nicht kennt (`InvalidArgumentException` → 400). Ohne den dritten Parameter werden sie still verworfen, was ein `revision` im Slice-Body wie einen Erfolg aussehen ließ, obwohl es nirgends ankam. Nur für Bodys nutzen — bei `query` liest die Methode `$_REQUEST`, und dort steht regulär Fremdes (Session, Rewrite). Der Default bleibt `false`, damit Routen aus Fremd-AddOns unverändert weiterlaufen. Beim Nachziehen weiterer Endpunkte bedenken: Clients, die ein GET-Objekt unverändert als PUT zurückschicken, brechen dann — deshalb bisher nur bei den Slice-Endpunkten aktiviert.
 - **Erstellte IDs**: REDAXO Extension Points nutzen (z.B. `ART_ADDED`, `CLANG_ADDED`, `SLICE_ADDED`), um auto-generierte IDs abzufangen
 - **Permissions im Backend-Scope**: Nutzer via `RouteCollection::getBackendUser($Route)` holen; ist er `null`, wird per Bearer-Token aufgerufen und es greifen Token-Scopes statt User-Permissions. Andernfalls `rex_user::isAdmin()` / `getComplexPerm('structure'|'modules'|'media'|'clang')` prüfen und 403 zurückgeben, wenn die Berechtigung fehlt.
 - **PRE-Extension-Points & API-Kontext**: Manche Extension Points (z.B. `SLICE_UPDATE`, `SLICE_DELETE`) rufen `rex::requireUser()` auf — das schlägt im Bearer-Token-Kontext fehl. Im API-Kontext entweder den EP nur firen, wenn `rex::getUser() !== null`, oder die Service-Methode bewusst umgehen und nur den POST-EP firen (siehe `Structure::handleUpdateArticleSlice` / `handleDeleteArticleSlice`).
@@ -143,6 +144,16 @@ Die API ist **kein eigenständiges System**, sondern ein HTTP-Frontend für die 
 4. Was passiert bei Fehlern (Exception-Typ, gemappter Status)?
 
 Erst wenn diese vier Punkte abgehakt sind, ist der Endpoint korrekt. Tests gehören dazu, um Regressionen abzufangen — aber Tests ersetzen nicht die direkte Code-Diffs zwischen API-Handler und Backend-Page.
+
+### Slice-Revisionen (Live vs. Arbeitsversion)
+
+`rex_article_slice.revision` trennt Live-Version (`0`) von der Arbeitsversion (`1`) des Plugins `structure/version`. Der Core ist durchgehend revisionsbewusst, die API muss das spiegeln:
+
+- `rex_content_service::addSlice()` liest `$data['revision']` (Default 0) und baut damit `where` und `organizePriorities` — die Priorität zählt **pro Revision**. Der API-Handler reicht das Body-Feld `revision` genau dorthin durch und setzt denselben Wert im EP-Param `slice_revision`.
+- `editSlice()`/`deleteSlice()` lesen die Revision aus dem Datensatz. Handler, die Slices per ID adressieren, dürfen die Revision deshalb nicht filtern und nicht ändern — sie übernehmen sie aus `loadSliceForArticle()`.
+- `rex_article.revision` ist eine Altlast: der Core befüllt sie nie (überall 0), Revisionen leben ausschließlich in `rex_article_slice`. Der `filter[revision]` der Artikel-Liste ist daher wirkungslos.
+- Das Plugin verweigert Usern ohne `version[live_version]` das Schreiben in die Live-Version (`version/boot.php`). `Structure::checkLiveRevisionPerm()` spiegelt das für Add, Update und Delete: liegt ein Backend-User vor, ist `structure/version` aktiv und betrifft die Operation Revision 0, dann `403` mit `required_permission`. Greift bewusst **nicht** bei Bearer-Tokens — dort ersetzen Scopes die User-Permissions, genau wie bei `checkStructurePerm()`. Admins sind nicht betroffen, `rex_user::hasPerm()` liefert für sie immer `true`.
+- **Testvoraussetzung:** Die zugehörigen Tests in `BackendApiTest` brauchen `API_TEST_VERSION_PLUGIN=1` **und** einen eingeschränkten User mit `structure`- und `modules`-Rechten, aber ohne `version[live_version]`. Fehlt eines von beidem, überspringen sie sich — ein `403` ohne diese Rechte käme aus den Kategorie- oder Modulrechten und würde die Revisionsprüfung nicht belegen.
 
 ### Service-Klassen
 

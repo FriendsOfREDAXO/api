@@ -7,6 +7,7 @@ use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
+use InvalidArgumentException;
 use rex;
 use rex_article;
 use rex_article_cache;
@@ -18,6 +19,7 @@ use rex_content_service;
 use rex_extension;
 use rex_extension_point;
 use rex_extension_point_art_content_updated;
+use rex_plugin;
 use rex_sql;
 use rex_sql_util;
 use rex_template;
@@ -25,8 +27,6 @@ use rex_user;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
-
-use InvalidArgumentException;
 
 use function count;
 use function in_array;
@@ -428,6 +428,13 @@ class Structure extends RoutePackage
                                 'required' => true,
                                 'default' => null,
                             ],
+                            // 0 = Live-Version, 1 = Arbeitsversion (structure/version).
+                            // rex_content_service::addSlice() liest den Wert aus $data.
+                            'revision' => [
+                                'type' => 'int',
+                                'required' => false,
+                                'default' => 0,
+                            ],
                         ],
                         $Values, // value1...19
                         $Medias, // media1...10
@@ -539,6 +546,32 @@ class Structure extends RoutePackage
             return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
+    }
+
+    /**
+     * Spiegelt die Rechteprüfung des Plugins structure/version: wer `version[live_version]`
+     * nicht hat, wird im Backend auf die Arbeitsversion festgelegt (version/boot.php) und
+     * erreicht die Live-Version dort nicht. Ohne aktives Plugin gibt es keine Revisionen,
+     * dann greift die Prüfung nicht.
+     *
+     * Nur für Backend-User: bei Bearer-Tokens ersetzen Scopes die User-Permissions — wie
+     * überall in diesem AddOn, siehe checkStructurePerm().
+     */
+    private static function checkLiveRevisionPerm(?rex_user $user, int $revision): ?Response
+    {
+        if (null === $user || 0 !== $revision) {
+            return null;
+        }
+        if (!rex_plugin::get('structure', 'version')->isAvailable()) {
+            return null;
+        }
+        if ($user->hasPerm('version[live_version]')) {
+            return null;
+        }
+        return new JsonResponse([
+            'error' => 'Permission denied',
+            'required_permission' => 'version[live_version]',
+        ], 403);
     }
 
     /** @api */
@@ -807,10 +840,20 @@ class Structure extends RoutePackage
         }
 
         try {
-            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body']);
+            $Data = RouteCollection::getQuerySet($Data, $Parameter['Body'], true);
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse([
+                'error' => $e->getMessage(),
+            ], 400);
         } catch (Exception $e) {
             return new JsonResponse([
                 'error' => 'Body field: `' . $e->getMessage() . '` is required',
+            ], 400);
+        }
+
+        if (0 > $Data['revision']) {
+            return new JsonResponse([
+                'error' => 'Invalid value for revision. Must be 0 (live) or greater.',
             ], 400);
         }
 
@@ -824,6 +867,10 @@ class Structure extends RoutePackage
 
         $user = RouteCollection::getBackendUser($Route);
         $permResponse = self::checkStructurePerm($user, $Article->getCategoryId());
+        if (null !== $permResponse) {
+            return $permResponse;
+        }
+        $permResponse = self::checkLiveRevisionPerm($user, (int) $Data['revision']);
         if (null !== $permResponse) {
             return $permResponse;
         }
@@ -901,7 +948,7 @@ class Structure extends RoutePackage
         // link1...10
         // linklist1...10
 
-        $SliceData = [];
+        $SliceData = ['revision' => (int) $Data['revision']];
         for ($i = 1; $i <= 19; ++$i) {
             $SliceData['value' . $i] = $Data['value' . $i];
             if ($i <= 10) {
@@ -931,7 +978,7 @@ class Structure extends RoutePackage
             // the service call (the service itself only fires SLICE_ADDED + art_content_updated).
             // Mirror that to keep BC for listeners that still hook into the deprecated EP.
             $articleRevision = 0;
-            $sliceRevision = 0;
+            $sliceRevision = (int) $Data['revision'];
             $epParams = [
                 'article_id' => (int) $Parameter['id'],
                 'clang' => (int) $Data['clang_id'],
@@ -1235,7 +1282,12 @@ class Structure extends RoutePackage
         }
 
         try {
-            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body']);
+            // strict: die Revision eines bestehenden Slices ändert auch der Core nicht
+            // (rex_content_service::editSlice liest sie aus dem Datensatz), ein mitgesendetes
+            // `revision` wäre also wirkungslos und soll nicht still verschluckt werden.
+            $Data = RouteCollection::getQuerySet($Data ?? [], $Parameter['Body'], true);
+        } catch (InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
@@ -1261,6 +1313,10 @@ class Structure extends RoutePackage
         }
         if (null !== $user && !$user->getComplexPerm('modules')->hasPerm((int) $Slice['module_id'])) {
             return new JsonResponse(['error' => 'Permission denied'], 403);
+        }
+        $permResponse = self::checkLiveRevisionPerm($user, (int) $Slice['revision']);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $UpdateData = [];
@@ -1368,6 +1424,10 @@ class Structure extends RoutePackage
         }
         if (null !== $user && !$user->getComplexPerm('modules')->hasPerm((int) $Slice['module_id'])) {
             return new JsonResponse(['error' => 'Permission denied'], 403);
+        }
+        $permResponse = self::checkLiveRevisionPerm($user, (int) $Slice['revision']);
+        if (null !== $permResponse) {
+            return $permResponse;
         }
 
         $ctype = (int) $Slice['ctype_id'];

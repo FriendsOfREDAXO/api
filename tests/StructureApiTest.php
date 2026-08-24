@@ -356,6 +356,112 @@ class StructureApiTest extends ApiTestCase
         }
     }
 
+    public function testCreateArticleSliceInWorkingRevision(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $response = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'revision' => 1,
+            'value1' => 'Arbeitsversion',
+        ]);
+
+        if (201 !== $response['status']) {
+            // Template hat das Modul im Ctype möglicherweise nicht zugeordnet
+            $this->assertContains($response['status'], [400, 404]);
+            return;
+        }
+
+        $sliceId = (int) $response['data']['slice_id'];
+
+        // Der Slice gehört in die Arbeitsversion und darf nicht in der Live-Liste stehen.
+        $work = $this->get('structure/articles/' . $articleId . '/slices', [
+            'clang_id' => $clangId,
+            'revision' => 1,
+        ]);
+        $this->assertSuccess($work);
+        $this->assertContains($sliceId, array_column($work['data']['data'], 'id'));
+
+        $live = $this->get('structure/articles/' . $articleId . '/slices', [
+            'clang_id' => $clangId,
+        ]);
+        $this->assertSuccess($live);
+        $this->assertNotContains($sliceId, array_column($live['data']['data'], 'id'));
+
+        // Detailabruf liefert die Revision mit
+        $detail = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        $this->assertSuccess($detail);
+        $this->assertEquals(1, $detail['data']['revision']);
+
+        $this->delete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+    }
+
+    public function testCreateArticleSliceRejectsUnknownField(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // Ein Tippfehler im Feldnamen wurde früher still verworfen -- der Slice landete
+        // dann in der Live-Version, obwohl der Aufrufer die Arbeitsversion meinte.
+        $response = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'revison' => 1,
+        ]);
+
+        $this->assertStatus(400, $response);
+        $this->assertStringContainsString('revison', $response['data']['error']);
+    }
+
+    public function testCreateArticleSliceRejectsNegativeRevision(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $response = $this->post('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'revision' => -1,
+        ]);
+
+        $this->assertStatus(400, $response);
+        $this->assertError($response);
+    }
+
+    public function testUpdateArticleSliceRejectsRevisionField(): void
+    {
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $listResponse = $this->get('structure/articles/' . $articleId . '/slices', [
+            'clang_id' => $clangId,
+        ]);
+        $this->assertSuccess($listResponse);
+
+        if (empty($listResponse['data']['data'])) {
+            $this->markTestSkipped('Keine Slices im Test-Artikel vorhanden.');
+        }
+
+        $sliceId = $listResponse['data']['data'][0]['id'];
+
+        // Die Revision eines bestehenden Slices ändert auch der Core nicht.
+        $response = $this->put('structure/articles/' . $articleId . '/slices/' . $sliceId, [
+            'value1' => 'egal',
+            'revision' => 1,
+        ]);
+
+        $this->assertStatus(400, $response);
+        $this->assertStringContainsString('revision', $response['data']['error']);
+    }
+
     public function testGetArticleSlice(): void
     {
         $articleId = self::$config['test_data']['existing_article_id'];

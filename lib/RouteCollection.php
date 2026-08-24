@@ -5,6 +5,7 @@ namespace FriendsOfRedaxo\Api;
 use Exception;
 use FriendsOfRedaxo\Api\Auth as ApiAuth;
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use InvalidArgumentException;
 use rex;
 use rex_logger;
 use rex_response;
@@ -190,8 +191,25 @@ class RouteCollection
         return $obj instanceof rex_user ? $obj : null;
     }
 
-    public static function getQuerySet(array $request, $definition)
+    /**
+     * Validiert und castet Request-Werte gegen eine Route-Definition.
+     *
+     * @param bool $strict Wirft eine Exception, wenn $request Felder enthält, die die Definition
+     *                     nicht kennt. Nur für Bodys gedacht: bei Query-Parametern steckt in
+     *                     $_REQUEST regelmäßig Fremdes (Session, Rewrite, Tracking), das kein
+     *                     Fehler ist. Ohne die Prüfung werden unbekannte Felder still verworfen —
+     *                     ein `revision` im Slice-Body sah damit nach Erfolg aus, obwohl es
+     *                     nirgends ankam.
+     */
+    public static function getQuerySet(array $request, $definition, bool $strict = false)
     {
+        if ($strict) {
+            $unknown = array_diff(array_keys($request), array_keys((array) $definition));
+            if ([] !== $unknown) {
+                throw new InvalidArgumentException('Unknown field(s): ' . implode(', ', array_values($unknown)));
+            }
+        }
+
         try {
             $return = [];
             foreach ($definition as $key => $value) {
