@@ -279,6 +279,74 @@ class MetainfoApiTest extends ApiTestCase
         }
     }
 
+    /**
+     * Ein Objekt auf einem Skalar-Feld wurde bis #66 still zu null verworfen und
+     * mit 200 quittiert. Der zweite Wert im Body ist der Kontrollwert: er beweist,
+     * dass der Patch als Ganzes abgelehnt wird und nicht teilweise durchläuft.
+     */
+    public function testMediaValuesRejectNonScalarOnScalarField(): void
+    {
+        $mediaList = $this->get('media', ['per_page' => 1]);
+        if (empty($mediaList['data']['data'])) {
+            $this->markTestSkipped('Keine Media-Items in der DB vorhanden.');
+        }
+        $filename = $mediaList['data']['data'][0]['filename'];
+
+        $scalarField = 'med_reject_' . uniqid();
+        $controlField = 'med_control_' . uniqid();
+        $scalar = $this->post('metainfo/fields', ['name' => $scalarField, 'title' => 'Reject non-scalar', 'type_id' => 1]);
+        $this->assertStatus(201, $scalar);
+        $control = $this->post('metainfo/fields', ['name' => $controlField, 'title' => 'Control value', 'type_id' => 1]);
+        $this->assertStatus(201, $control);
+
+        try {
+            $patch = $this->patch('media/' . $filename . '/metainfo', [
+                $scalarField => ['de' => 'Hallo'],
+                $controlField => 'KONTROLLWERT',
+            ]);
+
+            $this->assertStatus(400, $patch);
+            $this->assertArrayHasKey($scalarField, $patch['data']['details']);
+            $this->assertArrayNotHasKey($controlField, $patch['data']['details']);
+
+            // Der Kontrollwert darf nicht geschrieben worden sein.
+            $verify = $this->get('media/' . $filename . '/metainfo');
+            $this->assertNull($verify['data']['data'][$controlField]);
+        } finally {
+            $this->delete('metainfo/fields/' . (int) $scalar['data']['id']);
+            $this->delete('metainfo/fields/' . (int) $control['data']['id']);
+        }
+    }
+
+    /** Multi-Value-Felder nehmen Arrays weiterhin an — nur verschachtelte Werte darin nicht. */
+    public function testMediaValuesAcceptArrayOnMultiValueFieldButRejectNested(): void
+    {
+        $mediaList = $this->get('media', ['per_page' => 1]);
+        if (empty($mediaList['data']['data'])) {
+            $this->markTestSkipped('Keine Media-Items in der DB vorhanden.');
+        }
+        $filename = $mediaList['data']['data'][0]['filename'];
+
+        $name = 'med_multi_' . uniqid();
+        // type_id 5 = CHECKBOX, ein Multi-Value-Typ
+        $create = $this->post('metainfo/fields', ['name' => $name, 'title' => 'Multi value', 'type_id' => 5]);
+        $this->assertStatus(201, $create);
+        $fieldId = (int) $create['data']['id'];
+
+        try {
+            $ok = $this->patch('media/' . $filename . '/metainfo', [$name => ['a', 'b']]);
+            $this->assertSuccess($ok);
+            $this->assertSame(['a', 'b'], $ok['data']['data'][$name]);
+
+            $nested = $this->patch('media/' . $filename . '/metainfo', [$name => ['a', ['b']]]);
+            $this->assertStatus(400, $nested);
+
+            $this->patch('media/' . $filename . '/metainfo', [$name => []]);
+        } finally {
+            $this->delete('metainfo/fields/' . $fieldId);
+        }
+    }
+
     public function testClangValuesGetReturnsMap(): void
     {
         $clangId = self::$config['test_data']['existing_clang_id'];

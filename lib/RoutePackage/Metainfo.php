@@ -782,7 +782,7 @@ class Metainfo extends RoutePackage
         }
 
         $fields = self::loadFieldsForPrefix('med_');
-        $error = self::validatePatchKeys($body, $fields);
+        $error = self::validatePatch($body, $fields);
         if (null !== $error) {
             return $error;
         }
@@ -837,7 +837,7 @@ class Metainfo extends RoutePackage
         }
 
         $fields = self::loadFieldsForPrefix('clang_');
-        $error = self::validatePatchKeys($body, $fields);
+        $error = self::validatePatch($body, $fields);
         if (null !== $error) {
             return $error;
         }
@@ -906,7 +906,7 @@ class Metainfo extends RoutePackage
 
         $prefix = $isArticle ? 'art_' : 'cat_';
         $fields = self::loadFieldsForPrefix($prefix);
-        $error = self::validatePatchKeys($body, $fields);
+        $error = self::validatePatch($body, $fields);
         if (null !== $error) {
             return $error;
         }
@@ -1194,14 +1194,14 @@ class Metainfo extends RoutePackage
      * @param array<string, mixed> $body
      * @param list<array{name: string, type_id: int, attributes: string}> $fields
      */
-    private static function validatePatchKeys(array $body, array $fields): ?Response
+    private static function validatePatch(array $body, array $fields): ?Response
     {
         $known = [];
         foreach ($fields as $f) {
             if (rex_metainfo_default_type::LEGEND === $f['type_id']) {
                 continue;
             }
-            $known[$f['name']] = true;
+            $known[$f['name']] = $f;
         }
 
         $unknown = [];
@@ -1218,7 +1218,64 @@ class Metainfo extends RoutePackage
             ], 422);
         }
 
+        // Werte-Typen prüfen, bevor formatValueForStorage() sie anfasst: dort wird alles
+        // Nicht-Skalare zu null, was mit Status 200 wie ein erfolgreicher Schreibvorgang
+        // aussah, obwohl nichts ankam.
+        $invalid = [];
+        foreach ($body as $key => $value) {
+            $field = $known[$key];
+            $expected = self::expectedValueType((int) $field['type_id'], (string) $field['attributes']);
+
+            if (null === $value) {
+                continue;
+            }
+
+            if ('list' === $expected) {
+                if (is_scalar($value)) {
+                    continue;
+                }
+                if (!is_array($value)) {
+                    $invalid[$key] = 'expects an array of scalar values, a scalar value or null';
+                    continue;
+                }
+                foreach ($value as $part) {
+                    if (null !== $part && !is_scalar($part)) {
+                        $invalid[$key] = 'expects an array of scalar values, a scalar value or null';
+                        break;
+                    }
+                }
+                continue;
+            }
+
+            if (!is_scalar($value)) {
+                $invalid[$key] = 'date' === $expected
+                    ? 'expects a timestamp, a date string or null'
+                    : 'expects a scalar value or null';
+            }
+        }
+
+        if (count($invalid) > 0) {
+            return new JsonResponse([
+                'error' => 'Invalid value for metainfo field(s): ' . implode(', ', array_keys($invalid)),
+                'details' => $invalid,
+            ], 400);
+        }
+
         return null;
+    }
+
+    /**
+     * @return 'list'|'date'|'scalar'
+     */
+    private static function expectedValueType(int $typeId, string $attributes): string
+    {
+        if (self::isMultiValueType($typeId, $attributes)) {
+            return 'list';
+        }
+        if (self::isDateType($typeId)) {
+            return 'date';
+        }
+        return 'scalar';
     }
 
     /**
