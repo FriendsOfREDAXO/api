@@ -16,6 +16,7 @@ class Token
     private string $name = '';
     private string $token = '';
     private ?string $expiresAt = null;
+    private ?bool $expired = null;
 
     /**
      * @param array<string, mixed> $data
@@ -72,7 +73,17 @@ class Token
             return false;
         }
 
-        return strtotime($this->expiresAt) <= time();
+        // Der Vergleich läuft bewusst über die Datenbank und nicht über time():
+        // getByToken() filtert mit now(), und das Ablaufdatum wird im Backend in
+        // DB-Zeit eingegeben. Weichen PHP- und MySQL-Zeitzone voneinander ab,
+        // würden beide Wege sonst unterschiedlich urteilen.
+        if (null === $this->expired) {
+            $sql = rex_sql::factory();
+            $sql->setQuery('select ? <= now() as expired', [$this->expiresAt]);
+            $this->expired = (bool) $sql->getValue('expired');
+        }
+
+        return $this->expired;
     }
 
     public static function get(int $Id): ?self
@@ -87,8 +98,8 @@ class Token
     public static function getByToken(string $Token): ?self
     {
         $Token = rex_sql::factory()->getArray(
-            'select * from ' . rex::getTable('api_token') . ' where token = ? and status = ? and (expires_at is null or expires_at = ? or expires_at = ? or expires_at > now())',
-            [$Token, 1, '', '0000-00-00 00:00:00'],
+            'select * from ' . rex::getTable('api_token') . ' where token = ? and status = ? and (expires_at is null or expires_at = ? or expires_at > now())',
+            [$Token, 1, '0000-00-00 00:00:00'],
         );
         if (0 == count($Token)) {
             return null;

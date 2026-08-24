@@ -1,6 +1,5 @@
 <?php
 
-use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\Token;
 
 $_csrf_key = 'api_token';
@@ -26,12 +25,8 @@ $normalizeExpiresAt = static function (int $tokenId, bool $forceNull = false) us
     }
 
     $sql->setQuery(
-        'UPDATE ' . $table . ' SET expires_at = NULL WHERE id = :id AND (expires_at = :zeroDate OR expires_at = :emptyValue)',
-        [
-            'id' => $tokenId,
-            'zeroDate' => '0000-00-00 00:00:00',
-            'emptyValue' => '',
-        ],
+        'UPDATE ' . $table . ' SET expires_at = NULL WHERE id = :id AND YEAR(expires_at) < 1',
+        ['id' => $tokenId],
     );
 };
 
@@ -47,8 +42,17 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $form_data[] = 'text|name|translate:api_token_name';
     $form_data[] = 'validate|empty|name|translate:api_token_name_validate';
     $form_data[] = 'text|token|translate:api_token_token|#notice:' . rex_i18n::msg('api_token_token_notice', bin2hex(random_bytes((32 - (32 % 2)) / 2)));
-    $form_data[] = 'checkbox|expires_active|translate:api_token_expire_active|0|no_db';
-    $form_data[] = 'datetime|expires_at|translate:api_token_expires_at|||Y-m-d H:i:s|1';
+    $expires_active_default = 0;
+    if ('edit' == $func && $data_id > 0) {
+        $expires_current = rex_sql::factory()->getArray('select expires_at from ' . $table . ' where id = :id', ['id' => $data_id]);
+        $expires_current_value = (string) ($expires_current[0]['expires_at'] ?? '');
+        if ('' !== $expires_current_value && 0 < (int) substr($expires_current_value, 0, 4)) {
+            $expires_active_default = 1;
+        }
+    }
+
+    $form_data[] = 'checkbox|expires_active|translate:api_token_expire_active|' . $expires_active_default . '|no_db';
+    $form_data[] = 'datetime|expires_at|translate:api_token_expires_at|' . date('Y') . '|+10|Y-m-d H:i:s|1||select|||+1 year';
     $form_data[] = 'validate|empty|token|translate:api_token_token_validate';
     $form_data[] = 'choice|scopes|translate:api_token_token_scopes|' . implode(',', Token::getAvailableScopes()) . '||1';
 
@@ -98,7 +102,6 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
         $tokenId = (int) ($yform->objparams['main_id'] ?? 0);
         if ($tokenId > 0) {
             $isExpiresActive = false;
-            $expiresAtValue = '';
 
             foreach ($yform->objparams['values'] as $fieldValue) {
                 if (!is_object($fieldValue) || !method_exists($fieldValue, 'getName') || !method_exists($fieldValue, 'getValue')) {
@@ -108,8 +111,7 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
                 $fieldName = (string) $fieldValue->getName();
                 if ('expires_active' === $fieldName) {
                     $isExpiresActive = '1' === (string) $fieldValue->getValue();
-                } elseif ('expires_at' === $fieldName) {
-                    $expiresAtValue = trim((string) $fieldValue->getValue());
+                    break;
                 }
             }
 
@@ -210,6 +212,7 @@ if ($show_list) {
     });
 
     $list->setColumnLabel('name', rex_i18n::msg('api_token_name'));
+    $list->setColumnLabel('expires_at', rex_i18n::msg('api_token_expires_at'));
     $list->setColumnParams('name', ['page' => $page, 'func' => 'edit', 'data_id' => '###id###']);
 
     $list->setColumnFormat('scopes', 'custom', static function ($params) {
