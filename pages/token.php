@@ -54,6 +54,10 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $form_data[] = 'checkbox|expires_active|translate:api_token_expire_active|' . $expires_active_default . '|no_db';
     $form_data[] = 'datetime|expires_at|translate:api_token_expires_at|' . date('Y') . '|+10|Y-m-d H:i:s|1||select|||+1 year';
     $form_data[] = 'validate|empty|token|translate:api_token_token_validate';
+    // Die Spalte trägt einen Unique-Index (siehe install.php). Ohne diesen Validator
+    // scheitert der INSERT still: YForm meldet nichts und springt zurück zur Liste,
+    // als wäre gespeichert worden.
+    $form_data[] = 'validate|unique|token|' . rex_i18n::msg('api_token_token_unique') . '|' . $table;
     $form_data[] = 'choice|scopes|translate:api_token_token_scopes|' . implode(',', Token::getAvailableScopes()) . '||1';
 
     $yform = rex_yform::factory();

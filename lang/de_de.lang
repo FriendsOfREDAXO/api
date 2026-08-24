@@ -21,6 +21,7 @@ api_active = aktiv
 api_inactive = inaktiv
 api_token_create = API-Token erstellen
 api_token_token_notice = Wie wäre es mit diesem Token {0}
+api_token_token_unique = Dieses Token ist bereits vergeben
 api_token_token_scopes = Scopes
 api_token_expire_active = Ablauf aktiv
 api_token_expires_at = Ablaufdatum
