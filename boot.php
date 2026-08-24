@@ -2,6 +2,7 @@
 
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Clangs as BackendClangs;
+use FriendsOfRedaxo\Api\RoutePackage\Backend\Discovery as BackendDiscovery;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Media as BackendMedia;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Metainfo as BackendMetainfo;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Modules as BackendModules;
@@ -9,6 +10,7 @@ use FriendsOfRedaxo\Api\RoutePackage\Backend\Structure as BackendStructure;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Templates as BackendTemplates;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Users as BackendUsers;
 use FriendsOfRedaxo\Api\RoutePackage\Clangs;
+use FriendsOfRedaxo\Api\RoutePackage\Discovery;
 use FriendsOfRedaxo\Api\RoutePackage\Media;
 use FriendsOfRedaxo\Api\RoutePackage\Metainfo;
 use FriendsOfRedaxo\Api\RoutePackage\Modules;
@@ -23,6 +25,7 @@ RouteCollection::registerRoutePackage(new Templates());
 RouteCollection::registerRoutePackage(new Media());
 RouteCollection::registerRoutePackage(new Users());
 RouteCollection::registerRoutePackage(new Metainfo());
+RouteCollection::registerRoutePackage(new Discovery());
 RouteCollection::registerRoutePackage(new BackendClangs());
 RouteCollection::registerRoutePackage(new BackendMedia());
 RouteCollection::registerRoutePackage(new BackendMetainfo());
@@ -30,6 +33,7 @@ RouteCollection::registerRoutePackage(new BackendModules());
 RouteCollection::registerRoutePackage(new BackendStructure());
 RouteCollection::registerRoutePackage(new BackendTemplates());
 RouteCollection::registerRoutePackage(new BackendUsers());
+RouteCollection::registerRoutePackage(new BackendDiscovery());
 
 if (!rex::getConsole()) {
     rex_extension::register('YREWRITE_PREPARE', static function (rex_extension_point $ep) {

@@ -1176,4 +1176,48 @@ class BackendApiTest extends TestCase
             $this->assertSame(200, $deleteResponse['status']);
         }
     }
+
+    // ---------------------------------------------------------------------
+    // Selbstauskunft (/api/backend/me)
+    // ---------------------------------------------------------------------
+
+    public function testAdminCanReadOwnCapabilities(): void
+    {
+        $response = $this->adminGet('me');
+
+        $this->assertSame(200, $response['status'], 'Selbstauskunft muss ohne eigene Permission antworten.');
+        $this->assertSame('backend_session', $response['data']['meta']['auth']['type'] ?? null);
+        $this->assertTrue($response['data']['meta']['auth']['admin'] ?? false);
+        $this->assertNotEmpty($response['data']['endpoints'] ?? []);
+
+        foreach ($response['data']['endpoints'] as $endpoint) {
+            $this->assertStringStartsWith('backend/', $endpoint['scope']);
+            $this->assertStringStartsWith('/api/backend/', $endpoint['path']);
+        }
+    }
+
+    public function testRestrictedUserCanReadOwnCapabilities(): void
+    {
+        // Permissions werden pro Request geprüft, nicht bei der Auflistung —
+        // der eingeschränkte User bekommt dieselbe Liste, aber admin = false.
+        $response = $this->restrictedGet('me');
+
+        $this->assertSame(200, $response['status']);
+        $this->assertSame('backend_session', $response['data']['meta']['auth']['type'] ?? null);
+        $this->assertFalse($response['data']['meta']['auth']['admin'] ?? true);
+        $this->assertNotEmpty($response['data']['meta']['note'] ?? '');
+    }
+
+    public function testCapabilitiesOpenApiFormat(): void
+    {
+        $response = $this->adminGet('me?format=openapi');
+
+        $this->assertSame(200, $response['status']);
+        $this->assertSame('3.0.0', $response['data']['openapi'] ?? null);
+        $this->assertNotEmpty($response['data']['paths'] ?? []);
+
+        foreach (array_keys($response['data']['paths']) as $path) {
+            $this->assertStringStartsWith('/backend/', $path, 'Backend-Spec darf nur Backend-Routen enthalten: ' . $path);
+        }
+    }
 }

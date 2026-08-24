@@ -4,6 +4,7 @@ namespace FriendsOfRedaxo\Api;
 
 use Exception;
 use FriendsOfRedaxo\Api\Auth as ApiAuth;
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use rex;
 use rex_logger;
 use rex_response;
@@ -114,8 +115,11 @@ class RouteCollection
             $RegisterdRoutes = self::getRoutes();
 
             foreach ($RegisterdRoutes as $AddedRouteScope => $AddedRoute) {
-                $AddedRoute['route']->setPath('/' . self::$preRoute . $AddedRoute['route']->getPath());
-                $routes->add($AddedRouteScope, $AddedRoute['route']);
+                // clone, so the registered route keeps its unprefixed path:
+                // controllers reading getRoutes() (e.g. Discovery) would otherwise see /api twice
+                $MatchRoute = clone $AddedRoute['route'];
+                $MatchRoute->setPath('/' . self::$preRoute . $MatchRoute->getPath());
+                $routes->add($AddedRouteScope, $MatchRoute);
             }
 
             $context = new RequestContext();
@@ -144,7 +148,13 @@ class RouteCollection
 
                     // if no AuthObject is set, we assume that the route is public
                     if ($AuthObject && !$AuthObject->isAuthorized($parameters)) {
-                        $Response = new JsonResponse(['error' => 'Authorization failed'], 401);
+                        $Error = ['error' => 'Authorization failed'];
+                        // credential is valid, only the scope is missing: name it, so callers can tell
+                        // an invalid token from a missing permission
+                        if ($AuthObject instanceof BearerAuth && null !== $AuthObject->getAuthorizationObject()) {
+                            $Error['required_scope'] = $parameters['_route'];
+                        }
+                        $Response = new JsonResponse($Error, 401);
                     } else {
                         try {
                             $Response = $controller($parameters, $RegisterdRoutes[$parameters['_route']]);

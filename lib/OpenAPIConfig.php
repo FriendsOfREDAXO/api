@@ -17,9 +17,12 @@ class OpenAPIConfig
         foreach ($Routes as $Scope => $RouteArray) {
             foreach ($RouteArray['tags'] ?? [] as $Tag) {
                 if (!isset($tags[$Tag])) {
+                    // tags may come from other addons: without a language key, emit an
+                    // empty description instead of a "[translate:…]" placeholder
+                    $Key = 'api_openapi_tag_' . $Tag . '_description';
                     $tags[$Tag] = [
                         'name' => $Tag,
-                        'description' => rex_i18n::msg('api_openapi_tag_' . $Tag . '_description'),
+                        'description' => rex_i18n::hasMsg($Key) ? rex_i18n::msg($Key) : '',
                     ];
                 }
             }
@@ -44,7 +47,9 @@ class OpenAPIConfig
                 'description' => rex_i18n::msg('api_openapi_description'),
                 'version' => '1.0.0',
             ],
-            'tags' => $tags,
+            // array_values: OpenAPI requires "tags" to be an array, a keyed map
+            // makes the document invalid for typed parsers
+            'tags' => array_values($tags),
             'servers' => [
                 [
                     'url' => '/' . RouteCollection::$preRoute,
@@ -124,20 +129,16 @@ class OpenAPIConfig
             // in Body
             $hasFileField = false;
             foreach ($Route->getDefault('Body') ?? [] as $Key => $Parameter) {
+                $Schema = self::getSchema($Parameter, true);
+
                 if ('file' === ($Parameter['type'] ?? '')) {
                     $hasFileField = true;
-                    $RequestBodyProperties[$Key] = [
-                        'type' => 'string',
-                        'format' => 'binary',
-                        'description' => $Parameter['description'] ?? '',
-                    ];
-                } else {
-                    $RequestBodyProperties[$Key] = [
-                        'type' => $Parameter['type'],
-                        'description' => $Parameter['description'] ?? '',
-                        'required' => $Parameter['required'] ?? false,
-                    ];
+                    $Schema['format'] = 'binary';
                 }
+
+                $RequestBodyProperties[$Key] = $Schema;
+
+                // required gehört als Liste auf Objektebene, nicht in die Property
                 if ($Parameter['required'] ?? false) {
                     $RequestBodyRequired[] = $Key;
                 }
@@ -147,22 +148,29 @@ class OpenAPIConfig
             foreach ($Route->getDefault('query') ?? [] as $Key => $Parameter) {
                 if (isset($Parameter['fields']) && is_array($Parameter['fields'])) {
                     $Properties = [];
+                    $RequiredProperties = [];
                     foreach ($Parameter['fields'] as $FieldKey => $Field) {
-                        $Properties[$FieldKey] = [
-                            'required' => $Field['required'] ?? false,
-                            'default' => $Field['default'] ?? null,
-                        ];
+                        // description im Property: dort gibt es keine Parameter-Ebene
+                        $Properties[$FieldKey] = self::getSchema($Field, true);
+                        if ($Field['required'] ?? false) {
+                            $RequiredProperties[] = $FieldKey;
+                        }
+                    }
+
+                    $Schema = [
+                        'type' => 'object',
+                        'properties' => $Properties,
+                    ];
+                    if (0 < count($RequiredProperties)) {
+                        $Schema['required'] = $RequiredProperties;
                     }
 
                     $Parameters[] = [
                         'name' => $Key,
                         'in' => 'query',
-                        'description' => $Field['description'] ?? '',
-                        'required' => $Field['required'] ?? false,
-                        'schema' => [
-                            'type' => 'object',
-                            'properties' => $Properties,
-                        ],
+                        'description' => $Parameter['description'] ?? '',
+                        'required' => $Parameter['required'] ?? false,
+                        'schema' => $Schema,
                         'style' => 'deepObject',
                         'explode' => true,
                     ];
@@ -174,22 +182,28 @@ class OpenAPIConfig
                         'in' => 'query',
                         'description' => $Parameter['description'] ?? '',
                         'required' => $Parameter['required'] ?? false,
-                        'default' => $Parameter['default'] ?? null,
+                        'schema' => self::getSchema($Parameter),
+
                     ];
                 }
             }
 
             if (0 < count($RequestBodyProperties)) {
                 $contentType = $hasFileField ? 'multipart/form-data' : 'application/json';
+                $BodySchema = [
+                    'type' => 'object',
+                    'properties' => $RequestBodyProperties,
+                ];
+                // ein leeres required-Array ist kein gültiges JSON Schema
+                if (0 < count($RequestBodyRequired)) {
+                    $BodySchema['required'] = $RequestBodyRequired;
+                }
+
                 $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])]['requestBody'] = [
                     'required' => true,
                     'content' => [
                         $contentType => [
-                            'schema' => [
-                                'type' => 'object',
-                                'properties' => $RequestBodyProperties,
-                                'required' => $RequestBodyRequired,
-                            ],
+                            'schema' => $BodySchema,
                         ],
                     ],
                 ];
@@ -199,5 +213,48 @@ class OpenAPIConfig
         }
 
         return $config;
+    }
+
+    /**
+     * Builds the OpenAPI schema object for a single parameter definition.
+     *
+     * OpenAPI requires a parameter to carry its type and default inside "schema";
+     * both at parameter level would make the document invalid.
+     *
+     * @param array<string, mixed> $Definition
+     * @param bool $withDescription true for object properties, which have no
+     *                              parameter level of their own to carry it
+     * @return array<string, mixed>
+     */
+    private static function getSchema(array $Definition, bool $withDescription = false): array
+    {
+        $Schema = [
+            'type' => self::getSchemaType($Definition['type'] ?? 'string'),
+        ];
+
+        // a null default is left out: it would contradict the declared type
+        if (isset($Definition['default'])) {
+            $Schema['default'] = $Definition['default'];
+        }
+        if ($withDescription && isset($Definition['description']) && '' !== $Definition['description']) {
+            $Schema['description'] = $Definition['description'];
+        }
+
+        return $Schema;
+    }
+
+    /**
+     * Maps the addon's parameter types to the type names OpenAPI knows.
+     */
+    private static function getSchemaType(string $Type): string
+    {
+        return match ($Type) {
+            'int', 'integer' => 'integer',
+            'float', 'double' => 'number',
+            'bool', 'boolean' => 'boolean',
+            'array' => 'array',
+            'object' => 'object',
+            default => 'string',
+        };
     }
 }

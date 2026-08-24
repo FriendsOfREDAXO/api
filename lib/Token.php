@@ -115,7 +115,7 @@ class Token
     {
         $Scopes = [];
         foreach (RouteCollection::getRoutes() as $RouteScope => $Route) {
-            if ($Route['authorization'] instanceof BearerAuth) {
+            if ($Route['authorization'] instanceof BearerAuth && $Route['authorization']->requiresScope()) {
                 $Scopes[] = $Route['scope'];
             }
         }

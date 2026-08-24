@@ -13,6 +13,15 @@ abstract class Auth
 
     abstract public function isAuthorized(array $parameters): bool;
 
+    /**
+     * Whether the route scope must be granted explicitly for this auth handler.
+     * Discovery routes answer for every valid credential and therefore return false.
+     */
+    public function requiresScope(): bool
+    {
+        return true;
+    }
+
     public function getAuthorizationObject(): mixed
     {
         return null;
