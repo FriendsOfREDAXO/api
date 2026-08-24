@@ -106,6 +106,8 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 Die meisten APIs haben Authentifizierung. Das heisst, es muss ein API-Token im Backend angelegt werden, um die Endpunkte nutzen zu können, wie auch der entsprechende Scope gesetzt werden.
 Andere APIs haben eine Backend-Authentifizierung, die dann über den Backend-User läuft, d.h. es kann der Session Cookie verwendet werden, um die Endpunkte zu nutzen.
 
+Der Token-Wert muss eindeutig sein — die Spalte trägt einen Unique-Index, und die Token-Seite lehnt einen bereits vergebenen Wert mit einer Meldung ab. Enthält eine bestehende Installation doppelte Werte, wird der Index beim Update übersprungen und eine Warnung ins System-Log geschrieben; nach dem Auflösen der Duplikate greift er beim nächsten Update.
+
 ### Ablaufdatum für Tokens
 
 Ein Token kann optional ablaufen. Auf der Token-Seite schaltet die Checkbox **Ablauf aktiv** das Feld **Ablaufdatum** frei; ohne sie bleibt das Token unbegrenzt gültig — so verhalten sich auch alle Tokens, die vor dem Update angelegt wurden.

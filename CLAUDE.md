@@ -173,7 +173,8 @@ Konfigurationswerte (Token, Backend-Credentials, existierende IDs) kommen aus `t
 
 ### Datenbank
 
-- `rex_api_token`-Tabelle — Speichert API-Tokens mit `name`, `token`, `status`, `scopes` (kommagetrennte Scope-Strings)
+- `rex_api_token`-Tabelle — Speichert API-Tokens mit `name`, `token`, `status`, `scopes` (kommagetrennte Scope-Strings), `expires_at` (nullable)
+- **Unique-Index auf `token`**: `Token::getByToken()` nimmt den ersten Treffer, ein doppelter Wert würde den zweiten Eintrag samt Scopes unwirksam machen. `install.php` legt den Index nur an, wenn die Spalte keine Duplikate enthält — sonst bräche das Update einer Altinstallation ab; stattdessen landet eine Warnung im System-Log und der Index entsteht beim nächsten Update. Die Token-Seite braucht dazu den YForm-Validator `unique`: ohne ihn scheitert der INSERT still, YForm meldet nichts und springt zurück zur Liste, als wäre gespeichert worden.
 
 ## Wichtige Hinweise
 
