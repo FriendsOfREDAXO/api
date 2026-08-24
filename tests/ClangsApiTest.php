@@ -147,4 +147,16 @@ class ClangsApiTest extends ApiTestCase
         $this->assertStatus(404, $response);
         $this->assertError($response);
     }
+
+    public function testDeleteDefaultClangReturnsConflict(): void
+    {
+        // Die Startsprache darf nicht gelöscht werden. Das ist ein fachlicher Verstoß
+        // (409), kein Serverfehler — vorher antwortete die API hier mit 500.
+        $response = $this->delete('system/clangs/' . self::$config['test_data']['existing_clang_id']);
+
+        $this->assertStatus(409, $response);
+        $this->assertError($response);
+        // Messages aus rex_i18n sind fürs Backend escaped; in JSON dürfen keine Entities stehen.
+        $this->assertStringNotContainsString('&quot;', (string) $response['data']['error']);
+    }
 }

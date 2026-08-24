@@ -58,11 +58,6 @@ class Structure extends RoutePackage
                                     'required' => false,
                                     'default' => null,
                                 ],
-                                'revision' => [
-                                    'type' => 'int',
-                                    'required' => false,
-                                    'default' => 0,
-                                ],
                                 'is_category' => [
                                     'type' => 'int',
                                     'required' => false,
@@ -598,9 +593,6 @@ class Structure extends RoutePackage
             $SqlQueryWhere[':startarticle'] = 'startarticle = :startarticle';
             $SqlParameters[':startarticle'] = ($Query['filter']['is_category']) ? 1 : 0;
         }
-
-        $SqlQueryWhere[':revision'] = 'revision = :revision';
-        $SqlParameters[':revision'] = (!$Query['filter']['revision'] || 0 > $Query['filter']['revision']) ? 0 : $Query['filter']['revision'];
 
         if (null !== $Query['filter']['clang_id']) {
             $SqlQueryWhere[':clang'] = 'clang_id = :clang';

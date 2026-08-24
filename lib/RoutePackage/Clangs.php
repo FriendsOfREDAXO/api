@@ -12,6 +12,7 @@ use rex_clang;
 use rex_clang_service;
 use rex_extension;
 use rex_extension_point;
+use rex_functional_exception;
 use rex_user;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -378,7 +379,7 @@ class Clangs extends RoutePackage
                 'id' => $clangId,
             ], 201);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return self::errorResponse($e, 500);
         }
     }
 
@@ -450,8 +451,22 @@ class Clangs extends RoutePackage
                 'id' => $Parameter['id'],
             ], 200);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return self::errorResponse($e, 500);
         }
+    }
+
+    /**
+     * Trennt fachliche Verstöße von echten Serverfehlern. rex_clang_service wirft
+     * rex_functional_exception, wenn eine Regel greift (Startsprache, unbekannte ID) --
+     * das ist ein 409, kein 500. Die Messages kommen aus rex_i18n::msg() und sind für
+     * HTML escaped; in JSON gehören sie unescaped.
+     */
+    private static function errorResponse(Exception $e, int $defaultCode): JsonResponse
+    {
+        $message = html_entity_decode($e->getMessage(), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $status = $e instanceof rex_functional_exception ? 409 : $defaultCode;
+
+        return new JsonResponse(['error' => $message], $status);
     }
 
     /** @api */
@@ -473,6 +488,10 @@ class Clangs extends RoutePackage
             return new JsonResponse(['error' => 'Cannot delete the last language'], 409);
         }
 
+        if (rex_clang::getStartId() == (int) $Parameter['id']) {
+            return new JsonResponse(['error' => 'Cannot delete the default language'], 409);
+        }
+
         try {
             rex_clang_service::deleteCLang($Parameter['id']);
             return new JsonResponse([
@@ -480,7 +499,7 @@ class Clangs extends RoutePackage
                 'id' => $Parameter['id'],
             ], 200);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return self::errorResponse($e, 500);
         }
     }
 }
