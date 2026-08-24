@@ -727,6 +727,152 @@ class BackendApiTest extends TestCase
         }
     }
 
+    /**
+     * Das Plugin structure/version legt User ohne das Recht version[live_version] auf die
+     * Arbeitsversion fest (version/boot.php). Über die Backend-API muss dasselbe gelten,
+     * sonst veröffentlicht ein Redakteur per API, was ihm das Backend verwehrt.
+     */
+    private function skipUnlessVersionPluginActive(): void
+    {
+        if ('1' !== (string) (self::$config['version_plugin'] ?? '')) {
+            $this->markTestSkipped('structure/version nicht aktiv (API_TEST_VERSION_PLUGIN=1 setzen).');
+        }
+    }
+
+    /**
+     * Legt als eingeschränkter User einen Slice in der Arbeitsversion an und gibt seine ID
+     * zurück. Klappt das nicht, fehlen dem User die Kategorie- oder Modulrechte — dann ist
+     * ein 403 auf der Live-Revision nicht der Revision zuzuordnen und der Test hat nichts
+     * gemessen. Er wird in dem Fall übersprungen.
+     */
+    private function createRestrictedWorkingSliceOrSkip(int $articleId, int $moduleId, int $clangId): int
+    {
+        $response = $this->restrictedPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'revision' => 1,
+            'value1' => 'BACKEND_TEST_work_' . uniqid(),
+        ]);
+
+        if (201 !== $response['status']) {
+            $this->markTestSkipped(
+                'Eingeschränkter User kann keine Slices anlegen (HTTP ' . $response['status'] . '). '
+                . 'Für diesen Test braucht er structure- und modules-Rechte, aber nicht version[live_version].',
+            );
+        }
+
+        return (int) $response['data']['slice_id'];
+    }
+
+    public function testRestrictedUserCannotWriteLiveRevision(): void
+    {
+        $this->skipUnlessVersionPluginActive();
+
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // Kontrollwert: derselbe User darf in der Arbeitsversion schreiben.
+        $workingSliceId = $this->createRestrictedWorkingSliceOrSkip($articleId, $moduleId, $clangId);
+        $this->restrictedDelete('structure/articles/' . $articleId . '/slices/' . $workingSliceId);
+
+        $response = $this->restrictedPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'revision' => 0,
+            'value1' => 'BACKEND_TEST_live_' . uniqid(),
+        ]);
+
+        if (201 === $response['status']) {
+            // Nicht abgelehnt: aufräumen, damit kein Live-Slice zurückbleibt.
+            $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $response['data']['slice_id']);
+        }
+
+        $this->assertSame(403, $response['status']);
+        // Das Feld unterscheidet diese Ablehnung von den Kategorie- und Modulrechten,
+        // die denselben Status liefern.
+        $this->assertSame('version[live_version]', $response['data']['required_permission'] ?? null);
+    }
+
+    public function testRestrictedUserCanWriteWorkingRevision(): void
+    {
+        $this->skipUnlessVersionPluginActive();
+
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        $sliceId = $this->createRestrictedWorkingSliceOrSkip($articleId, $moduleId, $clangId);
+        try {
+            $detail = $this->restrictedGet('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSame(200, $detail['status']);
+            $this->assertSame(1, (int) $detail['data']['revision']);
+        } finally {
+            $this->restrictedDelete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testRestrictedUserCannotDeleteLiveSlice(): void
+    {
+        $this->skipUnlessVersionPluginActive();
+
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // Live-Slice als Admin anlegen, der das Recht hat.
+        $createResponse = $this->adminPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'value1' => 'BACKEND_TEST_live_admin_' . uniqid(),
+        ]);
+        if (201 !== $createResponse['status']) {
+            $this->assertContains($createResponse['status'], [400, 404]);
+            $this->markTestSkipped('Slice konnte nicht angelegt werden (Template/Modul-Zuordnung fehlt).');
+        }
+        $sliceId = $createResponse['data']['slice_id'];
+
+        try {
+            // Kontrollwert: in der Arbeitsversion darf derselbe User schreiben.
+            $workingSliceId = $this->createRestrictedWorkingSliceOrSkip($articleId, $moduleId, $clangId);
+            $this->restrictedDelete('structure/articles/' . $articleId . '/slices/' . $workingSliceId);
+
+            $update = $this->restrictedPut('structure/articles/' . $articleId . '/slices/' . $sliceId, [
+                'value1' => 'BACKEND_TEST_should_fail',
+            ]);
+            $this->assertSame(403, $update['status']);
+
+            $delete = $this->restrictedDelete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+            $this->assertSame(403, $delete['status']);
+        } finally {
+            $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $sliceId);
+        }
+    }
+
+    public function testAdminCanWriteLiveRevision(): void
+    {
+        $this->skipUnlessVersionPluginActive();
+
+        $articleId = self::$config['test_data']['existing_article_id'];
+        $moduleId = self::$config['test_data']['existing_module_id'];
+        $clangId = self::$config['test_data']['existing_clang_id'];
+
+        // rex_user::hasPerm() liefert für Admins immer true — die Prüfung darf sie nicht treffen.
+        $response = $this->adminPost('structure/articles/' . $articleId . '/slices', [
+            'module_id' => $moduleId,
+            'clang_id' => $clangId,
+            'ctype_id' => 1,
+            'revision' => 0,
+            'value1' => 'BACKEND_TEST_admin_live_' . uniqid(),
+        ]);
+
+        $this->assertSame(201, $response['status'], 'Admin muss trotz der Revisionsprüfung in Live schreiben können.');
+        $this->adminDelete('structure/articles/' . $articleId . '/slices/' . $response['data']['slice_id']);
+    }
+
     public function testAdminSliceCRUD(): void
     {
         $articleId = self::$config['test_data']['existing_article_id'];

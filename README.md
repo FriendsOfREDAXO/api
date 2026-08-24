@@ -129,6 +129,8 @@ curl -X POST -H "Authorization: Bearer DEIN_TOKEN" -H "Content-Type: application
 
 Wer per API in die Live-Version schreibt, während im Backend eine Arbeitsversion gepflegt wird, verliert diese Slices beim nächsten „Arbeitsversion → Live": `rex_article_revision::copyContent()` leert das Ziel, bevor es kopiert. Die Revision gehört deshalb bewusst gesetzt.
 
+Bei den Backend-Endpunkten (`/api/backend/...`) gilt dieselbe Rechteprüfung wie im Backend: wer das Recht `version[live_version]` nicht hat, wird dort auf die Arbeitsversion festgelegt und bekommt für die Live-Revision `403` mit `required_permission: version[live_version]` — beim Anlegen wie beim Ändern und Löschen. Ohne aktives Plugin `structure/version` greift die Prüfung nicht. Für Bearer-Tokens greift sie ebenfalls nicht: dort ersetzen Scopes die User-Permissions, wie bei den Kategorie- und Modulrechten auch.
+
 **Unbekannte Felder im Slice-Body werden abgelehnt** (`400 Unknown field(s): …`). Ein Tippfehler wie `revison` galt vorher als Erfolg, und der Slice landete in der Live-Version.
 
 ## Selbstauskunft: /api/me
