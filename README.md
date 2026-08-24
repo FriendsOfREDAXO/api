@@ -218,6 +218,26 @@ Alle Listen-Endpunkte unterstützen Paginierung über Query-Parameter:
 
 Beispiel: `GET /api/media?page=2&per_page=10`
 
+### Medien suchen und filtern
+
+`GET /api/media` kennt neben den Bereichsfiltern (`filesize_min/max`, `width_min/max`, `height_min/max`) drei Filter, die dasselbe leisten wie die Suche der Backend-Medienliste (`rex_media_service::getList()`):
+
+| Filter                     | Beschreibung |
+|----------------------------|--------------|
+| `filter[term]`             | Freitext über **Dateiname oder Titel**. Mehrere durch Leerzeichen getrennte Begriffe werden UND-verknüpft, `"in Anführungszeichen"` bleibt ein Begriff, und `type:jpg,png` filtert stattdessen die Dateiendung. |
+| `filter[category_id_path]` | Kategorie **inklusive aller Unterkategorien**. Unbekannte Kategorie ergibt `404`. |
+| `filter[types]`            | Kommagetrennte Liste von Dateiendungen, z. B. `jpg,png`. |
+
+Beispiele:
+
+```
+GET /api/media?filter[term]=logo
+GET /api/media?filter[term]=logo type:svg,png
+GET /api/media?filter[category_id_path]=4
+```
+
+Zur Abgrenzung: `filter[filename]` und `filter[filetype]` vergleichen **exakt**, `filter[title]` sucht als Teilstring. Wer einen Dateinamen nur teilweise kennt, nimmt `filter[term]`.
+
 ### Sortierung
 
 Alle Listen-Endpunkte unterstützen Sortierung über den `sort` Query-Parameter. Mehrere Sortierfelder können kommagetrennt angegeben werden:

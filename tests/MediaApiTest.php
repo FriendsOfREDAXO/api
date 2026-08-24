@@ -85,6 +85,117 @@ class MediaApiTest extends ApiTestCase
         }
     }
 
+    /**
+     * filter[term] sucht in filename ODER title -- anders als filter[filename], das exakt
+     * matcht. Der Teilstring des eigenen Uploads muss genau einen Treffer liefern, waehrend
+     * filter[filename] mit demselben Teilstring leer ausgeht.
+     */
+    public function testGetMediaListWithTermSearch(): void
+    {
+        if (!file_exists(self::$testImagePath)) {
+            $this->markTestSkipped('Test-Bild konnte nicht erstellt werden.');
+        }
+
+        $upload = $this->postMultipart('media', [
+            'category_id' => 0,
+            'title' => $this->generateTestName('media'),
+        ], ['file' => self::$testImagePath]);
+        $this->assertStatus(201, $upload);
+        $filename = $upload['data']['filename'];
+        $this->trackResource('media', $filename . '/delete');
+
+        $fragment = substr($filename, 0, max(4, strlen($filename) - 6));
+
+        // Genau ein Treffer, nicht "mindestens einer": unbekannte Filter werden still
+        // ignoriert und liefern dann die Gesamtmenge -- eine >=1-Pruefung waere zahnlos.
+        $term = $this->get('media', ['filter[term]' => $fragment, 'per_page' => 1]);
+        $this->assertSuccess($term);
+        $this->assertSame(1, $term['data']['meta']['total'], 'filter[term] muss genau den eigenen Upload finden.');
+
+        $exact = $this->get('media', ['filter[filename]' => $fragment, 'per_page' => 1]);
+        $this->assertSuccess($exact);
+        $this->assertSame(0, $exact['data']['meta']['total'], 'filter[filename] matcht exakt und darf den Teilstring nicht finden.');
+    }
+
+    /** `type:` im Suchbegriff und filter[types] filtern beide die Dateiendung. */
+    public function testGetMediaListWithTypeFilters(): void
+    {
+        $all = $this->get('media', ['per_page' => 1]);
+        $this->assertSuccess($all);
+
+        $png = $this->get('media', ['filter[types]' => 'png', 'per_page' => 1]);
+        $this->assertSuccess($png);
+
+        $pngViaTerm = $this->get('media', ['filter[term]' => 'type:png', 'per_page' => 1]);
+        $this->assertSuccess($pngViaTerm);
+
+        $this->assertSame(
+            $png['data']['meta']['total'],
+            $pngViaTerm['data']['meta']['total'],
+            'filter[types]=png und filter[term]=type:png muessen dieselbe Menge liefern.',
+        );
+        // Echt kleiner als die Gesamtmenge -- sonst wuerde der Test auch bestehen, wenn
+        // der Filter gar nicht greift und beide Male alles zurueckkommt. Ob es ueberhaupt
+        // etwas anderes als PNG gibt, wird unabhaengig ermittelt, damit "alles gleich"
+        // nicht faelschlich als "nichts zu messen" durchgeht.
+        $jpg = $this->get('media', ['filter[types]' => 'jpg,jpeg', 'per_page' => 1]);
+        $this->assertSuccess($jpg);
+
+        if (0 === $jpg['data']['meta']['total'] && $all['data']['meta']['total'] === $png['data']['meta']['total']) {
+            $this->markTestSkipped('In dieser Installation gibt es ausser PNG keine Bildformate.');
+        }
+        $this->assertLessThan($all['data']['meta']['total'], $png['data']['meta']['total']);
+    }
+
+    /**
+     * filter[category_id_path] schliesst Unterkategorien ein, filter[category_id] nicht.
+     * Der Vergleich braucht ein Medium, das wirklich in der Unterkategorie liegt --
+     * sonst waeren beide Werte gleich und der Test wuerde nichts zeigen.
+     */
+    public function testGetMediaListWithCategoryPath(): void
+    {
+        if (!file_exists(self::$testImagePath)) {
+            $this->markTestSkipped('Test-Bild konnte nicht erstellt werden.');
+        }
+
+        $parent = $this->post('media/category', ['name' => $this->generateTestName('path_parent'), 'parent_id' => 0]);
+        $this->assertStatus(201, $parent);
+        $parentId = (int) $parent['data']['id'];
+
+        $child = $this->post('media/category', ['name' => $this->generateTestName('path_child'), 'parent_id' => $parentId]);
+        $this->assertStatus(201, $child);
+        $childId = (int) $child['data']['id'];
+
+        $filename = null;
+
+        try {
+            $upload = $this->postMultipart('media', [
+                'category_id' => $childId,
+                'title' => $this->generateTestName('media'),
+            ], ['file' => self::$testImagePath]);
+            $this->assertStatus(201, $upload);
+            $filename = $upload['data']['filename'];
+
+            $direct = $this->get('media', ['filter[category_id]' => $parentId, 'per_page' => 1]);
+            $recursive = $this->get('media', ['filter[category_id_path]' => $parentId, 'per_page' => 1]);
+
+            $this->assertSame(0, $direct['data']['meta']['total'], 'Die Eltern-Kategorie selbst enthaelt kein Medium.');
+            $this->assertSame(1, $recursive['data']['meta']['total'], 'Der Pfad-Filter muss das Medium der Unterkategorie einschliessen.');
+        } finally {
+            if (null !== $filename) {
+                $this->delete('media/' . $filename . '/delete');
+            }
+            $this->delete('media/category/' . $childId);
+            $this->delete('media/category/' . $parentId);
+        }
+    }
+
+    public function testGetMediaListWithUnknownCategoryPath(): void
+    {
+        $response = $this->get('media', ['filter[category_id_path]' => 999999]);
+        $this->assertStatus(404, $response);
+    }
+
     // ==================== MEDIA CRUD TESTS ====================
 
     public function testUploadMedia(): void

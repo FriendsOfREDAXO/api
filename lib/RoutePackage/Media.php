@@ -51,6 +51,21 @@ class Media extends RoutePackage
                                     'required' => false,
                                     'default' => null,
                                 ],
+                                'category_id_path' => [
+                                    'type' => 'integer',
+                                    'required' => false,
+                                    'default' => null,
+                                ],
+                                'term' => [
+                                    'type' => 'string',
+                                    'required' => false,
+                                    'default' => null,
+                                ],
+                                'types' => [
+                                    'type' => 'string',
+                                    'required' => false,
+                                    'default' => null,
+                                ],
                                 'title' => [
                                     'type' => 'string',
                                     'required' => false,
@@ -123,7 +138,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['GET']),
-            'Access to list of media (of a specific category)',
+            'Access to list of media. filter[term] searches filename and title (supports "quoted phrases" and type:jpg,png), filter[category_id_path] includes subcategories.',
             null,
             new BearerAuth(),
         );
@@ -448,6 +463,15 @@ class Media extends RoutePackage
         return new JsonResponse(json_encode($result, JSON_PRETTY_PRINT), 200, [], true);
     }
 
+    /**
+     * Dateiendung aus dem Dateinamen, identisch zu rex_media_service::getList()
+     * (mediapool/lib/service_media.php:310).
+     */
+    private static function extensionExpression(): string
+    {
+        return 'LOWER(RIGHT(filename, LOCATE(".", REVERSE(filename))-1))';
+    }
+
     private static function checkMediaPerm(?rex_user $user, ?int $categoryId = null): ?Response
     {
         if (null === $user) {
@@ -491,6 +515,52 @@ class Media extends RoutePackage
             }
             $SqlQueryWhere[':category_id'] = 'category_id = :category_id';
             $SqlParameters[':category_id'] = $categoryId;
+        }
+
+        // Kategorie samt Unterkategorien -- gleiche Semantik wie rex_media_service::getList()
+        // mit `category_id_path` (mediapool/lib/service_media.php:301-306), hier als Subquery
+        // statt als Join, damit die Abfrage einspaltig bleibt.
+        if (null !== $Query['filter']['category_id_path']) {
+            $pathCategoryId = (int) $Query['filter']['category_id_path'];
+            if (!rex_media_category::get($pathCategoryId)) {
+                return new JsonResponse(['error' => 'Category not found'], 404);
+            }
+            $SqlQueryWhere[':category_id_path'] = 'category_id IN (SELECT id FROM ' . rex::getTable('media_category') . ' WHERE id = :category_id_path OR path LIKE :category_path_like)';
+            $SqlParameters[':category_id_path'] = $pathCategoryId;
+            $SqlParameters[':category_path_like'] = '%|' . $pathCategoryId . '|%';
+        }
+
+        // Freitextsuche -- spiegelt rex_media_service::getList() mit `term`
+        // (mediapool/lib/service_media.php:313-331): mehrere Begriffe werden UND-verknuepft,
+        // "..." gruppiert, ein Begriff trifft filename ODER title, und `type:jpg,png`
+        // filtert stattdessen die Dateiendung.
+        if (null !== $Query['filter']['term'] && '' !== trim((string) $Query['filter']['term'])) {
+            $sql = rex_sql::factory();
+            $parts = str_getcsv(trim((string) $Query['filter']['term']), ' ', '"', '');
+            foreach ($parts as $i => $part) {
+                if (null === $part || '' === $part) {
+                    continue;
+                }
+                if (str_starts_with($part, 'type:') && strlen($part) > 5) {
+                    $extensions = explode(',', strtolower(substr($part, 5)));
+                    $SqlQueryWhere[':term_type_' . $i] = self::extensionExpression() . ' IN (' . $sql->in($extensions) . ')';
+                    continue;
+                }
+                $param = ':term_' . $i;
+                $SqlQueryWhere[$param] = '(filename LIKE ' . $param . ' OR title LIKE ' . $param . ')';
+                $SqlParameters[$param] = '%' . $sql->escapeLikeWildcards($part) . '%';
+            }
+        }
+
+        // Liste von Dateiendungen -- rex_media_service::getList() mit `types` (:308-312)
+        if (null !== $Query['filter']['types'] && '' !== trim((string) $Query['filter']['types'])) {
+            $extensions = array_values(array_filter(array_map(
+                static fn(string $t): string => strtolower(trim($t)),
+                explode(',', (string) $Query['filter']['types']),
+            ), static fn(string $t): bool => '' !== $t));
+            if (count($extensions) > 0) {
+                $SqlQueryWhere[':types'] = self::extensionExpression() . ' IN (' . rex_sql::factory()->in($extensions) . ')';
+            }
         }
 
         if (null !== $Query['filter']['title'] && '' != $Query['filter']['title']) {
