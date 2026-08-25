@@ -29,7 +29,7 @@ class Media extends TokenMedia
                     $description,
                     $responses,
                     $authorization,
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

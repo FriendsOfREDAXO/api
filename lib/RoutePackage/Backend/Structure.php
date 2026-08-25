@@ -29,7 +29,7 @@ class Structure extends TokenStructure
                     $description,
                     $responses,
                     $authorization,
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

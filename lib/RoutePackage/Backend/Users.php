@@ -29,7 +29,7 @@ class Users extends TokenUsers
                     $description,
                     $responses,
                     $authorization,
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

@@ -29,7 +29,7 @@ class Templates extends TokenTemplates
                     $description,
                     $responses,
                     $authorization,
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

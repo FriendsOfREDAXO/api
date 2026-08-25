@@ -2,6 +2,7 @@
 
 namespace FriendsOfRedaxo\Api;
 
+use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use rex_i18n;
 use Symfony\Component\Routing\Route;
 
@@ -49,7 +50,7 @@ class OpenAPIConfig
             ],
             // array_values: OpenAPI requires "tags" to be an array, a keyed map
             // makes the document invalid for typed parsers
-            'tags' => array_values($tags),
+            'tags' => self::sortedTags($tags),
             'servers' => [
                 [
                     'url' => '/' . RouteCollection::$preRoute,
@@ -73,11 +74,23 @@ class OpenAPIConfig
                 }
             }
 
-            $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])] = [
+            $operation = [
                 'summary' => $RouteArray['description'],
                 'security' => $security,
                 'tags' => $RouteArray['tags'] ?? ['default'],
             ];
+
+            // Den geforderten Scope sichtbar machen. Er darf nicht ins Scope-Array des
+            // security-Eintrags: OpenAPI 3.0 erlaubt das nur bei oauth2 und openIdConnect,
+            // bei `type: http` muss es leer bleiben. Deshalb als eigene Angabe -- lesbar
+            // in der Beschreibung, maschinenlesbar als x-required-scope.
+            $requiredScope = self::requiredScope($RouteArray, (string) $Scope);
+            if (null !== $requiredScope) {
+                $operation['x-required-scope'] = $requiredScope;
+                $operation['description'] = '**Scope:** `' . $requiredScope . '`';
+            }
+
+            $config['paths'][$Route->getPath()][strtolower($Route->getMethods()[0])] = $operation;
 
             $Parameters = [];
             $RequestBodyProperties = [];
@@ -256,5 +269,37 @@ class OpenAPIConfig
             'object' => 'object',
             default => 'string',
         };
+    }
+
+    /**
+     * Der Scope, der fuer diese Route vergeben sein muss, oder null wenn keiner
+     * gebraucht wird (Discovery-Routen) oder die Autorisierung nicht ueber Scopes
+     * laeuft (Backend-Session).
+     *
+     * @param array<string, mixed> $RouteArray
+     */
+    private static function requiredScope(array $RouteArray, string $routeName): ?string
+    {
+        $auth = $RouteArray['authorization'] ?? null;
+        if (!$auth instanceof BearerAuth) {
+            return null;
+        }
+        if (!$auth->requiresScope()) {
+            return null;
+        }
+        return $auth->getScope($routeName);
+    }
+
+    /**
+     * Tags alphabetisch, damit die Reihenfolge der Accordions in Swagger UI nicht
+     * von der Registrierungsreihenfolge der RoutePackages abhaengt.
+     *
+     * @param array<string, array<string, string>> $tags
+     * @return list<array<string, string>>
+     */
+    private static function sortedTags(array $tags): array
+    {
+        ksort($tags);
+        return array_values($tags);
     }
 }
