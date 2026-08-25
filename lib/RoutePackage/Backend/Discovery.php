@@ -23,7 +23,7 @@ class Discovery extends TokenDiscovery
                     $Route['description'],
                     $Route['responses'],
                     new BackendUser(),
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

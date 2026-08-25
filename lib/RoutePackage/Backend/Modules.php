@@ -29,7 +29,7 @@ class Modules extends TokenModules
                     $description,
                     $responses,
                     $authorization,
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

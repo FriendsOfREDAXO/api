@@ -39,9 +39,41 @@ class RouteCollection
             'description' => $description,
             'responses' => $Responses,
             'authorization' => $Auth,
-            'tags' => 0 == count($tags) ? ['default'] : $tags,
+            'tags' => 0 == count($tags) ? [self::tagFromScope($scope)] : $tags,
         ];
         return self::$Routes;
+    }
+
+    /**
+     * Gruppe fuer die OpenAPI-Darstellung (Swagger-UI-Accordion) aus dem Scope.
+     *
+     * Genommen wird das erste Segment: `media/category/add` ergibt `media`. Der Scope
+     * selbst waere als Gruppe unbrauchbar -- fast jeder gehoert zu genau einem Endpunkt,
+     * das ergaebe ein Accordion pro Endpunkt. Routen, die einen eigenen Tag mitgeben
+     * (auch aus anderen AddOns), bleiben unangetastet.
+     */
+    public static function tagFromScope(string $scope): string
+    {
+        $segment = explode('/', $scope)[0];
+        return '' === $segment ? 'default' : $segment;
+    }
+
+    /**
+     * Gruppe fuer einen Backend-Spiegel: `backend/media`, `backend/structure`, ...
+     *
+     * Uebernommen wird die Gruppe der gespiegelten Route, nicht neu aus dem Scope
+     * abgeleitet -- sonst weicht der Spiegel ab, wenn die Quellroute einen eigenen
+     * Tag gesetzt hat (z.B. `meta` fuer die Selbstauskunft, deren Scope `me` heisst).
+     *
+     * @param array<string, mixed> $sourceRoute Eintrag aus getRoutes()
+     */
+    public static function backendTag(array $sourceRoute): string
+    {
+        $tags = $sourceRoute['tags'] ?? [];
+        if (is_array($tags) && isset($tags[0]) && '' !== $tags[0] && 'default' !== $tags[0]) {
+            return 'backend/' . (string) $tags[0];
+        }
+        return 'backend/' . self::tagFromScope((string) ($sourceRoute['scope'] ?? ''));
     }
 
     public static function registerRoutePackage($RoutePackage): void

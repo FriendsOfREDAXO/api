@@ -29,7 +29,7 @@ class Clangs extends TokenClangs
                     $description,
                     $responses,
                     $authorization,
-                    ['backend'],
+                    [RouteCollection::backendTag($Route)],
                 );
             }
         }

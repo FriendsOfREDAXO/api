@@ -37,4 +37,20 @@ api_openapi_tag_default_description = Endpunkte mit Bearer-Token-Authentifizieru
 api_openapi_tag_backend_description = Endpunkte mit Backend-Session-Authentifizierung (Cookie)
 api_openapi_tag_meta_description = Selbstauskunft: welche Endpunkte das aktuelle Token bzw. der Backend-User nutzen darf
 
+api_openapi_tag_media_description = Mediendateien und Medienkategorien, inklusive Chunked Upload für große Dateien
+api_openapi_tag_structure_description = Artikel, Kategorien und Slices
+api_openapi_tag_users_description = Benutzer und Benutzerrollen
+api_openapi_tag_metainfo_description = Metainfo-Felddefinitionen und deren Werte
+api_openapi_tag_modules_description = Module
+api_openapi_tag_templates_description = Templates
+api_openapi_tag_system_description = Systemeinstellungen, derzeit die Sprachen
+api_openapi_tag_backend/media_description = Medien über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/structure_description = Struktur über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/users_description = Benutzerverwaltung über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/metainfo_description = Metainfo über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/modules_description = Module über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/templates_description = Templates über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/system_description = Systemeinstellungen über die Backend-Session, Rechte des angemeldeten Users
+api_openapi_tag_backend/meta_description = Selbstauskunft über die Backend-Session
+
 readme = ReadMe
