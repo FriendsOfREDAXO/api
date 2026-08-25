@@ -115,7 +115,9 @@ Der Token-Wert muss eindeutig sein — die Spalte trägt einen Unique-Index, und
 
 ### Ablaufdatum für Tokens
 
-Ein Token kann optional ablaufen. Auf der Token-Seite schaltet die Checkbox **Ablauf aktiv** das Feld **Ablaufdatum** frei; ohne sie bleibt das Token unbegrenzt gültig — so verhalten sich auch alle Tokens, die vor dem Update angelegt wurden.
+Ein Token kann optional ablaufen. Die Auswahl **Läuft ab** auf der Token-Seite bietet dafür Zeitspannen an (3 Stunden bis 1 Jahr) und nennt zu jeder den Zeitpunkt, auf den sie hinausläuft. **Benutzerdefiniert** schaltet das Feld **Ablaufdatum** frei, **Nie** lässt das Token unbegrenzt gültig — so verhalten sich auch alle Tokens, die vor dem Update angelegt wurden.
+
+Der Zeitpunkt wird beim Speichern aus der Datenbankzeit berechnet, nicht im Browser: eine Auswahl von „7 Tage“ liegt damit auch dann sieben Tage in der Zukunft, wenn Server und Arbeitsplatz in verschiedenen Zeitzonen stehen.
 
 Ist der Ablauf gesetzt und erreicht, wird das Token nicht mehr autorisiert: Anfragen bekommen `401` mit `{"error": "Authorization failed"}`, genau wie bei einem unbekannten Token. Der Vergleich läuft über die Datenbankzeit (`now()`), also über dieselbe Zeit, in der das Datum im Backend eingegeben wurde.
 

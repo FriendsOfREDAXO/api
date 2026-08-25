@@ -13,21 +13,104 @@ $data_id = rex_request('data_id', 'int');
 $content = '';
 $show_list = true;
 
-$normalizeExpiresAt = static function (int $tokenId, bool $forceNull = false) use ($table): void {
+/**
+ * Legt fest, welches Ablaufdatum gespeichert wird.
+ *
+ * Läuft zwischen executeFields() und executeActions(): dort steht der Wert, den
+ * die DB-Action schreibt. Ein Preset rechnet den Zeitpunkt aus, „nie" und ein
+ * leer gelassenes Datum werden NULL. Das nachträglich zu korrigieren wäre
+ * unzuverlässig -- beim Anlegen mit „übernehmen" speichert YForm zweimal.
+ */
+$applyExpiresAt = static function (rex_yform $form): void {
+    if (1 != $form->objparams['send']) {
+        // Nur beim Absenden -- beim bloßen Anzeigen gibt es nichts zu speichern und
+        // ein unvollständiges Datum aus dem Altbestand darf keine Meldung auslösen.
+        return;
+    }
+
+    $preset = Token::ExpiryPresetNever;
+    $chosenDate = '';
+
+    foreach ($form->objparams['values'] as $fieldValue) {
+        if (!is_object($fieldValue) || !method_exists($fieldValue, 'getName') || !method_exists($fieldValue, 'getValue')) {
+            continue;
+        }
+
+        $fieldName = (string) $fieldValue->getName();
+        if ('expires_preset' === $fieldName) {
+            $preset = (string) $fieldValue->getValue();
+        } elseif ('expires_at' === $fieldName) {
+            $chosenDate = (string) $fieldValue->getValue();
+        }
+    }
+
+    if (Token::ExpiryPresetCustom === $preset) {
+        // Jahr, Monat und Tag lassen sich einzeln leer lassen („00"). Daraus wird kein
+        // Zeitpunkt, gegen den sich vergleichen lässt -- und still auf „läuft nie ab"
+        // umzuschalten wäre bei einem Ablaufdatum die falsche Auslegung. Wer keinen
+        // Ablauf möchte, wählt „nie".
+        $parsedDate = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $chosenDate);
+
+        if (false === $parsedDate || $parsedDate->format('Y-m-d H:i:s') !== $chosenDate) {
+            $form->objparams['warning_messages'][] = rex_i18n::msg('api_token_expires_at_invalid');
+            return;
+        }
+
+        $form->objparams['value_pool']['sql']['expires_at'] = $chosenDate;
+        return;
+    }
+
+    // Für „nie" -- und für alles, was zu keinem Preset gehört -- gibt es keinen Zeitpunkt.
+    $form->objparams['value_pool']['sql']['expires_at'] = Token::resolveExpiryDate($preset);
+};
+
+/** Vorauswahl im Formular: ein gespeichertes Datum bleibt ein selbst gewähltes Datum. */
+$expiresPresetDefault = static function (int $tokenId) use ($table): string {
     if ($tokenId < 1) {
-        return;
+        return Token::ExpiryPresetNever;
     }
 
-    $sql = rex_sql::factory();
-    if ($forceNull) {
-        $sql->setQuery('UPDATE ' . $table . ' SET expires_at = NULL WHERE id = :id', ['id' => $tokenId]);
-        return;
+    $stored = rex_sql::factory()->getArray('select expires_at from ' . $table . ' where id = :id', ['id' => $tokenId]);
+    $storedValue = (string) ($stored[0]['expires_at'] ?? '');
+
+    if ('' !== $storedValue && 0 < (int) substr($storedValue, 0, 4)) {
+        return Token::ExpiryPresetCustom;
     }
 
-    $sql->setQuery(
-        'UPDATE ' . $table . ' SET expires_at = NULL WHERE id = :id AND YEAR(expires_at) < 1',
-        ['id' => $tokenId],
-    );
+    return Token::ExpiryPresetNever;
+};
+
+/**
+ * Feld-Definition für die Ablauf-Auswahl.
+ *
+ * Die Auswahl kommt als JSON in die Definition, weil die Labels den konkreten
+ * Zeitpunkt enthalten und damit Kommas -- kommagetrennte Listen wären daran
+ * zerbrochen. Senkrechte Striche werden aus den Labels entfernt: sie trennen die
+ * Elemente der Definition.
+ */
+$expiresPresetField = static function (string $default): string {
+    $choices = [];
+    foreach (Token::getExpiryChoices() as $label => $value) {
+        $choices[str_replace('|', ' ', $label)] = $value;
+    }
+
+    return implode('|', [
+        'choice',
+        'expires_preset',
+        'translate:api_token_expires',
+        (string) json_encode($choices, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        '0', // expanded: ein Select, keine Radiobuttons
+        '0', // multiple
+        $default,
+        '', // group_by
+        '', // preferred_choices
+        '', // placeholder
+        '', // group_attributes
+        '{"class":"api-token-expires"}', // attributes
+        '{"never":{"class":"text-danger"}}', // choice_attributes
+        '', // notice
+        'no_db',
+    ]);
 };
 
 if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
@@ -42,16 +125,7 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $form_data[] = 'text|name|translate:api_token_name';
     $form_data[] = 'validate|empty|name|translate:api_token_name_validate';
     $form_data[] = 'text|token|translate:api_token_token|#notice:' . rex_i18n::msg('api_token_token_notice', bin2hex(random_bytes((32 - (32 % 2)) / 2)));
-    $expires_active_default = 0;
-    if ('edit' == $func && $data_id > 0) {
-        $expires_current = rex_sql::factory()->getArray('select expires_at from ' . $table . ' where id = :id', ['id' => $data_id]);
-        $expires_current_value = (string) ($expires_current[0]['expires_at'] ?? '');
-        if ('' !== $expires_current_value && 0 < (int) substr($expires_current_value, 0, 4)) {
-            $expires_active_default = 1;
-        }
-    }
-
-    $form_data[] = 'checkbox|expires_active|translate:api_token_expire_active|' . $expires_active_default . '|no_db';
+    $form_data[] = $expiresPresetField('edit' == $func ? $expiresPresetDefault($data_id) : Token::ExpiryPresetNever);
     $form_data[] = 'datetime|expires_at|translate:api_token_expires_at|' . date('Y') . '|+10|Y-m-d H:i:s|1||select|||+1 year';
     $form_data[] = 'validate|empty|token|translate:api_token_token_validate';
     // Die Spalte trägt einen Unique-Index (siehe install.php). Ohne diesen Validator
@@ -90,6 +164,7 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     }
 
     $yform->executeFields();
+    $applyExpiresAt($yform);
 
     $submit_type = 1; // normal, 2=apply
     foreach ($yform->objparams['values'] as $f) {
@@ -103,29 +178,6 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
     $content = $yform->executeActions();
 
     if ($yform->objparams['actions_executed']) {
-        $tokenId = (int) ($yform->objparams['main_id'] ?? 0);
-        if ($tokenId > 0) {
-            $isExpiresActive = false;
-
-            foreach ($yform->objparams['values'] as $fieldValue) {
-                if (!is_object($fieldValue) || !method_exists($fieldValue, 'getName') || !method_exists($fieldValue, 'getValue')) {
-                    continue;
-                }
-
-                $fieldName = (string) $fieldValue->getName();
-                if ('expires_active' === $fieldName) {
-                    $isExpiresActive = '1' === (string) $fieldValue->getValue();
-                    break;
-                }
-            }
-
-            if (!$isExpiresActive) {
-                $normalizeExpiresAt($tokenId, true);
-            } else {
-                $normalizeExpiresAt($tokenId, false);
-            }
-        }
-
         switch ($func) {
             case 'edit':
                 if (2 == $submit_type) {
@@ -158,6 +210,8 @@ if ('delete' == $func && !rex_csrf_token::factory($_csrf_key)->isValid()) {
                     $yform->setObjectparams('getdata', true);
                     $yform->setValueField('submit', ['name' => 'submit', 'labels' => rex_i18n::msg('yform_save') . ',' . rex_i18n::msg('yform_save_apply'), 'values' => '1,2', 'no_db' => true, 'css_classes' => 'btn-save,btn-apply']);
                     $yform->executeFields();
+                    // Der Klon speichert erneut -- also auch hier das Ablaufdatum setzen.
+                    $applyExpiresAt($yform);
 
                     $content = $yform->executeActions();
                     $fragment = new rex_fragment();
@@ -187,9 +241,12 @@ echo $content;
 
 if ($show_list) {
     $link = '';
-    $list = rex_list::factory('select * from ' . $table, defaultSort: [
-        'name' => 'asc',
-    ]);
+    // Der Ablauf wird in der Datenbank ausgewertet, genau wie in Token::isExpired():
+    // weichen PHP- und DB-Zeitzone ab, urteilen beide Wege sonst unterschiedlich.
+    $list = rex_list::factory(
+        'select *, (expires_at is not null and year(expires_at) > 0 and expires_at <= now()) as expired from ' . $table,
+        defaultSort: ['name' => 'asc'],
+    );
     $list->addTableAttribute('summary', rex_i18n::msg('api_token_header_summary'));
     $list->addTableAttribute('class', 'table-striped');
 
@@ -201,6 +258,7 @@ if ($show_list) {
     $list->setColumnLayout('id', ['<th class="rex-small">###VALUE###</th>', '<td class="rex-small">###VALUE###</td>']);
 
     $list->removeColumn('token');
+    $list->removeColumn('expired');
 
     $list->setColumnFormat('status', 'custom', static function ($params) {
         return (1 == $params['subject']) ? rex_i18n::msg('api_active') : rex_i18n::msg('api_inactive');
@@ -208,11 +266,19 @@ if ($show_list) {
 
     $list->setColumnFormat('expires_at', 'custom', static function ($params) {
         $expiresAt = (string) $params['subject'];
-        if ('' === $expiresAt || '0000-00-00 00:00:00' === $expiresAt) {
-            return '-';
+        if ('' === $expiresAt || 0 === (int) substr($expiresAt, 0, 4)) {
+            return '<span class="text-muted">' . rex_i18n::msg('api_token_expires_never') . '</span>';
         }
 
-        return $expiresAt;
+        $formatted = rex_escape(rex_formatter::intlDateTime($expiresAt));
+
+        /** @var rex_list $list */
+        $list = $params['list'];
+        if ('1' === (string) $list->getValue('expired')) {
+            return '<span class="text-danger">' . $formatted . ' · ' . rex_i18n::msg('api_token_expired') . '</span>';
+        }
+
+        return $formatted;
     });
 
     $list->setColumnLabel('name', rex_i18n::msg('api_token_name'));

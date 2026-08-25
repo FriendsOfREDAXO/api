@@ -3,13 +3,22 @@
 namespace FriendsOfRedaxo\Api;
 
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
+use IntlDateFormatter;
 use rex;
+use rex_formatter;
+use rex_i18n;
 use rex_sql;
 
 use function count;
 
 class Token
 {
+    /** Wert des Formularfelds, bei dem das Datum von Hand gewählt wird. */
+    public const ExpiryPresetCustom = 'custom';
+
+    /** Wert des Formularfelds für „läuft nicht ab". */
+    public const ExpiryPresetNever = 'never';
+
     private bool $status = false;
     private string $scopes = '';
     private ?int $id = null;
@@ -117,6 +126,101 @@ class Token
         }
 
         return self::getByToken($BearerToken);
+    }
+
+    /**
+     * Vorgaben für das Ablaufdatum auf der Token-Seite.
+     *
+     * Schlüssel ist der Wert im Formular, Wert der Modifier für `strtotime()`.
+     * `custom` (Datum selbst wählen) und `never` (läuft nicht ab) haben keinen
+     * Modifier. Der Sprachschlüssel eines Presets ist `api_token_expires_preset_`
+     * plus Schlüssel.
+     *
+     * @return array<string, string|null>
+     */
+    public static function getExpiryPresets(): array
+    {
+        return [
+            '3h' => '+3 hours',
+            '1d' => '+1 day',
+            '7d' => '+7 days',
+            '30d' => '+30 days',
+            '90d' => '+90 days',
+            '1y' => '+1 year',
+            self::ExpiryPresetCustom => null,
+            self::ExpiryPresetNever => null,
+        ];
+    }
+
+    /**
+     * Auswahlliste für das Formular: Label => Wert, wie YForm es für `choice` erwartet.
+     *
+     * Jedes Preset trägt den Zeitpunkt, auf den es hinausläuft, im Label — sonst
+     * muss der Benutzer selbst rechnen, was „30 Tage" heute bedeutet.
+     *
+     * @return array<string, string>
+     */
+    public static function getExpiryChoices(): array
+    {
+        $Now = self::getDatabaseTime();
+        $Choices = [];
+
+        foreach (self::getExpiryPresets() as $Preset => $Modifier) {
+            $Label = rex_i18n::msg('api_token_expires_preset_' . $Preset);
+            if (null !== $Modifier) {
+                $Label .= ' · ' . self::formatExpiryHint((int) strtotime($Modifier, $Now), $Now);
+            }
+            $Choices[$Label] = $Preset;
+        }
+
+        return $Choices;
+    }
+
+    /**
+     * Der Zeitpunkt, auf den ein Preset hinausläuft, als DB-Wert.
+     *
+     * Für `never`, `custom` und unbekannte Werte gibt es keinen Zeitpunkt.
+     */
+    public static function resolveExpiryDate(string $Preset): ?string
+    {
+        $Modifier = self::getExpiryPresets()[$Preset] ?? null;
+        if (null === $Modifier) {
+            return null;
+        }
+
+        return date('Y-m-d H:i:s', (int) strtotime($Modifier, self::getDatabaseTime()));
+    }
+
+    /**
+     * Kurzer Hinweis auf den Zeitpunkt: heute nur die Uhrzeit, im laufenden Jahr
+     * Wochentag und Datum, darüber hinaus mit Jahr.
+     */
+    private static function formatExpiryHint(int $Timestamp, int $Now): string
+    {
+        if (date('Y-m-d', $Timestamp) === date('Y-m-d', $Now)) {
+            return rex_formatter::intlTime($Timestamp);
+        }
+
+        if (date('Y', $Timestamp) === date('Y', $Now)) {
+            return rex_formatter::intlDate($Timestamp, 'EEE d. MMM');
+        }
+
+        return rex_formatter::intlDate($Timestamp, IntlDateFormatter::MEDIUM);
+    }
+
+    /**
+     * Wandzeit der Datenbank als Timestamp.
+     *
+     * Der Ablauf wird gegen MySQLs `now()` geprüft (siehe isExpired()). Weichen
+     * PHP- und DB-Zeitzone voneinander ab, wäre ein in PHP berechneter Zeitpunkt
+     * um genau diesen Versatz verschoben — deshalb ist die DB-Zeit die Basis für
+     * Anzeige und Berechnung.
+     */
+    private static function getDatabaseTime(): int
+    {
+        $Now = rex_sql::factory()->getArray('select now() as `now`');
+
+        return (int) strtotime((string) ($Now[0]['now'] ?? 'now'));
     }
 
     /**

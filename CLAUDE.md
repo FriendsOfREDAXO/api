@@ -192,6 +192,16 @@ Konfigurationswerte (Token, Backend-Credentials, existierende IDs) kommen aus `t
 - `rex_api_token`-Tabelle — Speichert API-Tokens mit `name`, `token`, `status`, `scopes` (kommagetrennte Scope-Strings), `expires_at` (nullable)
 - **Unique-Index auf `token`**: `Token::getByToken()` nimmt den ersten Treffer, ein doppelter Wert würde den zweiten Eintrag samt Scopes unwirksam machen. `install.php` legt den Index nur an, wenn die Spalte keine Duplikate enthält — sonst bräche das Update einer Altinstallation ab; stattdessen landet eine Warnung im System-Log und der Index entsteht beim nächsten Update. Die Token-Seite braucht dazu den YForm-Validator `unique`: ohne ihn scheitert der INSERT still, YForm meldet nichts und springt zurück zur Liste, als wäre gespeichert worden.
 
+### Ablaufdatum auf der Token-Seite (`pages/token.php`)
+
+Das Feld **Läuft ab** ist ein `choice`-Feld mit `no_db`; die Auswahl selbst steht in `Token::getExpiryPresets()`, die Labels samt Zeitpunkt liefert `Token::getExpiryChoices()`. Drei Punkte, die dort schon einmal falsch waren:
+
+- **Der Wert wird vor dem Speichern gesetzt, nicht danach korrigiert.** `$applyExpiresAt()` schreibt in `objparams['value_pool']['sql']['expires_at']` und läuft zwischen `executeFields()` und `executeActions()` — an beiden Aufrufstellen. Ein `UPDATE` nach dem Speichern wirkt nur scheinbar: beim Anlegen mit „übernehmen" baut die Seite das Formular aus dem Klon neu auf und ruft `executeActions()` ein zweites Mal, das überschreibt die Korrektur mit dem geposteten Datum.
+- **Zeitpunkte kommen aus der Datenbankzeit.** `Token::getDatabaseTime()` fragt `now()` ab, weil `isExpired()` und `getByToken()` ebenfalls gegen `now()` vergleichen. Mit `time()` gerechnet wäre jeder Ablauf um die Differenz der beiden Zeitzonen verschoben.
+- **Die Auswahl steht als JSON in der Feld-Definition.** Die Labels enthalten Datumsangaben und damit Kommas, an denen eine kommagetrennte Liste zerbrechen würde; `createListFromJson()` erwartet `{"Label": "wert"}`. Senkrechte Striche werden aus den Labels entfernt — sie trennen die Elemente der Definition.
+
+Ein unvollständiges Datum (Jahr gewählt, Monat/Tag auf „00") wird nicht gespeichert, sondern mit einer Meldung zurückgewiesen. Still auf „läuft nie ab" umzuschalten wäre bei einem Ablaufdatum die falsche Auslegung — dafür gibt es „Nie".
+
 ## Wichtige Hinweise
 
 - Die API läuft im **Frontend-Kontext**, nicht im Backend. Extension Points, die nur im Backend-Kontext registriert werden (`rex::isBackend()`), werden nicht ausgelöst.
