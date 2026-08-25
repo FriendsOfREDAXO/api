@@ -97,6 +97,14 @@ abstract class ApiTestCase extends TestCase
     }
 
     /**
+     * Sendet einen rohen Body (application/octet-stream) -- fuer Chunk-Uploads.
+     */
+    protected function postRaw(string $endpoint, string $body): array
+    {
+        return $this->request('POST', $endpoint, ['raw' => $body]);
+    }
+
+    /**
      * Führt einen HTTP-Request aus.
      */
     protected function request(string $method, string $endpoint, array $options = []): array
@@ -130,6 +138,14 @@ abstract class ApiTestCase extends TestCase
                 'Authorization: Bearer ' . self::$apiToken,
                 'Accept: application/json',
                 'Content-Type: application/json',
+            ]);
+        } elseif (isset($options['raw'])) {
+            // Roher Body, z.B. Chunk-Daten als application/octet-stream
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $options['raw']);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . self::$apiToken,
+                'Accept: application/json',
+                'Content-Type: application/octet-stream',
             ]);
         } elseif (isset($options['multipart']) && $options['multipart']) {
             $postData = $options['data'] ?? [];

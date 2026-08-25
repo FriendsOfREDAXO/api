@@ -37,6 +37,11 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/media                                     | GET       | Medienliste                     | ✅      | ✅    | ✅       | ✅            |
 | /api/media                                     | POST      | Medium anlegen (multipart)      | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/info                     | GET       | Mediametadaten                  | ✅      | ✅    | ✅       | ✅            |
+| /api/media/upload                              | POST      | Chunked Upload starten          | ✅      | ✅    | ✅       | ✅            |
+| /api/media/upload/{upload_id}                  | GET       | Chunked Upload: Stand           | ✅      | ✅    | ✅       | ✅            |
+| /api/media/upload/{upload_id}/chunk/{index}    | POST/PUT  | Chunked Upload: Chunk senden    | ✅      | ✅    | ✅       | ✅            |
+| /api/media/upload/{upload_id}/finalize         | POST      | Chunked Upload abschliessen     | ✅      | ✅    | ✅       | ✅            |
+| /api/media/upload/{upload_id}                  | DELETE    | Chunked Upload abbrechen        | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/update                   | PUT/PATCH | Medium ändern                   | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/delete                   | DELETE    | Medium löschen                  | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      | ✅    | ✅       | ✅            |
@@ -239,6 +244,39 @@ Beispiel:
 ```
 
 Wer regelmäßig größere Dateien überträgt, erhöht die Limits in der `php.ini` — oder wartet auf die Chunked-Upload-Endpunkte (Issue #39).
+
+### Große Dateien: Chunked Upload
+
+`POST /api/media` ist an `upload_max_filesize` und `post_max_size` gebunden. Größere Dateien gehen stückweise über vier Endpunkte — das Anlegen selbst erledigt danach derselbe Core-Service wie beim normalen Upload, es entsteht also kein zweiter Weg ins Medienverzeichnis.
+
+```
+1. POST   /api/media/upload
+          { "filename": "video.mp4", "size": 524288000, "category_id": 3, "title": "…" }
+          → 201 { "upload_id": "…", "chunk_size_max": 2031616, "expires_at": "…" }
+
+2. POST   /api/media/upload/{upload_id}/chunk/{index}
+          Body: die Chunk-Bytes (application/octet-stream)
+          → 200 { "bytes_received": …, "bytes_missing": … }
+
+3. GET    /api/media/upload/{upload_id}
+          → 200 { "chunks": [0,1,2], "complete": false, "bytes_missing": … }
+
+4. POST   /api/media/upload/{upload_id}/finalize
+          → 201 { "filename": "video.mp4" }
+```
+
+Wissenswertes:
+
+- **Chunkgröße**: `chunk_size_max` aus der Init-Antwort ist die kleinere der beiden PHP-Grenzen minus Reserve. Kleinere Chunks sind immer erlaubt.
+- **Index** ist nullbasiert und muss lückenlos bei `0` beginnen. Derselbe Index erneut gesendet **ersetzt** den Chunk — damit ist ein Wiederholen nach Verbindungsabbruch möglich.
+- **Fortsetzen**: `GET` liefert die bereits angekommenen Indizes; der Client sendet nur den Rest.
+- **Abbrechen**: `DELETE /api/media/upload/{upload_id}` verwirft die Teile.
+- **Grenzen**: höchstens 2 GiB pro Datei und 20 000 Chunks. Die bei `init` angekündigte Größe ist verbindlich — mehr Bytes werden abgewiesen, weniger verhindern das Abschließen.
+- **Verfall**: ein begonnener Upload wird nach 24 Stunden verworfen; aufgeräumt wird beim nächsten `init`.
+- **Bindung an den Aufrufer**: ein Upload ist nur für das Token beziehungsweise den Backend-User sichtbar, der ihn begonnen hat. Fremde Zugriffe erhalten `404`.
+- Die Endung wird bereits bei `init` geprüft, damit ein unerlaubter Dateityp nicht erst nach der Übertragung auffällt.
+
+Chunks liegen bis zum Abschluss unter `redaxo/data/addons/api/upload/` und sind über den Webserver nicht erreichbar.
 
 ### Medien suchen und filtern
 
