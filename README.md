@@ -218,6 +218,28 @@ Alle Listen-Endpunkte unterstützen Paginierung über Query-Parameter:
 
 Beispiel: `GET /api/media?page=2&per_page=10`
 
+### Upload-Grenzen
+
+`POST /api/media` unterliegt den PHP-Limits der Installation. Die Antwort unterscheidet die Fälle, damit ein Client erkennt, woran es liegt:
+
+| Situation | Status | Antwort |
+|---|---|---|
+| Datei größer als `upload_max_filesize` | `413` | `error` plus `limits` mit beiden Werten in Bytes |
+| Request größer als `post_max_size` (PHP verwirft den ganzen Body) | `413` | zusätzlich `content_length` |
+| Kein `file`-Feld im Request | `400` | `No file uploaded` |
+| Übertragung abgebrochen | `400` | `Upload incomplete` |
+
+Beispiel:
+
+```json
+{
+  "error": "File too large: exceeds upload_max_filesize",
+  "limits": { "upload_max_filesize": 2097152, "post_max_size": 8388608 }
+}
+```
+
+Wer regelmäßig größere Dateien überträgt, erhöht die Limits in der `php.ini` — oder wartet auf die Chunked-Upload-Endpunkte (Issue #39).
+
 ### Medien suchen und filtern
 
 `GET /api/media` kennt neben den Bereichsfiltern (`filesize_min/max`, `width_min/max`, `height_min/max`) drei Filter, die dasselbe leisten wie die Suche der Backend-Medienliste (`rex_media_service::getList()`):

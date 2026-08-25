@@ -218,6 +218,63 @@ class MediaApiTest extends ApiTestCase
         $this->trackResource('media', $response['data']['filename'] . '/delete');
     }
 
+    public function testUploadWithoutFileReturns400(): void
+    {
+        $response = $this->postMultipart('media', ['category_id' => 0, 'title' => 'kein Upload']);
+
+        $this->assertStatus(400, $response);
+        $this->assertSame('No file uploaded', $response['data']['error']);
+    }
+
+    /**
+     * Ueberschreitet der Upload ein PHP-Limit, muss das als 413 samt Limits erkennbar sein --
+     * vorher kamen "keine Datei", "Datei zu gross" und "Body zu gross" alle als dasselbe
+     * nichtssagende 400 zurueck. Erlaubt die Installation 3 MB, ist der Fall hier nicht
+     * messbar und der Test uebersprungen statt vorgetaeuscht.
+     */
+    public function testUploadExceedingPhpLimitReturns413(): void
+    {
+        $path = rtrim(sys_get_temp_dir(), '/') . '/api-test-oversized-' . uniqid() . '.png';
+        if (false === file_put_contents($path, self::oversizedPngPayload(3 * 1024 * 1024))) {
+            $this->markTestSkipped('Testdatei konnte nicht erstellt werden.');
+        }
+
+        try {
+            $response = $this->postMultipart('media', [
+                'category_id' => 0,
+                'title' => $this->generateTestName('media'),
+            ], ['file' => $path]);
+
+            if (201 === $response['status']) {
+                $this->trackResource('media', $response['data']['filename'] . '/delete');
+                $this->markTestSkipped('Diese Installation erlaubt Uploads von 3 MB; das Limit ist so nicht messbar.');
+            }
+
+            $this->assertStatus(413, $response);
+            $this->assertArrayHasKey('limits', $response['data']);
+            $this->assertGreaterThan(0, (int) $response['data']['limits']['upload_max_filesize']);
+            $this->assertGreaterThan(0, (int) $response['data']['limits']['post_max_size']);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    /** Gueltiges PNG mit einem tEXt-Chunk als Ballast, damit die Datei die Zielgroesse erreicht. */
+    private static function oversizedPngPayload(int $bytes): string
+    {
+        $chunk = static function (string $type, string $data): string {
+            return pack('N', strlen($data)) . $type . $data . pack('N', crc32($type . $data));
+        };
+
+        return "PNG
+
+"
+            . $chunk('IHDR', pack('NNCCCCC', 1, 1, 8, 2, 0, 0, 0))
+            . $chunk('IDAT', gzcompress("    "))
+            . $chunk('tEXt', "Comment " . str_repeat('x', $bytes))
+            . $chunk('IEND', '');
+    }
+
     public function testGetMediaInfo(): void
     {
         // Erst Liste abrufen um einen existierenden Dateinamen zu bekommen
