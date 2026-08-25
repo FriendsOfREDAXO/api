@@ -7,11 +7,10 @@ namespace FriendsOfRedaxo\Api\Tests;
 /**
  * Tests für den Chunked Upload (`media/upload/*`).
  *
- * Voraussetzungen am API-Token:
- *   media/upload/init, media/upload/status, media/upload/chunk,
- *   media/upload/finalize, media/upload/delete
+ * Voraussetzung am API-Token: der Scope `media/upload`. Alle fünf Endpunkte
+ * teilen sich diesen einen Scope — einzeln sind sie unbrauchbar.
  *
- * Fehlt einer dieser Scopes, überspringen sich die Tests statt fehlzuschlagen.
+ * Fehlt der Scope, überspringen sich die Tests statt fehlzuschlagen.
  */
 class MediaUploadApiTest extends ApiTestCase
 {
@@ -57,7 +56,7 @@ class MediaUploadApiTest extends ApiTestCase
     {
         $response = $this->post('media/upload', ['filename' => 'evil.php', 'size' => 100]);
         if (401 === $response['status']) {
-            $this->markTestSkipped('Dem Token fehlt der Scope media/upload/init.');
+            $this->markTestSkipped('Dem Token fehlt der Scope media/upload.');
         }
 
         $this->assertStatus(400, $response);
@@ -68,7 +67,7 @@ class MediaUploadApiTest extends ApiTestCase
     {
         $response = $this->post('media/upload', ['filename' => 'a.png', 'size' => 100, 'foo' => 1]);
         if (401 === $response['status']) {
-            $this->markTestSkipped('Dem Token fehlt der Scope media/upload/init.');
+            $this->markTestSkipped('Dem Token fehlt der Scope media/upload.');
         }
 
         $this->assertStatus(400, $response);
@@ -79,7 +78,7 @@ class MediaUploadApiTest extends ApiTestCase
     {
         $zero = $this->post('media/upload', ['filename' => 'a.png', 'size' => 0]);
         if (401 === $zero['status']) {
-            $this->markTestSkipped('Dem Token fehlt der Scope media/upload/init.');
+            $this->markTestSkipped('Dem Token fehlt der Scope media/upload.');
         }
         $this->assertStatus(400, $zero);
 
@@ -174,7 +173,7 @@ class MediaUploadApiTest extends ApiTestCase
     {
         $response = $this->get('media/upload/' . str_repeat('a', 32));
         if (401 === $response['status']) {
-            $this->markTestSkipped('Dem Token fehlt der Scope media/upload/status.');
+            $this->markTestSkipped('Dem Token fehlt der Scope media/upload.');
         }
 
         $this->assertStatus(404, $response);
@@ -199,7 +198,7 @@ class MediaUploadApiTest extends ApiTestCase
         ]);
 
         if (401 === $response['status']) {
-            $this->markTestSkipped('Dem Token fehlen die Scopes media/upload/*.');
+            $this->markTestSkipped('Dem Token fehlt der Scope media/upload.');
         }
 
         $this->assertStatus(201, $response);

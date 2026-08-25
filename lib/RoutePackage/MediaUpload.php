@@ -49,6 +49,13 @@ class MediaUpload extends RoutePackage
     /** Nach dieser Zeit gilt ein begonnener Upload als verwaist und wird aufgeraeumt. */
     public const Ttl = 86400; // 24 Stunden
 
+    /**
+     * Alle fuenf Routen teilen sich einen Scope. Einzeln sind sie unbrauchbar --
+     * init ohne chunk, chunk ohne finalize --, und eine Teilvergabe wuerde erst
+     * mitten in der Uebertragung auffallen, wenn die Daten schon geschickt sind.
+     */
+    public const Scope = 'media/upload';
+
     public function loadRoutes(): void
     {
         // Upload beginnen ✅
@@ -88,7 +95,7 @@ class MediaUpload extends RoutePackage
                 ['POST']),
             'Start a chunked upload. Returns an upload_id and the maximum size per chunk.',
             null,
-            new BearerAuth(),
+            new BearerAuth(true, self::Scope),
         );
 
         // Stand des Uploads ✅
@@ -104,7 +111,7 @@ class MediaUpload extends RoutePackage
                 ['GET']),
             'Status of a chunked upload: which chunks arrived, how many bytes are missing.',
             null,
-            new BearerAuth(),
+            new BearerAuth(true, self::Scope),
         );
 
         // Einzelnen Chunk uebertragen ✅
@@ -132,7 +139,7 @@ class MediaUpload extends RoutePackage
                 ['POST', 'PUT']),
             'Send one chunk. Index is zero-based; sending the same index again replaces it.',
             null,
-            new BearerAuth(),
+            new BearerAuth(true, self::Scope),
         );
 
         // Upload abschliessen ✅
@@ -148,7 +155,7 @@ class MediaUpload extends RoutePackage
                 ['POST']),
             'Assemble the chunks and add the file to the media pool.',
             null,
-            new BearerAuth(),
+            new BearerAuth(true, self::Scope),
         );
 
         // Upload abbrechen ✅
@@ -164,7 +171,7 @@ class MediaUpload extends RoutePackage
                 ['DELETE']),
             'Abort a chunked upload and discard the chunks already received.',
             null,
-            new BearerAuth(),
+            new BearerAuth(true, self::Scope),
         );
     }
 

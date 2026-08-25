@@ -8,6 +8,7 @@ use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use rex;
+use rex_api_exception;
 use rex_functional_exception;
 use rex_media;
 use rex_media_cache;
@@ -868,6 +869,10 @@ class Media extends RoutePackage
             }
 
             return new JsonResponse(['error' => $result['msg'] ?? 'Unknown error'], 400);
+        } catch (rex_api_exception $e) {
+            // Der Service wirft bei unerlaubter Endung oder unerlaubtem MIME-Typ --
+            // das ist ein Verstoss des Aufrufers, kein Serverfehler.
+            return new JsonResponse(['error' => $e->getMessage()], 400);
         } catch (Exception $e) {
             return new JsonResponse(['error' => $e->getMessage()], 500);
         }

@@ -273,6 +273,7 @@ Wissenswertes:
 - **Abbrechen**: `DELETE /api/media/upload/{upload_id}` verwirft die Teile.
 - **Grenzen**: höchstens 2 GiB pro Datei und 20 000 Chunks. Die bei `init` angekündigte Größe ist verbindlich — mehr Bytes werden abgewiesen, weniger verhindern das Abschließen.
 - **Verfall**: ein begonnener Upload wird nach 24 Stunden verworfen; aufgeräumt wird beim nächsten `init`.
+- **Ein Scope**: alle fünf Endpunkte laufen über den Scope `media/upload` (Backend: `backend/media/upload`). Einzeln sind sie unbrauchbar, deshalb gibt es dafür nur eine Checkbox auf der Token-Seite.
 - **Bindung an den Aufrufer**: ein Upload ist nur für das Token beziehungsweise den Backend-User sichtbar, der ihn begonnen hat. Fremde Zugriffe erhalten `404`.
 - Die Endung wird bereits bei `init` geprüft, damit ein unerlaubter Dateityp nicht erst nach der Übertragung auffällt.
 

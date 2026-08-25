@@ -127,9 +127,11 @@ class Token
         $Scopes = [];
         foreach (RouteCollection::getRoutes() as $RouteScope => $Route) {
             if ($Route['authorization'] instanceof BearerAuth && $Route['authorization']->requiresScope()) {
-                $Scopes[] = $Route['scope'];
+                // Mehrere Routen koennen sich einen Scope teilen (Chunked Upload):
+                // auf der Token-Seite darf er nur einmal als Checkbox erscheinen.
+                $Scopes[] = $Route['authorization']->getScope((string) $Route['scope']);
             }
         }
-        return $Scopes;
+        return array_values(array_unique($Scopes));
     }
 }

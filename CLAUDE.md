@@ -26,7 +26,7 @@ pnpm install && pnpm build
 Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufende REDAXO-Installation senden. Setup:
 
 1. `cp tests/.env.example tests/.env` und Werte anpassen (Basis-URL, Bearer-Token, Backend-Credentials, existierende IDs).
-2. Bearer-Token im REDAXO-Backend unter `API → Token` anlegen und alle benötigten Scopes vergeben — die Test-Suite erwartet u.a. `structure/articles/slices/{list,add,get,update,delete}`, `system/clangs/*`, `modules/*`, `templates/*`, `users/*`, `media/*` (inklusive `media/upload/*` für `MediaUploadApiTest`), `metainfo/*`.
+2. Bearer-Token im REDAXO-Backend unter `API → Token` anlegen und alle benötigten Scopes vergeben — die Test-Suite erwartet u.a. `structure/articles/slices/{list,add,get,update,delete}`, `system/clangs/*`, `modules/*`, `templates/*`, `users/*`, `media/*` (inklusive `media/upload` für `MediaUploadApiTest`), `metainfo/*`.
 3. Restricted-Backend-User mit eingeschränkten Permissions anlegen (Default-Login `apitest_restricted`):
    ```bash
    redaxo/bin/console user:create apitest_restricted <password> --name="API Test Restricted"
@@ -75,7 +75,7 @@ Jede Datei definiert Routen und Handler-Methoden für eine Ressourcengruppe:
 | `Templates.php`    | Templates CRUD                                         | `templates/`     |
 | `Clangs.php`       | Sprachen CRUD                                          | `system/clangs/` |
 | `Metainfo.php`     | Metainfo-Felddefinitionen + Werte (Artikel/Kategorie/Medium/Sprache) | `metainfo/`      |
-| `MediaUpload.php`  | Chunked Upload (init/chunk/status/finalize/abort)       | `media/upload/`  |
+| `MediaUpload.php`  | Chunked Upload (init/chunk/status/finalize/abort)       | `media/upload`   |
 | `Discovery.php`    | Selbstauskunft `/api/me` (erlaubte Endpunkte, OpenAPI gefiltert)      | — (scope-frei)   |
 
 Die `lib/RoutePackage/Backend/`-Klassen erweitern jeweils ihre Bearer-Variante, klonen alle passenden Routen, hängen `backend/` an Pfad und Scope und ersetzen das Auth-Objekt durch `BackendUser`. Beim Anlegen eines neuen Bearer-Endpunkts entsteht der Backend-Spiegel automatisch — eigene `Backend/*.php`-Implementierungen sind nur nötig, wenn das Standardverhalten überschrieben werden soll (Beispiel: `Backend/Media.php`).
@@ -170,6 +170,7 @@ Grosse Dateien werden ueber mehrere Requests uebertragen und erst am Ende in den
 - **Zwei Schranken gegen Path Traversal.** Die Route-Requirement `[a-f0-9]{32}` und zusaetzlich `uploadDir()`, das dieselbe Form erneut prueft.
 - **Rechte doppelt pruefen.** `checkMediaPerm()` laeuft bei `init` und erneut bei `finalize`, weil zwischen beiden Requests Zeit liegt.
 - **Aufraeumen ohne Cronjob.** `collectGarbage()` laeuft bei jedem `init` und verwirft Uploads, die aelter als `Ttl` sind.
+- **Ein Scope fuer alle fuenf Routen** (`MediaUpload::Scope`). Moeglich durch `Auth::getScope()`: der Routenname bleibt der eindeutige Schluessel in `RouteCollection`, der geforderte Scope ist davon entkoppelt. `new BearerAuth(true, 'scope/name')` setzt ihn. Wer einen mehrstufigen Ablauf ergaenzt, nutzt dasselbe Muster -- einzeln unbrauchbare Endpunkte gehoeren nicht in einzelne Scopes, weil eine Teilvergabe erst mitten im Ablauf auffaellt. `Token::getAvailableScopes()` dedupliziert, damit die Token-Seite eine Checkbox zeigt.
 
 ### Service-Klassen
 

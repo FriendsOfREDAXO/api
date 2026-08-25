@@ -93,7 +93,7 @@ class Discovery extends RoutePackage
                 if (!$RouteAuth instanceof BearerAuth) {
                     continue;
                 }
-                if ($RouteAuth->requiresScope() && !in_array($Scope, $Scopes, true)) {
+                if ($RouteAuth->requiresScope() && !in_array($RouteAuth->getScope((string) $Scope), $Scopes, true)) {
                     continue;
                 }
                 $Allowed[$Scope] = $RouteArray;
@@ -129,7 +129,12 @@ class Discovery extends RoutePackage
 
         $Endpoints = [];
         foreach ($Allowed as $Scope => $RouteArray) {
-            $Endpoints[] = self::describeRoute($Scope, $RouteArray);
+            // Ausgegeben wird der geforderte Scope, nicht der Routenname: bei einem
+            // Ablauf aus mehreren Routen (Chunked Upload) sind das verschiedene Werte,
+            // und ein Client soll den Namen sehen, den er am Token vergeben muss.
+            $RouteAuth = $RouteArray['authorization'] ?? null;
+            $EffectiveScope = null === $RouteAuth ? (string) $Scope : $RouteAuth->getScope((string) $Scope);
+            $Endpoints[] = self::describeRoute($EffectiveScope, $RouteArray);
         }
 
         $Meta['endpoint_count'] = count($Endpoints);
