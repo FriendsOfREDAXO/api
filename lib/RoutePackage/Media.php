@@ -29,6 +29,14 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 
 use const JSON_PRETTY_PRINT;
+use const UPLOAD_ERR_CANT_WRITE;
+use const UPLOAD_ERR_EXTENSION;
+use const UPLOAD_ERR_FORM_SIZE;
+use const UPLOAD_ERR_INI_SIZE;
+use const UPLOAD_ERR_NO_FILE;
+use const UPLOAD_ERR_NO_TMP_DIR;
+use const UPLOAD_ERR_OK;
+use const UPLOAD_ERR_PARTIAL;
 
 class Media extends RoutePackage
 {
@@ -464,6 +472,79 @@ class Media extends RoutePackage
     }
 
     /**
+     * Prueft den Upload-Zustand und liefert eine passende Fehlerantwort, oder null bei Erfolg.
+     *
+     * Ueberschreitet der Request post_max_size, verwirft PHP den gesamten Body: $_FILES und
+     * $_POST sind dann leer, obwohl ein Content-Length ankam. Ohne diese Unterscheidung sahen
+     * "keine Datei geschickt", "Datei zu gross" und "Body zu gross" fuer den Client gleich aus
+     * -- ein Client konnte also nicht erkennen, dass er die Datei stueckeln muss.
+     *
+     * @param array<string, mixed>|null $file
+     */
+    private static function uploadErrorResponse(?array $file): ?Response
+    {
+        $limits = [
+            'upload_max_filesize' => self::iniBytes((string) ini_get('upload_max_filesize')),
+            'post_max_size' => self::iniBytes((string) ini_get('post_max_size')),
+        ];
+        $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+
+        if (null === $file) {
+            // Body komplett verworfen: es kam etwas an, aber PHP hat nichts geparst.
+            if ($contentLength > 0 && 0 === count($_POST) && $limits['post_max_size'] > 0 && $contentLength > $limits['post_max_size']) {
+                return new JsonResponse([
+                    'error' => 'Request body too large: the whole request was discarded because it exceeds post_max_size',
+                    'content_length' => $contentLength,
+                    'limits' => $limits,
+                ], 413);
+            }
+            return new JsonResponse(['error' => 'No file uploaded'], 400);
+        }
+
+        $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+
+        if (UPLOAD_ERR_OK === $error) {
+            return null;
+        }
+
+        return match ($error) {
+            UPLOAD_ERR_INI_SIZE => new JsonResponse([
+                'error' => 'File too large: exceeds upload_max_filesize',
+                'limits' => $limits,
+            ], 413),
+            UPLOAD_ERR_FORM_SIZE => new JsonResponse([
+                'error' => 'File too large: exceeds the MAX_FILE_SIZE given in the request',
+                'limits' => $limits,
+            ], 413),
+            UPLOAD_ERR_PARTIAL => new JsonResponse([
+                'error' => 'Upload incomplete: only part of the file was received',
+            ], 400),
+            UPLOAD_ERR_NO_FILE => new JsonResponse(['error' => 'No file uploaded'], 400),
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION => new JsonResponse([
+                'error' => 'Upload failed on the server',
+                'upload_error' => $error,
+            ], 500),
+            default => new JsonResponse(['error' => 'Upload error', 'upload_error' => $error], 400),
+        };
+    }
+
+    /** Wandelt einen ini-Groessenwert wie "8M" in Bytes. */
+    private static function iniBytes(string $value): int
+    {
+        $value = trim($value);
+        if ('' === $value) {
+            return 0;
+        }
+        $number = (int) $value;
+        return match (strtolower(substr($value, -1))) {
+            'g' => $number * 1024 * 1024 * 1024,
+            'm' => $number * 1024 * 1024,
+            'k' => $number * 1024,
+            default => $number,
+        };
+    }
+
+    /**
      * Dateiendung aus dem Dateinamen, identisch zu rex_media_service::getList()
      * (mediapool/lib/service_media.php:310).
      */
@@ -749,8 +830,9 @@ class Media extends RoutePackage
     /** @api */
     public static function handleAddMedia($Parameter, array $Route = []): Response
     {
-        if (!isset($_FILES['file']) || UPLOAD_ERR_OK !== $_FILES['file']['error']) {
-            return new JsonResponse(['error' => 'No file uploaded or upload error'], 400);
+        $uploadError = self::uploadErrorResponse($_FILES['file'] ?? null);
+        if (null !== $uploadError) {
+            return $uploadError;
         }
 
         $request = rex::getRequest();
