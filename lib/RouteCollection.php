@@ -153,7 +153,7 @@ class RouteCollection
                         // credential is valid, only the scope is missing: name it, so callers can tell
                         // an invalid token from a missing permission
                         if ($AuthObject instanceof BearerAuth && null !== $AuthObject->getAuthorizationObject()) {
-                            $Error['required_scope'] = $parameters['_route'];
+                            $Error['required_scope'] = $AuthObject->getScope($parameters['_route']);
                         }
                         $Response = new JsonResponse($Error, 401);
                     } else {

@@ -18,18 +18,28 @@ class BearerAuth extends Auth
      */
     private bool $requireScope = true;
 
+    /** Gesetzt, wenn mehrere Routen sich einen Scope teilen; sonst gilt der Routenname. */
+    private ?string $scope = null;
+
     /**
      * @param bool $requireScope false: every valid token is authorized, no scope needed (discovery routes)
+     * @param string|null $scope shared scope for several routes; null means the route name
      */
-    public function __construct(bool $requireScope = true)
+    public function __construct(bool $requireScope = true, ?string $scope = null)
     {
         parent::__construct();
         $this->requireScope = $requireScope;
+        $this->scope = $scope;
     }
 
     public function requiresScope(): bool
     {
         return $this->requireScope;
+    }
+
+    public function getScope(string $routeName): string
+    {
+        return $this->scope ?? $routeName;
     }
 
     public function isAuthorized($parameters): bool
@@ -41,7 +51,7 @@ class BearerAuth extends Auth
         if (!$this->requireScope) {
             return true;
         }
-        if (in_array($parameters['_route'], $this->Token->getScopes(), true)) {
+        if (in_array($this->getScope($parameters['_route']), $this->Token->getScopes(), true)) {
             return true;
         }
         return false;

@@ -22,6 +22,20 @@ abstract class Auth
         return true;
     }
 
+    /**
+     * Der Scope, der fuer diese Route vergeben sein muss.
+     *
+     * Normalerweise ist das der Routenname -- ein Endpunkt, ein Scope. Mehrere
+     * Routen, die zusammen einen Ablauf bilden (Chunked Upload: init, chunk,
+     * status, finalize, abort), teilen sich dagegen einen Scope: einzeln sind sie
+     * unbrauchbar, und eine Teilvergabe fiele erst mitten im Ablauf auf. Der
+     * Routenname bleibt eindeutig, weil RouteCollection ihn als Schluessel nutzt.
+     */
+    public function getScope(string $routeName): string
+    {
+        return $routeName;
+    }
+
     public function getAuthorizationObject(): mixed
     {
         return null;
