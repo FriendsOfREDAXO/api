@@ -26,7 +26,7 @@ pnpm install && pnpm build
 Tests sind **Integrationstests**, die echte HTTP-Requests via cURL an eine laufende REDAXO-Installation senden. Setup:
 
 1. `cp tests/.env.example tests/.env` und Werte anpassen (Basis-URL, Bearer-Token, Backend-Credentials, existierende IDs).
-2. Bearer-Token im REDAXO-Backend unter `API → Token` anlegen und alle benötigten Scopes vergeben — die Test-Suite erwartet u.a. `structure/articles/slices/{list,add,get,update,delete}`, `system/clangs/*`, `modules/*`, `templates/*`, `users/*`, `media/*`, `metainfo/*`.
+2. Bearer-Token im REDAXO-Backend unter `API → Token` anlegen und alle benötigten Scopes vergeben — die Test-Suite erwartet u.a. `structure/articles/slices/{list,add,get,update,delete}`, `system/clangs/*`, `modules/*`, `templates/*`, `users/*`, `media/*` (inklusive `media/upload/*` für `MediaUploadApiTest`), `metainfo/*`.
 3. Restricted-Backend-User mit eingeschränkten Permissions anlegen (Default-Login `apitest_restricted`):
    ```bash
    redaxo/bin/console user:create apitest_restricted <password> --name="API Test Restricted"
@@ -75,6 +75,7 @@ Jede Datei definiert Routen und Handler-Methoden für eine Ressourcengruppe:
 | `Templates.php`    | Templates CRUD                                         | `templates/`     |
 | `Clangs.php`       | Sprachen CRUD                                          | `system/clangs/` |
 | `Metainfo.php`     | Metainfo-Felddefinitionen + Werte (Artikel/Kategorie/Medium/Sprache) | `metainfo/`      |
+| `MediaUpload.php`  | Chunked Upload (init/chunk/status/finalize/abort)       | `media/upload/`  |
 | `Discovery.php`    | Selbstauskunft `/api/me` (erlaubte Endpunkte, OpenAPI gefiltert)      | — (scope-frei)   |
 
 Die `lib/RoutePackage/Backend/`-Klassen erweitern jeweils ihre Bearer-Variante, klonen alle passenden Routen, hängen `backend/` an Pfad und Scope und ersetzen das Auth-Objekt durch `BackendUser`. Beim Anlegen eines neuen Bearer-Endpunkts entsteht der Backend-Spiegel automatisch — eigene `Backend/*.php`-Implementierungen sind nur nötig, wenn das Standardverhalten überschrieben werden soll (Beispiel: `Backend/Media.php`).
@@ -157,6 +158,18 @@ Erst wenn diese vier Punkte abgehakt sind, ist der Endpoint korrekt. Tests gehö
 - `rex_article.revision` ist eine Altlast: der Core befüllt die Spalte nie (überall 0) und wertet sie in seinen Artikel-Queries auch nicht aus — `rex_structure_element` kennt sie gar nicht. Revisionen leben ausschließlich in `rex_article_slice`. Die Artikel-Liste hatte deshalb einen `filter[revision]` samt hartem `revision = 0` im WHERE, der nichts bewirkte außer Erwartungen zu wecken; beides ist entfernt. Das Feld bleibt in der Artikel-Response enthalten, damit sich das Antwortschema nicht ändert.
 - Das Plugin verweigert Usern ohne `version[live_version]` das Schreiben in die Live-Version (`version/boot.php`). `Structure::checkLiveRevisionPerm()` spiegelt das für Add, Update und Delete: liegt ein Backend-User vor, ist `structure/version` aktiv und betrifft die Operation Revision 0, dann `403` mit `required_permission`. Greift bewusst **nicht** bei Bearer-Tokens — dort ersetzen Scopes die User-Permissions, genau wie bei `checkStructurePerm()`. Admins sind nicht betroffen, `rex_user::hasPerm()` liefert für sie immer `true`.
 - **Testvoraussetzung:** Die zugehörigen Tests in `BackendApiTest` brauchen `API_TEST_VERSION_PLUGIN=1` **und** einen eingeschränkten User mit `structure`- und `modules`-Rechten, aber ohne `version[live_version]`. Fehlt eines von beidem, überspringen sie sich — ein `403` ohne diese Rechte käme aus den Kategorie- oder Modulrechten und würde die Revisionsprüfung nicht belegen.
+
+### Chunked Upload (`lib/RoutePackage/MediaUpload.php`)
+
+Grosse Dateien werden ueber mehrere Requests uebertragen und erst am Ende in den Medienpool gelegt. Wichtig fuer Aenderungen daran:
+
+- **Kein zweiter Weg ins Medienverzeichnis.** `finalize` uebergibt die zusammengesetzte Datei an `rex_media_service::addMedia()` als `file.path`. Der Service akzeptiert das neben `tmp_name` (`mediapool/lib/service_media.php:35`) und verschiebt mit `rex_file::move()`, nicht mit `move_uploaded_file()` (`:88`) — dieselbe Mechanik nutzt die Sync-Seite des Medienpools. Damit greifen Endungs-Blockliste, MIME-Allowlist, `rex_mediapool::filename()`, `sanitizeMedia()` und die EPs `MEDIA_ADD_FILE`/`MEDIA_ADDED` unveraendert. Diese Logik darf hier nicht nachgebaut werden.
+- **Registrierung vor `Backend\Media`.** `boot.php` registriert `MediaUpload` direkt nach `Media`; der Backend-Spiegel klont alle Routen mit Scope-Prefix `media/` und muss die Upload-Routen dabei schon sehen.
+- **Zustand im Dateisystem, nicht in der DB.** Ein Verzeichnis je `upload_id` unter `rex_path::addonData('api', 'upload/')` mit `manifest.json` und `chunk_<index>`. Kein Schema-Update noetig; das Verzeichnis ist per `.htaccess` gesperrt. Bei mehreren Webheads auf gemeinsamer DB, aber getrenntem Dateisystem funktioniert das nicht — dann waere eine Tabelle noetig.
+- **Besitzerbindung.** `manifest.owner` haelt `user:<login>` oder `token:<id>`; fremde Aufrufer erhalten `404`, nicht `403` — die Existenz eines Uploads soll nicht bestaetigt werden.
+- **Zwei Schranken gegen Path Traversal.** Die Route-Requirement `[a-f0-9]{32}` und zusaetzlich `uploadDir()`, das dieselbe Form erneut prueft.
+- **Rechte doppelt pruefen.** `checkMediaPerm()` laeuft bei `init` und erneut bei `finalize`, weil zwischen beiden Requests Zeit liegt.
+- **Aufraeumen ohne Cronjob.** `collectGarbage()` laeuft bei jedem `init` und verwirft Uploads, die aelter als `Ttl` sind.
 
 ### Service-Klassen
 

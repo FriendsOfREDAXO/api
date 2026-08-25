@@ -12,6 +12,7 @@ use FriendsOfRedaxo\Api\RoutePackage\Backend\Users as BackendUsers;
 use FriendsOfRedaxo\Api\RoutePackage\Clangs;
 use FriendsOfRedaxo\Api\RoutePackage\Discovery;
 use FriendsOfRedaxo\Api\RoutePackage\Media;
+use FriendsOfRedaxo\Api\RoutePackage\MediaUpload;
 use FriendsOfRedaxo\Api\RoutePackage\Metainfo;
 use FriendsOfRedaxo\Api\RoutePackage\Modules;
 use FriendsOfRedaxo\Api\RoutePackage\Structure;
@@ -23,6 +24,8 @@ RouteCollection::registerRoutePackage(new Modules());
 RouteCollection::registerRoutePackage(new Structure());
 RouteCollection::registerRoutePackage(new Templates());
 RouteCollection::registerRoutePackage(new Media());
+// vor BackendMedia registrieren: der Backend-Spiegel klont alle Routen mit Scope-Prefix media/
+RouteCollection::registerRoutePackage(new MediaUpload());
 RouteCollection::registerRoutePackage(new Users());
 RouteCollection::registerRoutePackage(new Metainfo());
 RouteCollection::registerRoutePackage(new Discovery());
