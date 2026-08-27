@@ -252,6 +252,11 @@ class Media extends RoutePackage
                             'required' => false,
                             'default' => '',
                         ],
+                        'permitted_only' => [
+                            'type' => 'integer',
+                            'required' => false,
+                            'default' => 0,
+                        ],
                     ],
                 ],
                 [],
@@ -259,7 +264,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['POST']),
-            'Add a media file (multipart/form-data with file field)',
+            'Add a media file (multipart/form-data with file field). filter[permitted_only]=1 checks category permission cascading (a granted category also grants its whole subtree) instead of exact-match only.',
             null,
             new BearerAuth(),
         );
@@ -933,11 +938,23 @@ class Media extends RoutePackage
         $request = rex::getRequest();
         $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0);
         $title = (string) ($request->request->get('title') ?? $request->query->get('title') ?? '');
+        $permittedOnly = (bool) ($request->request->get('permitted_only') ?? $request->query->get('permitted_only') ?? 0);
 
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $categoryId);
-        if (null !== $permResponse) {
-            return $permResponse;
+        if ($permittedOnly) {
+            // Kaskadierend statt exaktem Treffer, siehe hasCascadingCategoryPerm() --
+            // sonst kann ein User, der laut FriendsOfRedaxo/mediaplace#2 frei
+            // innerhalb einer freigegebenen Kategorie arbeiten darf, nicht in
+            // eine dort selbst angelegte oder bereits vorhandene Unterkategorie
+            // hochladen.
+            if (null !== $user && !$user->isAdmin() && !self::hasCascadingCategoryPerm($user->getComplexPerm('media'), $categoryId)) {
+                return new JsonResponse(['error' => 'Permission denied'], 403);
+            }
+        } else {
+            $permResponse = self::checkMediaPerm($user, $categoryId);
+            if (null !== $permResponse) {
+                return $permResponse;
+            }
         }
 
         if (0 !== $categoryId && !rex_media_category::get($categoryId)) {

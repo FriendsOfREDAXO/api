@@ -11,6 +11,7 @@ use rex;
 use rex_dir;
 use rex_file;
 use rex_media_category;
+use rex_media_perm;
 use rex_media_service;
 use rex_mediapool;
 use rex_path;
@@ -85,6 +86,11 @@ class MediaUpload extends RoutePackage
                             'type' => 'string',
                             'required' => false,
                             'default' => '',
+                        ],
+                        'permitted_only' => [
+                            'type' => 'int',
+                            'required' => false,
+                            'default' => 0,
                         ],
                     ],
                 ],
@@ -195,6 +201,7 @@ class MediaUpload extends RoutePackage
         $filename = trim((string) $Data['filename']);
         $size = (int) $Data['size'];
         $categoryId = (int) $Data['category_id'];
+        $permittedOnly = (bool) $Data['permitted_only'];
 
         if ('' === $filename) {
             return new JsonResponse(['error' => 'filename must not be empty'], 400);
@@ -221,9 +228,20 @@ class MediaUpload extends RoutePackage
         }
 
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $categoryId);
-        if (null !== $permResponse) {
-            return $permResponse;
+        if ($permittedOnly) {
+            // Kaskadierend statt exaktem Treffer, siehe hasCascadingCategoryPerm() --
+            // sonst kann ein User, der laut FriendsOfRedaxo/mediaplace#2 frei
+            // innerhalb einer freigegebenen Kategorie arbeiten darf, nicht in
+            // eine dort selbst angelegte oder bereits vorhandene Unterkategorie
+            // hochladen.
+            if (null !== $user && !$user->isAdmin() && !self::hasCascadingCategoryPerm($user->getComplexPerm('media'), $categoryId)) {
+                return new JsonResponse(['error' => 'Permission denied'], 403);
+            }
+        } else {
+            $permResponse = self::checkMediaPerm($user, $categoryId);
+            if (null !== $permResponse) {
+                return $permResponse;
+            }
         }
 
         if (0 !== $categoryId && !rex_media_category::get($categoryId)) {
@@ -245,6 +263,7 @@ class MediaUpload extends RoutePackage
             'size' => $size,
             'category_id' => $categoryId,
             'title' => (string) $Data['title'],
+            'permitted_only' => $permittedOnly,
             'owner' => self::ownerKey($Route),
             'created' => time(),
         ];
@@ -357,12 +376,20 @@ class MediaUpload extends RoutePackage
         }
 
         // Rechte erneut pruefen: zwischen init und finalize kann sich die
-        // Berechtigung geaendert haben.
+        // Berechtigung geaendert haben. Gleicher permitted_only-Modus wie bei
+        // init (aus dem Manifest, nicht erneut aus dem Request -- der Client
+        // kann bei finalize kein permitted_only mehr mitschicken).
         $categoryId = (int) $manifest['category_id'];
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $categoryId);
-        if (null !== $permResponse) {
-            return $permResponse;
+        if (!empty($manifest['permitted_only'])) {
+            if (null !== $user && !$user->isAdmin() && !self::hasCascadingCategoryPerm($user->getComplexPerm('media'), $categoryId)) {
+                return new JsonResponse(['error' => 'Permission denied'], 403);
+            }
+        } else {
+            $permResponse = self::checkMediaPerm($user, $categoryId);
+            if (null !== $permResponse) {
+                return $permResponse;
+            }
         }
 
         $sizes = self::chunkSizes($uploadId);
@@ -652,5 +679,39 @@ class MediaUpload extends RoutePackage
             return new JsonResponse(['error' => 'Permission denied'], 403);
         }
         return null;
+    }
+
+    /**
+     * Wie rex_media_perm::hasCategoryPerm(), aber kaskadierend: ist ein
+     * VORFAHRE der Kategorie erlaubt, gilt das auch fuer ihren gesamten
+     * Unterbaum. Nur fuer den permitted_only-Modus dieses Endpunkts genutzt
+     * (siehe handleInit()/handleFinalize()) -- checkMediaPerm() selbst bleibt
+     * bewusst nicht-kaskadierend (Core-Verhalten), damit andere Konsumenten
+     * dieser API nicht ueberraschend ihr Verhalten aendern. Duplikat von
+     * Media::hasCascadingCategoryPerm() -- eigene Klasse, kein gemeinsamer
+     * Trait, analog zur bereits bestehenden Duplikation von checkMediaPerm().
+     */
+    private static function hasCascadingCategoryPerm(rex_media_perm $perm, int $categoryId): bool
+    {
+        if ($perm->hasCategoryPerm($categoryId)) {
+            return true;
+        }
+        if (0 === $categoryId) {
+            return false; // "Kein Ordner" hat keine Vorfahren zum Kaskadieren
+        }
+        $category = rex_media_category::get($categoryId);
+        if (!$category) {
+            return false;
+        }
+        foreach (explode('|', trim($category->getPath(), '|')) as $ancestorId) {
+            if ('' === $ancestorId) {
+                continue;
+            }
+            if ($perm->hasCategoryPerm((int) $ancestorId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
