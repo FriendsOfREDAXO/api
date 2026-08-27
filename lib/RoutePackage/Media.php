@@ -14,6 +14,7 @@ use rex_media;
 use rex_media_cache;
 use rex_media_category;
 use rex_media_category_service;
+use rex_media_perm;
 use rex_media_service;
 use rex_mediapool;
 use rex_path;
@@ -584,6 +585,39 @@ class Media extends RoutePackage
         return null;
     }
 
+    /**
+     * Wie rex_media_perm::hasCategoryPerm(), aber kaskadierend: ist ein
+     * VORFAHRE der Kategorie erlaubt, gilt das auch fuer ihren gesamten
+     * Unterbaum. Nur fuer den permitted_only-Filter der Medienliste genutzt
+     * (siehe dortiger Kommentar) -- checkMediaPerm() selbst bleibt bewusst
+     * nicht-kaskadierend (Core-Verhalten fuer einzelne Datei-Operationen),
+     * damit andere Endpunkte/Konsumenten dieser API nicht ueberraschend ihr
+     * Verhalten aendern.
+     */
+    private static function hasCascadingCategoryPerm(rex_media_perm $perm, int $categoryId): bool
+    {
+        if ($perm->hasCategoryPerm($categoryId)) {
+            return true;
+        }
+        if (0 === $categoryId) {
+            return false; // "Kein Ordner" hat keine Vorfahren zum Kaskadieren
+        }
+        $category = rex_media_category::get($categoryId);
+        if (!$category) {
+            return false;
+        }
+        foreach (explode('|', trim($category->getPath(), '|')) as $ancestorId) {
+            if ('' === $ancestorId) {
+                continue;
+            }
+            if ($perm->hasCategoryPerm((int) $ancestorId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @api */
     public static function handleMediaList($Parameter, array $Route = []): Response
     {
@@ -617,7 +651,12 @@ class Media extends RoutePackage
             if (!$perm->hasAll()) {
                 // Kein oeffentlicher Getter fuer die erlaubte Kategorieliste auf
                 // rex_complex_perm -- Kategorien einzeln pruefen, exakt das Muster
-                // aus mediapool/lib/media_category_select.php.
+                // aus mediapool/lib/media_category_select.php. hasCascadingCategoryPerm()
+                // statt rohem hasCategoryPerm(): permitted_only ist ohnehin schon ein
+                // Opt-in fuer striktere Kategorie-Filterung als Core (siehe Kommentar
+                // oben) -- konsequent dazu gehoert, dass Zugriff auf eine Kategorie
+                // auch ihren Unterbaum einschliesst, sonst waeren Unterkategorien
+                // einer erlaubten Kategorie fuer den anfragenden User unerreichbar.
                 $allCategoryIds = array_map('intval', array_column(
                     rex_sql::factory()->getArray('SELECT id FROM ' . rex::getTable('media_category')),
                     'id',
@@ -625,7 +664,7 @@ class Media extends RoutePackage
                 $allCategoryIds[] = 0; // "Kein Ordner" ist ein eigenes Recht, siehe hasCategoryPerm(0)
                 $allowedCategoryIds = array_values(array_filter(
                     $allCategoryIds,
-                    static fn (int $id): bool => $perm->hasCategoryPerm($id),
+                    static fn (int $id): bool => self::hasCascadingCategoryPerm($perm, $id),
                 ));
 
                 $SqlQueryWhere[':perm_category'] = [] === $allowedCategoryIds
@@ -643,10 +682,10 @@ class Media extends RoutePackage
                 }
             }
 
-            if ($permittedOnly) {
-                $permResponse = self::checkMediaPerm($user, $categoryId);
-                if (null !== $permResponse) {
-                    return $permResponse;
+            if ($permittedOnly && null !== $user && !$user->isAdmin()) {
+                $perm = $user->getComplexPerm('media');
+                if (!$perm->hasAll() && !self::hasCascadingCategoryPerm($perm, $categoryId)) {
+                    return new JsonResponse(['error' => 'Permission denied'], 403);
                 }
             }
 
