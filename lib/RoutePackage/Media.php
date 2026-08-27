@@ -176,7 +176,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['DELETE']),
-            'Delete a media',
+            'Delete a media. ?permitted_only=1 checks category permission cascading (a granted category also grants its whole subtree) instead of exact-match only.',
             null,
             new BearerAuth(),
         );
@@ -194,7 +194,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['GET']),
-            'Get a media',
+            'Get a media. ?permitted_only=1 checks category permission cascading (a granted category also grants its whole subtree) instead of exact-match only.',
             null,
             new BearerAuth(),
         );
@@ -212,7 +212,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['GET']),
-            'Get a mediafile',
+            'Get a mediafile. ?permitted_only=1 checks category permission cascading (a granted category also grants its whole subtree) instead of exact-match only.',
             [
                 '200' => [
                     'description' => 'Erfolgreicher Datei-Download',
@@ -299,7 +299,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['PUT', 'PATCH']),
-            'Update a media',
+            'Update a media. ?permitted_only=1 checks the current category permission cascading (a granted category also grants its whole subtree) instead of exact-match only -- note this does not (yet) check the new category_id when moving a file to a different category, see FriendsOfREDAXO/api#79.',
             null,
             new BearerAuth(),
         );
@@ -593,11 +593,11 @@ class Media extends RoutePackage
     /**
      * Wie rex_media_perm::hasCategoryPerm(), aber kaskadierend: ist ein
      * VORFAHRE der Kategorie erlaubt, gilt das auch fuer ihren gesamten
-     * Unterbaum. Nur fuer den permitted_only-Filter der Medienliste genutzt
-     * (siehe dortiger Kommentar) -- checkMediaPerm() selbst bleibt bewusst
-     * nicht-kaskadierend (Core-Verhalten fuer einzelne Datei-Operationen),
-     * damit andere Endpunkte/Konsumenten dieser API nicht ueberraschend ihr
-     * Verhalten aendern.
+     * Unterbaum. Nur hinter dem permitted_only-Opt-in genutzt (Medienliste,
+     * Datei-Operationen wie Loeschen/Abrufen/Hochladen -- siehe
+     * checkMediaPermCascading() und die jeweiligen Handler) -- checkMediaPerm()
+     * selbst bleibt bewusst nicht-kaskadierend (Core-Verhalten), damit andere
+     * Endpunkte/Konsumenten dieser API nicht ueberraschend ihr Verhalten aendern.
      */
     private static function hasCascadingCategoryPerm(rex_media_perm $perm, int $categoryId): bool
     {
@@ -621,6 +621,36 @@ class Media extends RoutePackage
         }
 
         return false;
+    }
+
+    /**
+     * Wie checkMediaPerm(), aber mit dem permitted_only-Opt-in: ohne
+     * $permittedOnly identisch (exakter Treffer, unveraendertes Default-
+     * Verhalten fuer bestehende Konsumenten), mit $permittedOnly kaskadierend
+     * ueber hasCascadingCategoryPerm() -- fuer Einzel-Datei-Operationen
+     * (Loeschen/Abrufen/Herunterladen), bei denen $categoryId (anders als bei
+     * der Medienliste) immer die eine, feste Kategorie der Datei ist, kein
+     * Filter ueber mehrere Kategorien.
+     */
+    private static function checkMediaPermCascading(?rex_user $user, ?int $categoryId, bool $permittedOnly): ?Response
+    {
+        if (null === $user) {
+            return null;
+        }
+        if ($user->isAdmin()) {
+            return null;
+        }
+        if (!$permittedOnly) {
+            return self::checkMediaPerm($user, $categoryId);
+        }
+        $perm = $user->getComplexPerm('media');
+        if (null !== $categoryId && !self::hasCascadingCategoryPerm($perm, $categoryId)) {
+            return new JsonResponse(['error' => 'Permission denied'], 403);
+        }
+        if (null === $categoryId && !$perm->hasAll()) {
+            return new JsonResponse(['error' => 'Permission denied'], 403);
+        }
+        return null;
     }
 
     /** @api */
@@ -839,7 +869,8 @@ class Media extends RoutePackage
         }
 
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        $permittedOnly = (bool) rex::getRequest()->query->get('permitted_only');
+        $permResponse = self::checkMediaPermCascading($user, $Media->getCategoryId(), $permittedOnly);
         if (null !== $permResponse) {
             return $permResponse;
         }
@@ -867,7 +898,8 @@ class Media extends RoutePackage
         }
 
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        $permittedOnly = (bool) rex::getRequest()->query->get('permitted_only');
+        $permResponse = self::checkMediaPermCascading($user, $Media->getCategoryId(), $permittedOnly);
         if (null !== $permResponse) {
             return $permResponse;
         }
@@ -910,7 +942,8 @@ class Media extends RoutePackage
         }
 
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        $permittedOnly = (bool) rex::getRequest()->query->get('permitted_only');
+        $permResponse = self::checkMediaPermCascading($user, $Media->getCategoryId(), $permittedOnly);
         if (null !== $permResponse) {
             return $permResponse;
         }
@@ -999,7 +1032,12 @@ class Media extends RoutePackage
         }
 
         $user = RouteCollection::getBackendUser($Route);
-        $permResponse = self::checkMediaPerm($user, $Media->getCategoryId());
+        // Aus dem Query-String, nicht aus dem Body: der Body ist je nach
+        // Content-Type multipart (Datei ersetzen) oder JSON (Titel/Kategorie
+        // aendern) -- die Rechtepruefung soll vor der Verzweigung darunter
+        // stehen, ohne beide Formate vorab parsen zu muessen.
+        $permittedOnly = (bool) rex::getRequest()->query->get('permitted_only');
+        $permResponse = self::checkMediaPermCascading($user, $Media->getCategoryId(), $permittedOnly);
         if (null !== $permResponse) {
             return $permResponse;
         }
