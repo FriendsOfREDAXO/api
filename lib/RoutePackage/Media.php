@@ -299,7 +299,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['PUT', 'PATCH']),
-            'Update a media. ?permitted_only=1 checks the current category permission cascading (a granted category also grants its whole subtree) instead of exact-match only -- note this does not (yet) check the new category_id when moving a file to a different category, see FriendsOfREDAXO/api#79.',
+            'Update a media. When changing category_id, both the current and the new category are permission-checked (exact-match by default, or cascading -- a granted category also grants its whole subtree -- with ?permitted_only=1).',
             null,
             new BearerAuth(),
         );
@@ -1091,6 +1091,23 @@ class Media extends RoutePackage
 
             if (null !== $Data['title']) {
                 $serviceData['title'] = $Data['title'];
+            }
+        }
+
+        // Zusaetzlich zum Check auf die AKTUELLE Kategorie (oben) auch die
+        // NEUE Kategorie pruefen, wenn sich category_id tatsaechlich aendert
+        // -- sonst koennte ein User eine Datei aus seinem erlaubten Bereich in
+        // eine Kategorie verschieben, auf die er gar keinen Zugriff hat (oder
+        // umgekehrt). Mirrort damit sogar staerker als der klassische
+        // Medienpool: dessen "Ausgewaehlte verschieben"-Sammelaktion
+        // (mediapool/pages/media.list.php:24, updatecat_selectedmedia) prueft
+        // NUR die Ziel-, nie die Quellkategorie -- hier bleibt zusaetzlich
+        // die bestehende Quell-Pruefung von oben bestehen, das ist bewusst
+        // strenger, kein Sicherheitsrisiko dadurch.
+        if ($serviceData['category_id'] !== $Media->getCategoryId()) {
+            $targetPermResponse = self::checkMediaPermCascading($user, $serviceData['category_id'], $permittedOnly);
+            if (null !== $targetPermResponse) {
+                return $targetPermResponse;
             }
         }
 
