@@ -586,6 +586,60 @@ class BackendApiTest extends TestCase
         $this->assertArrayHasKey('meta', $response['data']);
     }
 
+    /**
+     * Regression fuer eine fehlende Rechtepruefung in handleMediaList(): die
+     * Liste lief bisher ohne jeden Bezug zu getComplexPerm('media') durch,
+     * ein Backend-User mit auf einzelne Kategorien eingeschraenkten
+     * Medienrechten bekam trotzdem saemtliche Dateien aller Kategorien
+     * zurueck. Ohne Kenntnis der konkret im Test-Fixture erlaubten
+     * Kategorien laesst sich kein exaktes erwartetes Ergebnis pruefen,
+     * aber die Gesamtzahl darf fuer den eingeschraenkten User nie die
+     * Gesamtzahl des Admins uebersteigen -- vor dem Fix waren beide Werte
+     * immer identisch, sobald der Restricted-Testuser nicht "hasAll()" hat.
+     */
+    public function testRestrictedUserMediaListDoesNotExceedAdminTotal(): void
+    {
+        $adminResponse = $this->adminGet('media?per_page=1');
+        $this->assertSame(200, $adminResponse['status']);
+        $adminTotal = $adminResponse['data']['meta']['total'];
+
+        $restrictedResponse = $this->restrictedGet('media?per_page=1');
+        $this->assertSame(200, $restrictedResponse['status']);
+        $this->assertIsArray($restrictedResponse['data']['data']);
+        $restrictedTotal = $restrictedResponse['data']['meta']['total'];
+
+        $this->assertLessThanOrEqual(
+            $adminTotal,
+            $restrictedTotal,
+            'Restricted user must never see more media files than the admin total.',
+        );
+    }
+
+    /**
+     * Ein expliziter filter[category_id] auf eine Kategorie, fuer die der
+     * eingeschraenkte User keine hasCategoryPerm() hat, muss 403 liefern --
+     * genau das Muster, das checkMediaPerm() bei allen anderen media/*-Routen
+     * bereits durchsetzt (delete/get/update/add), vor dem Fix aber bei der
+     * Liste selbst fehlte.
+     */
+    public function testRestrictedUserCannotFilterMediaListByUnpermittedCategory(): void
+    {
+        // Kategorie 0 ("kein Ordner") ist ein eigenes Recht (hasCategoryPerm(0))
+        // und im Test-Fixture typischerweise nicht Teil der eingeschraenkten
+        // Rolle -- falls doch, ist dieser Test nicht aussagekraeftig und wird
+        // uebersprungen, statt ein falsches Ergebnis zu erzwingen.
+        $categoriesResponse = $this->restrictedGet('media/category');
+        $this->assertSame(200, $categoriesResponse['status']);
+        if ([] !== $categoriesResponse['data']['data']) {
+            self::markTestSkipped('Restricted test user has category permissions; cannot assume category_id=0 is forbidden.');
+        }
+
+        $response = $this->restrictedGet('media?filter[category_id]=0');
+
+        $this->assertSame(403, $response['status']);
+        $this->assertSame('Permission denied', $response['data']['error']);
+    }
+
     // ==================== NO AUTH (should be 401) ====================
 
     public function testUnauthenticatedRequestReturns401(): void

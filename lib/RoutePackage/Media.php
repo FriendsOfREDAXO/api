@@ -587,6 +587,34 @@ class Media extends RoutePackage
         $SqlQueryWhere = [];
         $SqlParameters = [];
 
+        // Backend-Session-User mit eingeschraenkten Medienkategorie-Rechten duerfen
+        // nur ihre erlaubten Kategorien sehen -- spiegelt rex_media_perm::hasCategoryPerm(),
+        // wie es der klassische Medienpool durchsetzt (mediapool/pages/media.list.php).
+        // Bearer-Token-Aufrufe (kein Backend-User) bleiben unveraendert: dort gelten
+        // Token-Scopes statt User-Rechten, siehe checkMediaPerm().
+        $user = RouteCollection::getBackendUser($Route);
+        if (null !== $user && !$user->isAdmin()) {
+            $perm = $user->getComplexPerm('media');
+            if (!$perm->hasAll()) {
+                // Kein oeffentlicher Getter fuer die erlaubte Kategorieliste auf
+                // rex_complex_perm -- Kategorien einzeln pruefen, exakt das Muster
+                // aus mediapool/lib/media_category_select.php.
+                $allCategoryIds = array_map('intval', array_column(
+                    rex_sql::factory()->getArray('SELECT id FROM ' . rex::getTable('media_category')),
+                    'id',
+                ));
+                $allCategoryIds[] = 0; // "Kein Ordner" ist ein eigenes Recht, siehe hasCategoryPerm(0)
+                $allowedCategoryIds = array_values(array_filter(
+                    $allCategoryIds,
+                    static fn (int $id): bool => $perm->hasCategoryPerm($id),
+                ));
+
+                $SqlQueryWhere[':perm_category'] = [] === $allowedCategoryIds
+                    ? '1 = 0'
+                    : 'category_id IN (' . rex_sql::factory()->in($allowedCategoryIds) . ')';
+            }
+        }
+
         if (null !== $Query['filter']['category_id']) {
             $categoryId = (int) $Query['filter']['category_id'];
             if ($categoryId > 0) {
@@ -595,6 +623,12 @@ class Media extends RoutePackage
                     return new JsonResponse(['error' => 'Category not found'], 404);
                 }
             }
+
+            $permResponse = self::checkMediaPerm($user, $categoryId);
+            if (null !== $permResponse) {
+                return $permResponse;
+            }
+
             $SqlQueryWhere[':category_id'] = 'category_id = :category_id';
             $SqlParameters[':category_id'] = $categoryId;
         }

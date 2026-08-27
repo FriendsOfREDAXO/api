@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 1.3.1 – 27.08.2026
+---------------------------
+
+### Sicherheit
+
+* `handleMediaList()` (Route `media`, gespiegelt als `backend/media`) prüfte bislang keinerlei Medienrechte — ein Backend-User mit auf einzelne Kategorien eingeschränkten Medienrechten (`getComplexPerm('media')`, ohne `hasAll()`) bekam über die Liste trotzdem sämtliche Dateien aller Kategorien zurück, während Einzeloperationen (`handleDeleteMedia`, `handleGetMedia`, `handleAddMedia`, `handleUpdateMedia`, …) über `checkMediaPerm()` bereits korrekt abgesichert waren. Betrifft nur die Backend-Session-Route (`Auth::BackendUser`) mit eingeschränkten Nutzerrechten; Bearer-Token-Aufrufe sind über Scopes abgesichert und bleiben unverändert. Die Liste filtert jetzt serverseitig auf die dem User erlaubten Kategorien (inkl. Kategorie `0`, "kein Ordner"), ein expliziter `filter[category_id]` auf eine nicht erlaubte Kategorie liefert `403` wie bei den anderen Routen.
+
 Version 1.3 – 25.08.2026
 ------------------------
 
