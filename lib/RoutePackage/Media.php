@@ -120,6 +120,18 @@ class Media extends RoutePackage
                                     'required' => false,
                                     'default' => null,
                                 ],
+                                // Opt-in, Default aus -- siehe Kommentar in
+                                // handleMediaList(). Schaltet die Ergebnisse
+                                // (und einen expliziten category_id-Filter) auf
+                                // die Medienkategorie-Rechte des Backend-Users
+                                // um, statt wie der klassische Medienpool jedem
+                                // Basis-Medienrecht Leserecht auf alle Kategorien
+                                // zu geben.
+                                'permitted_only' => [
+                                    'type' => 'integer',
+                                    'required' => false,
+                                    'default' => 0,
+                                ],
                             ],
                             'type' => 'array',
                             'required' => true,
@@ -147,7 +159,7 @@ class Media extends RoutePackage
                 '',
                 [],
                 ['GET']),
-            'Access to list of media. filter[term] searches filename and title (supports "quoted phrases" and type:jpg,png), filter[category_id_path] includes subcategories.',
+            'Access to list of media. filter[term] searches filename and title (supports "quoted phrases" and type:jpg,png), filter[category_id_path] includes subcategories. filter[permitted_only]=1 restricts results (and an explicit filter[category_id]) to the requesting backend user\'s media category permissions instead of mirroring the classic mediapool\'s default of read access to all categories for any user with base media permission.',
             null,
             new BearerAuth(),
         );
@@ -587,13 +599,20 @@ class Media extends RoutePackage
         $SqlQueryWhere = [];
         $SqlParameters = [];
 
-        // Backend-Session-User mit eingeschraenkten Medienkategorie-Rechten duerfen
-        // nur ihre erlaubten Kategorien sehen -- spiegelt rex_media_perm::hasCategoryPerm(),
-        // wie es der klassische Medienpool durchsetzt (mediapool/pages/media.list.php).
-        // Bearer-Token-Aufrufe (kein Backend-User) bleiben unveraendert: dort gelten
-        // Token-Scopes statt User-Rechten, siehe checkMediaPerm().
+        // Der klassische Medienpool (mediapool/pages/media.list.php) reicht
+        // $rexFileCategory ungeprueft an rex_media_service::getList() durch --
+        // JEDER Backend-User mit Basis-Medienrecht hat dort Leserecht auf ALLE
+        // Kategorien, nur Schreibaktionen (verschieben/loeschen) pruefen
+        // hasCategoryPerm(). Per Default spiegelt diese Liste also exakt dieses
+        // (bewusst weite) Core-Verhalten, um bestehende Aufrufer nicht zu
+        // brechen. filter[permitted_only]=1 ist ein expliziter Opt-in fuer
+        // Aufrufer, die strenger filtern wollen als der Core (z.B. das
+        // MediaPlace-Addon) -- erst dann greift die Kategorie-Rechtepruefung
+        // unten ueberhaupt.
         $user = RouteCollection::getBackendUser($Route);
-        if (null !== $user && !$user->isAdmin()) {
+        $permittedOnly = (bool) $Query['filter']['permitted_only'];
+
+        if ($permittedOnly && null !== $user && !$user->isAdmin()) {
             $perm = $user->getComplexPerm('media');
             if (!$perm->hasAll()) {
                 // Kein oeffentlicher Getter fuer die erlaubte Kategorieliste auf
@@ -624,9 +643,11 @@ class Media extends RoutePackage
                 }
             }
 
-            $permResponse = self::checkMediaPerm($user, $categoryId);
-            if (null !== $permResponse) {
-                return $permResponse;
+            if ($permittedOnly) {
+                $permResponse = self::checkMediaPerm($user, $categoryId);
+                if (null !== $permResponse) {
+                    return $permResponse;
+                }
             }
 
             $SqlQueryWhere[':category_id'] = 'category_id = :category_id';

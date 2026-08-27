@@ -4,9 +4,10 @@ Changelog
 Version 1.3.1 – 27.08.2026
 ---------------------------
 
-### Sicherheit
+### Neu
 
-* `handleMediaList()` (Route `media`, gespiegelt als `backend/media`) prüfte bislang keinerlei Medienrechte — ein Backend-User mit auf einzelne Kategorien eingeschränkten Medienrechten (`getComplexPerm('media')`, ohne `hasAll()`) bekam über die Liste trotzdem sämtliche Dateien aller Kategorien zurück, während Einzeloperationen (`handleDeleteMedia`, `handleGetMedia`, `handleAddMedia`, `handleUpdateMedia`, …) über `checkMediaPerm()` bereits korrekt abgesichert waren. Betrifft nur die Backend-Session-Route (`Auth::BackendUser`) mit eingeschränkten Nutzerrechten; Bearer-Token-Aufrufe sind über Scopes abgesichert und bleiben unverändert. Die Liste filtert jetzt serverseitig auf die dem User erlaubten Kategorien (inkl. Kategorie `0`, "kein Ordner"), ein expliziter `filter[category_id]` auf eine nicht erlaubte Kategorie liefert `403` wie bei den anderen Routen.
+* `handleMediaList()` (Route `media`, gespiegelt als `backend/media`) unterstützt jetzt `filter[permitted_only]=1`: schaltet die Ergebnisliste (und einen expliziten `filter[category_id]`) auf die Medienkategorie-Rechte des anfragenden Backend-Users um (`getComplexPerm('media')`, inkl. Kategorie `0`, "kein Ordner"), statt wie bisher jedem User mit Basis-Medienrecht Leserecht auf alle Kategorien zu geben. Ein `filter[category_id]` auf eine nicht erlaubte Kategorie liefert dann `403`, wie es `checkMediaPerm()` bei den übrigen Routen dieser Datei bereits durchsetzt.
+* **Bewusst ein Opt-in, kein neues Default-Verhalten:** Der klassische Medienpool (`mediapool/pages/media.list.php`) reicht die gewählte Kategorie ungeprüft an `rex_media_service::getList()` durch — jeder Backend-User mit Basis-Medienrecht hat dort traditionell Leserecht auf alle Kategorien, nur Schreibaktionen (verschieben/löschen) prüfen die Kategorie-Rechte. Diese Route spiegelt das per Default weiterhin exakt, um bestehende Aufrufer nicht zu brechen; die strengere Filterung ist für Aufrufer gedacht, die das bewusst enger handhaben wollen als der Core (z. B. das MediaPlace-Addon). Bearer-Token-Aufrufe sind unverändert: dort gelten Scopes statt User-Rechten.
 
 Version 1.3 – 25.08.2026
 ------------------------

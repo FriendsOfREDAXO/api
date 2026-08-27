@@ -587,17 +587,14 @@ class BackendApiTest extends TestCase
     }
 
     /**
-     * Regression fuer eine fehlende Rechtepruefung in handleMediaList(): die
-     * Liste lief bisher ohne jeden Bezug zu getComplexPerm('media') durch,
-     * ein Backend-User mit auf einzelne Kategorien eingeschraenkten
-     * Medienrechten bekam trotzdem saemtliche Dateien aller Kategorien
-     * zurueck. Ohne Kenntnis der konkret im Test-Fixture erlaubten
-     * Kategorien laesst sich kein exaktes erwartetes Ergebnis pruefen,
-     * aber die Gesamtzahl darf fuer den eingeschraenkten User nie die
-     * Gesamtzahl des Admins uebersteigen -- vor dem Fix waren beide Werte
-     * immer identisch, sobald der Restricted-Testuser nicht "hasAll()" hat.
+     * Default-Verhalten (kein filter[permitted_only]) spiegelt bewusst den
+     * klassischen Medienpool (mediapool/pages/media.list.php): $rexFileCategory
+     * geht dort ungeprueft an rex_media_service::getList(), jeder Backend-User
+     * mit Basis-Medienrecht hat Leserecht auf ALLE Kategorien, nur
+     * Schreibaktionen pruefen hasCategoryPerm(). Restricted und Admin muessen
+     * also dieselbe Gesamtzahl sehen, solange permitted_only nicht gesetzt ist.
      */
-    public function testRestrictedUserMediaListDoesNotExceedAdminTotal(): void
+    public function testRestrictedUserMediaListDefaultMirrorsClassicBroadReadAccess(): void
     {
         $adminResponse = $this->adminGet('media?per_page=1');
         $this->assertSame(200, $adminResponse['status']);
@@ -606,23 +603,71 @@ class BackendApiTest extends TestCase
         $restrictedResponse = $this->restrictedGet('media?per_page=1');
         $this->assertSame(200, $restrictedResponse['status']);
         $this->assertIsArray($restrictedResponse['data']['data']);
+
+        $this->assertSame(
+            $adminTotal,
+            $restrictedResponse['data']['meta']['total'],
+            'Without filter[permitted_only], a restricted user must see the same total as admin, matching the classic mediapool default.',
+        );
+    }
+
+    /**
+     * Ohne filter[permitted_only] darf ein expliziter filter[category_id] auf
+     * eine dem eingeschraenkten User nicht erlaubte Kategorie NICHT mit 403
+     * abgelehnt werden -- der klassische Medienpool prueft das an dieser
+     * Stelle ebenfalls nicht (siehe Test oben), nur checkMediaPerm() bei den
+     * Schreib-Routen tut das.
+     */
+    public function testRestrictedUserCanFilterMediaListByUnpermittedCategoryByDefault(): void
+    {
+        $categoriesResponse = $this->restrictedGet('media/category');
+        $this->assertSame(200, $categoriesResponse['status']);
+        if ([] !== $categoriesResponse['data']['data']) {
+            self::markTestSkipped('Restricted test user has category permissions; cannot assume category_id=0 is forbidden.');
+        }
+
+        $response = $this->restrictedGet('media?filter[category_id]=0');
+
+        $this->assertSame(200, $response['status']);
+    }
+
+    /**
+     * Regression fuer eine fehlende Rechtepruefung in handleMediaList() bei
+     * explizitem Opt-in (filter[permitted_only]=1): ohne dieses Flag lief die
+     * Liste ohne jeden Bezug zu getComplexPerm('media') durch, ein
+     * Backend-User mit auf einzelne Kategorien eingeschraenkten Medienrechten
+     * bekam trotzdem saemtliche Dateien aller Kategorien zurueck. Ohne
+     * Kenntnis der konkret im Test-Fixture erlaubten Kategorien laesst sich
+     * kein exaktes erwartetes Ergebnis pruefen, aber die Gesamtzahl darf fuer
+     * den eingeschraenkten User mit permitted_only=1 nie die Gesamtzahl des
+     * Admins uebersteigen.
+     */
+    public function testRestrictedUserMediaListPermittedOnlyDoesNotExceedAdminTotal(): void
+    {
+        $adminResponse = $this->adminGet('media?per_page=1');
+        $this->assertSame(200, $adminResponse['status']);
+        $adminTotal = $adminResponse['data']['meta']['total'];
+
+        $restrictedResponse = $this->restrictedGet('media?per_page=1&filter[permitted_only]=1');
+        $this->assertSame(200, $restrictedResponse['status']);
+        $this->assertIsArray($restrictedResponse['data']['data']);
         $restrictedTotal = $restrictedResponse['data']['meta']['total'];
 
         $this->assertLessThanOrEqual(
             $adminTotal,
             $restrictedTotal,
-            'Restricted user must never see more media files than the admin total.',
+            'Restricted user with permitted_only=1 must never see more media files than the admin total.',
         );
     }
 
     /**
-     * Ein expliziter filter[category_id] auf eine Kategorie, fuer die der
-     * eingeschraenkte User keine hasCategoryPerm() hat, muss 403 liefern --
-     * genau das Muster, das checkMediaPerm() bei allen anderen media/*-Routen
-     * bereits durchsetzt (delete/get/update/add), vor dem Fix aber bei der
-     * Liste selbst fehlte.
+     * Mit filter[permitted_only]=1 muss ein expliziter filter[category_id]
+     * auf eine Kategorie, fuer die der eingeschraenkte User keine
+     * hasCategoryPerm() hat, 403 liefern -- genau das Muster, das
+     * checkMediaPerm() bei allen anderen media/*-Routen bereits durchsetzt
+     * (delete/get/update/add).
      */
-    public function testRestrictedUserCannotFilterMediaListByUnpermittedCategory(): void
+    public function testRestrictedUserCannotFilterMediaListByUnpermittedCategoryWhenPermittedOnly(): void
     {
         // Kategorie 0 ("kein Ordner") ist ein eigenes Recht (hasCategoryPerm(0))
         // und im Test-Fixture typischerweise nicht Teil der eingeschraenkten
@@ -634,7 +679,7 @@ class BackendApiTest extends TestCase
             self::markTestSkipped('Restricted test user has category permissions; cannot assume category_id=0 is forbidden.');
         }
 
-        $response = $this->restrictedGet('media?filter[category_id]=0');
+        $response = $this->restrictedGet('media?filter[category_id]=0&filter[permitted_only]=1');
 
         $this->assertSame(403, $response['status']);
         $this->assertSame('Permission denied', $response['data']['error']);
