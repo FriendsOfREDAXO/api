@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 1.3.1 – 17.10.2026
+--------------------------
+
+### Neu
+
+* Medien löschen auch über die REST-Form `DELETE /api/media/{filename}` (und `/api/backend/media/{filename}`). Web Application Firewalls wie Imperva/Incapsula blockieren Pfade mit `/delete`; die bisherige Route `media/{filename}/delete` kam dahinter nicht bei REDAXO an. Gleicher Controller und gleicher Token-Scope `media/delete`, bestehende Tokens funktionieren ohne Änderung, die alte Route bleibt. (#84)
+
 Version 1.3 – 25.08.2026
 ------------------------
 

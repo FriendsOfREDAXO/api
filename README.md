@@ -43,6 +43,7 @@ Spalten: **Status** = Endpoint implementiert · **Test** = Bearer-API-Test vorha
 | /api/media/upload/{upload_id}/finalize         | POST      | Chunked Upload abschliessen     | ✅      | ✅    | ✅       | ✅            |
 | /api/media/upload/{upload_id}                  | DELETE    | Chunked Upload abbrechen        | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/update                   | PUT/PATCH | Medium ändern                   | ✅      | ✅    | ✅       | ✅            |
+| /api/media/{filename}                          | DELETE    | Medium löschen (REST-Form, empfohlen) | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/delete                   | DELETE    | Medium löschen                  | ✅      | ✅    | ✅       | ✅            |
 | /api/media/{filename}/file                     | GET       | Mediafile (raw)                 | ✅      | ✅    | ✅       | ✅            |
 | /api/media/category                            | GET       | Mediakategorienliste            | ✅      | ✅    | ✅       | ✅            |
