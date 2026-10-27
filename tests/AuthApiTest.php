@@ -35,6 +35,23 @@ final class AuthApiTest extends ApiTestCase
         $this->assertSame('Route not found', $response['data']['error'] ?? null);
     }
 
+    public function testPathsThatOnlyStartWithThePrefixStayWithTheFrontend(): void
+    {
+        // e.g. a page `/api-docs/`: only `/api` itself and paths below `/api/` belong to the api
+        $url = rtrim((string) self::$config['base_url'], '/') . self::$config['api_prefix'] . '-not-an-api-route-' . uniqid() . '/';
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => self::$config['timeout'],
+            CURLOPT_SSL_VERIFYPEER => self::$config['verify_ssl'],
+            CURLOPT_SSL_VERIFYHOST => self::$config['verify_ssl'] ? 2 : 0,
+        ]);
+        $body = (string) curl_exec($ch);
+
+        $this->assertStringNotContainsString('Route not found', $body);
+    }
+
     public function testWrongMethodReturnsMethodNotAllowed(): void
     {
         // /modules is GET-only: REDAXO 6 modules are PHP classes, so there is nothing to POST.

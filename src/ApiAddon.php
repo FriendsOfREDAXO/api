@@ -19,6 +19,7 @@ use FriendsOfRedaxo\Api\RoutePackage\Users;
 use Override;
 use Redaxo\Core\Addon\Addon;
 use Redaxo\Core\Addon\LoadOrder;
+use Redaxo\Core\Addon\OwnedSchema;
 use Redaxo\Core\Backend\Controller;
 use Redaxo\Core\Backend\MainPage;
 use Redaxo\Core\Backend\Page;
@@ -26,6 +27,7 @@ use Redaxo\Core\Core;
 use Redaxo\Core\Database\Column;
 use Redaxo\Core\Database\Index;
 use Redaxo\Core\Database\Table;
+use Redaxo\Core\Environment;
 use Redaxo\Core\ExtensionPoint\Extension;
 use Redaxo\Core\ExtensionPoint\ExtensionLevel;
 use Redaxo\Core\Security\Permission;
@@ -59,7 +61,7 @@ class ApiAddon extends Addon
         RouteCollection::registerRoutePackage(new BackendTemplates());
         RouteCollection::registerRoutePackage(new BackendUsers());
 
-        if (null !== Core::getConsole()) {
+        if (Environment::Console === Core::getEnvironment()) {
             return;
         }
 
@@ -89,7 +91,7 @@ class ApiAddon extends Addon
     #[Override]
     public function install(): void
     {
-        Table::get(Core::getTable('api_token'))
+        Table::get(Token::TABLE)
             ->ensurePrimaryIdColumn()
             ->ensureColumn(new Column('name', 'varchar(191)', false, ''))
             ->ensureColumn(new Column('token', 'varchar(191)', false, ''))
@@ -100,13 +102,9 @@ class ApiAddon extends Addon
     }
 
     #[Override]
-    public function uninstall(): void
+    public function getOwnedSchema(): OwnedSchema
     {
-        $table = Table::get(Core::getTable('api_token'));
-
-        if ($table->exists()) {
-            $table->drop();
-        }
+        return new OwnedSchema(tables: [Token::TABLE]);
     }
 
     /** @return iterable<Page> */
@@ -117,7 +115,6 @@ class ApiAddon extends Addon
         $main->setRequiredPermissions('api[]');
         $main->setIcon('rex-icon fa-exchange');
         $main->setPath($this->getPath('pages/index.php'));
-        $main->setPjax();
 
         $main->addSubpage(
             new Page('token', $this->i18n('token'))

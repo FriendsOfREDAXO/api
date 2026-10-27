@@ -10,11 +10,8 @@ use FriendsOfRedaxo\Api\RoutePackage;
 use InvalidArgumentException;
 use Override;
 use Redaxo\Core\Core;
-use Redaxo\Core\ExtensionPoint\Extension;
-use Redaxo\Core\ExtensionPoint\ExtensionPoint;
 use Redaxo\Core\Language\Language;
 use Redaxo\Core\Language\LanguageHandler;
-use Redaxo\Core\Language\LanguagePermission;
 use Redaxo\Core\Security\User;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -230,9 +227,9 @@ class Clangs extends RoutePackage
             return true;
         }
 
-        $perm = $user->getComplexPerm('clang');
+        $perm = $user->getComplexPerm('language');
 
-        return $perm instanceof LanguagePermission && $perm->hasPerm($clangId);
+        return $perm->hasPerm($clangId);
     }
 
     /**
@@ -342,26 +339,19 @@ class Clangs extends RoutePackage
         }
 
         try {
-            // Register to the extension point to get the created ID
-            $clangId = null;
-            Extension::register('CLANG_ADDED', static function (ExtensionPoint $ep) use (&$clangId): void {
-                $clangId = $ep->getParam('id');
-            });
-
-            LanguageHandler::addCLang((string) $data['code'], (string) $data['name'], (int) $data['priority'], (bool) $data['status']);
-
-            if (null === $clangId) {
-                return new JsonResponse(['error' => 'Failed to create language'], 500);
+            $values = ['code' => (string) $data['code'], 'name' => (string) $data['name'], 'status' => (bool) $data['status']];
+            // without a priority the language is appended
+            if ((int) $data['priority'] > 0) {
+                $values['priority'] = (int) $data['priority'];
             }
-
-            Language::reset();
+            $language = LanguageHandler::add($values);
 
             return new JsonResponse([
                 'message' => 'Language created',
-                'id' => $clangId,
+                'id' => $language->id,
             ], 201);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -424,19 +414,15 @@ class Clangs extends RoutePackage
         $status = isset($data['status']) ? 1 == $data['status'] : $clang->isOnline();
 
         try {
-            // Update using the handler which takes care of priorities, cache and the CLANG_UPDATED EP
-            if (!LanguageHandler::editCLang($id, $code, $name, $priority, $status)) {
-                return new JsonResponse(['error' => 'Failed to update language'], 500);
-            }
-
-            Language::reset();
+            // the handler takes care of priorities, cache and the LanguageUpdated extension point
+            LanguageHandler::edit($id, ['code' => $code, 'name' => $name, 'priority' => $priority, 'status' => $status]);
 
             return new JsonResponse([
                 'message' => 'Language updated',
                 'id' => $id,
             ], 200);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -463,15 +449,14 @@ class Clangs extends RoutePackage
         }
 
         try {
-            LanguageHandler::deleteCLang($id);
-            Language::reset();
+            LanguageHandler::delete($id);
 
             return new JsonResponse([
                 'message' => 'Language deleted',
                 'id' => $id,
             ], 200);
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 

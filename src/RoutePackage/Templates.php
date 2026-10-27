@@ -169,15 +169,15 @@ class Templates extends RoutePackage
         $sections = [];
         foreach ($template->getContentSections() as $section) {
             $allowedModules = [];
-            foreach (Module::getAll() as $module) {
+            foreach (Module::getAll() as $key => $module) {
                 if ($template->isModuleAllowed($section, $module)) {
-                    $allowedModules[] = $module->key;
+                    $allowedModules[] = $key;
                 }
             }
 
             $sections[] = [
-                // "ctype_id" is the name the slice endpoints use for this, mirroring rex_article_slice.ctype_id
-                'ctype_id' => $section->id,
+                // the name the slice endpoints use for it, mirroring rex_article_slice.content_section_id
+                'content_section_id' => $section->id,
                 'name' => I18n::translate($section->name, false),
                 'allowed_modules' => $allowedModules,
             ];

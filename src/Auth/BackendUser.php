@@ -5,7 +5,6 @@ namespace FriendsOfRedaxo\Api\Auth;
 use FriendsOfRedaxo\Api\Auth;
 use Override;
 use Redaxo\Core\Security\BackendLogin;
-use Redaxo\Core\Security\Login;
 use Redaxo\Core\Security\User;
 
 class BackendUser extends Auth
@@ -15,14 +14,7 @@ class BackendUser extends Auth
     #[Override]
     public function isAuthorized(array $parameters): bool
     {
-        Login::startSession();
-
-        $login = new BackendLogin();
-
-        if ($login->checkLogin()) {
-            $user = $login->getUser();
-            $this->user = $user instanceof User ? $user : null;
-        }
+        $this->user = BackendLogin::createUser();
 
         return null !== $this->user;
     }

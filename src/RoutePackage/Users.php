@@ -17,6 +17,7 @@ use Redaxo\Core\Database\Sql;
 use Redaxo\Core\ExtensionPoint\Extension;
 use Redaxo\Core\ExtensionPoint\ExtensionPoint;
 use Redaxo\Core\Security\User;
+use Redaxo\Core\Security\UserRole;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
@@ -461,7 +462,7 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(json_encode(UserService::getUser((int) $parameter['id']), JSON_PRETTY_PRINT), 200, [], true);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 404);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 404);
         }
     }
 
@@ -505,9 +506,9 @@ class Users extends RoutePackage
 
             return new JsonResponse($result, 201);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 400));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 400));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -549,9 +550,9 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(UserService::updateUser((int) $parameter['id'], $updateData), 200);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 400));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 400));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -571,9 +572,9 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(UserService::deleteUser((int) $parameter['id'], $currentUser?->id), 200);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 409));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 409));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -600,7 +601,7 @@ class Users extends RoutePackage
         if (count($roleIds) > 0) {
             $placeholders = implode(',', array_fill(0, count($roleIds), '?'));
             $rows = Sql::factory()->getArray(
-                'SELECT id, name, description FROM ' . Core::getTable('user_role') . ' WHERE id IN (' . $placeholders . ') ORDER BY id',
+                'SELECT id, name, description FROM ' . Core::TABLE_PREFIX . 'user_role WHERE id IN (' . $placeholders . ') ORDER BY id',
                 $roleIds,
             );
             $roles = array_map(static fn (array $r): array => [
@@ -636,7 +637,7 @@ class Users extends RoutePackage
             return new JsonResponse(['error' => 'User not found'], 404);
         }
 
-        $roleRows = Sql::factory()->getArray('SELECT id FROM ' . Core::getTable('user_role') . ' WHERE id = :id', [':id' => $roleId]);
+        $roleRows = Sql::factory()->getArray('SELECT id FROM ' . Core::TABLE_PREFIX . 'user_role WHERE id = :id', [':id' => $roleId]);
         if (0 === count($roleRows)) {
             return new JsonResponse(['error' => 'Role not found'], 404);
         }
@@ -746,7 +747,7 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(json_encode(UserRoleService::getRole((int) $parameter['id']), JSON_PRETTY_PRINT), 200, [], true);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 404);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 404);
         }
     }
 
@@ -783,9 +784,9 @@ class Users extends RoutePackage
 
             return new JsonResponse($result, 201);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 400));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 400));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -824,9 +825,9 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(UserRoleService::updateRole((int) $parameter['id'], $updateData), 200);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 400));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 400));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -845,9 +846,9 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(UserRoleService::deleteRole((int) $parameter['id']), 200);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 409));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 409));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
     }
 
@@ -878,36 +879,10 @@ class Users extends RoutePackage
         try {
             return new JsonResponse(UserRoleService::duplicateRole((int) $parameter['id'], $newName), 201);
         } catch (ApiFunctionException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], self::statusFromApiException($e, 400));
+            return new JsonResponse(['error' => self::plain($e->getMessage())], self::statusFromApiException($e, 400));
         } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 500);
         }
-    }
-
-    /**
-     * Returns sorted, unique role IDs from a comma-separated `user.role` string.
-     * Empty strings and bogus tokens (non-digits) are dropped.
-     *
-     * @return list<int>
-     */
-    private static function parseRoleIds(string $value): array
-    {
-        if ('' === $value) {
-            return [];
-        }
-
-        $ids = [];
-        foreach (explode(',', $value) as $part) {
-            $part = trim($part);
-            if ('' !== $part && ctype_digit($part)) {
-                $ids[(int) $part] = (int) $part;
-            }
-        }
-
-        $ids = array_values($ids);
-        sort($ids);
-
-        return $ids;
     }
 
     /**
@@ -917,27 +892,22 @@ class Users extends RoutePackage
      */
     private static function loadUserRoleIds(int $userId): ?array
     {
-        $rows = Sql::factory()->getArray('SELECT role FROM ' . Core::getTable('user') . ' WHERE id = :id', [':id' => $userId]);
-
-        if (0 === count($rows)) {
-            return null;
-        }
-
-        return self::parseRoleIds((string) ($rows[0]['role'] ?? ''));
+        return null === User::get($userId) ? null : UserRole::getIdsForUser($userId);
     }
 
     /**
-     * Persists role IDs to `rex_user.role` and mirrors the side effects the backend users page performs
+     * Persists the role IDs of a user and mirrors the side effects the backend users page performs
      * after any user update: clear the user instance cache and fire USER_UPDATED.
      *
      * @param list<int> $roleIds
      */
     private static function storeUserRoleIds(int $userId, array $roleIds): void
     {
+        UserRole::setForUser($userId, $roleIds);
+
         $update = Sql::factory();
-        $update->setTable(Core::getTable('user'));
+        $update->setTable(Core::TABLE_PREFIX . 'user');
         $update->setWhere(['id' => $userId]);
-        $update->setValue('role', implode(',', $roleIds));
         $update->addGlobalUpdateFields(UserService::getCurrentUserLogin());
         $update->update();
 

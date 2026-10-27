@@ -8,6 +8,7 @@ use CURLFile;
 use PHPUnit\Framework\TestCase;
 
 use function count;
+use function in_array;
 use function is_array;
 
 use const CURLINFO_HTTP_CODE;
@@ -412,7 +413,7 @@ abstract class ApiTestCase extends TestCase
     {
         $response = $this->post('structure/categories', [
             'name' => '' !== $name ? $name : $this->generateTestName('category'),
-            'category_id' => $categoryId,
+            'parent_id' => $categoryId,
             'priority' => 1,
             'status' => $status,
         ]);
@@ -442,6 +443,25 @@ abstract class ApiTestCase extends TestCase
         }
 
         return (string) $modules[0]['key'];
+    }
+
+    /**
+     * The key of a free text field (`Text` or `Textarea`) of the module, to write test values into its slices.
+     *
+     * Skips the test if the module has none.
+     */
+    protected function resolveTextFieldKey(string $moduleKey): string
+    {
+        $module = $this->get('modules/' . $moduleKey);
+        $this->assertSuccess($module);
+
+        foreach ($module['data']['fields'] ?? [] as $field) {
+            if (in_array($field['type'], ['Text', 'Textarea'], true) && !isset($field['max_length'])) {
+                return (string) $field['key'];
+            }
+        }
+
+        self::markTestSkipped('The module "' . $moduleKey . '" has no text field.');
     }
 
     /**

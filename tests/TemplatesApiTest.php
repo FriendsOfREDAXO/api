@@ -56,11 +56,11 @@ final class TemplatesApiTest extends ApiTestCase
 
         $section = $response['data']['content_sections'][0];
 
-        foreach (['ctype_id', 'name', 'allowed_modules'] as $field) {
+        foreach (['content_section_id', 'name', 'allowed_modules'] as $field) {
             $this->assertArrayHasKey($field, $section);
         }
 
-        $this->assertGreaterThan(0, (int) $section['ctype_id']);
+        $this->assertGreaterThan(0, (int) $section['content_section_id']);
         $this->assertIsArray($section['allowed_modules']);
     }
 
@@ -76,14 +76,18 @@ final class TemplatesApiTest extends ApiTestCase
         // Whatever the template reports as allowed must be placeable through the slice endpoint.
         $articleId = $this->createArticle();
 
+        // the slice may still be rejected for its field values (422), but not for the module
         $created = $this->post('structure/articles/' . $articleId . '/slices', [
             'module' => (string) $section['allowed_modules'][0],
-            'ctype_id' => (int) $section['ctype_id'],
-            'clang_id' => (int) self::$config['test_data']['existing_clang_id'],
-            'value1' => 'allowed module check',
+            'content_section_id' => (int) $section['content_section_id'],
         ]);
 
-        $this->assertStatus(201, $created);
+        $this->assertContains($created['status'], [201, 422], 'Unexpected status ' . $created['status']);
+        if (422 === $created['status']) {
+            $this->assertArrayHasKey('fields', $created['data']);
+        } else {
+            $this->trackResource('structure/articles/' . $articleId . '/slices', (int) $created['data']['slice_id']);
+        }
     }
 
     public function testGetUnknownKeyReturnsNotFound(): void

@@ -112,8 +112,9 @@ class RouteCollection
 
         $request = Core::getRequest();
 
-        // IS REST_API_CALL ?
-        if (!str_starts_with($request->getPathInfo(), '/' . self::$preRoute)) {
+        // only `/api` itself and paths below it, so pages like `/api-docs/` stay with the frontend
+        $path = $request->getPathInfo();
+        if ('/' . self::$preRoute !== $path && !str_starts_with($path, '/' . self::$preRoute . '/')) {
             return;
         }
 
@@ -131,15 +132,14 @@ class RouteCollection
         // CORS headers
         $origin = $request->headers->get('Origin');
         if (null !== $origin && '' !== $origin) {
-            // Allow CORS only for same-origin requests
+            // Allow CORS only for same-origin requests (the host of the request, so every domain of a multi-domain
+            // instance is its own origin)
             $originParts = parse_url($origin);
-            $serverParts = parse_url(Core::getServer());
 
-            if (is_array($originParts) && is_array($serverParts)) {
+            if (is_array($originParts)) {
                 $normalizedOrigin = ($originParts['scheme'] ?? '') . '://' . ($originParts['host'] ?? '') . (isset($originParts['port']) ? ':' . $originParts['port'] : '');
-                $normalizedServer = ($serverParts['scheme'] ?? '') . '://' . ($serverParts['host'] ?? '') . (isset($serverParts['port']) ? ':' . $serverParts['port'] : '');
 
-                if ($normalizedOrigin === $normalizedServer) {
+                if ($normalizedOrigin === $request->getSchemeAndHttpHost()) {
                     RexResponse::setHeader('Access-Control-Allow-Origin', $origin);
                     RexResponse::setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
                     RexResponse::setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Accept');
@@ -279,8 +279,8 @@ class RouteCollection
      *
      * @param array<string, mixed> $request
      * @param array<string, mixed> $definition
-     * @return array<string, mixed>
      * @throws Exception with the offending field name as message
+     * @return array<string, mixed>
      */
     public static function getQuerySet(array $request, array $definition): array
     {

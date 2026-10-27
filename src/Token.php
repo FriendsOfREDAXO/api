@@ -3,7 +3,6 @@
 namespace FriendsOfRedaxo\Api;
 
 use FriendsOfRedaxo\Api\Auth\BearerAuth;
-use FriendsOfRedaxo\Api\Form\TokenForm;
 use Redaxo\Core\Core;
 use Redaxo\Core\Database\Sql;
 
@@ -11,6 +10,8 @@ use function count;
 
 class Token
 {
+    public const string TABLE = Core::TABLE_PREFIX . 'api_token';
+
     private int $id;
     private string $name;
     private bool $status;
@@ -30,14 +31,11 @@ class Token
     /**
      * Scopes granted to this token.
      *
-     * Comma separated is the stored format; pipes are accepted too so a value written by the core form's
-     * multi-select notation still works.
-     *
      * @return list<string>
      */
     public function getScopes(): array
     {
-        return TokenForm::splitPipes($this->scopes);
+        return self::splitScopes($this->scopes);
     }
 
     public function getId(): int
@@ -62,7 +60,7 @@ class Token
 
     public static function get(int $id): ?self
     {
-        $token = Sql::factory()->getArray('select * from ' . Core::getTable('api_token') . ' where id = ? and status = ?', [$id, 1]);
+        $token = Sql::factory()->getArray('select * from ' . self::TABLE . ' where id = ? and status = ?', [$id, 1]);
 
         if (0 === count($token)) {
             return null;
@@ -73,7 +71,7 @@ class Token
 
     public static function getByToken(string $token): ?self
     {
-        $rows = Sql::factory()->getArray('select * from ' . Core::getTable('api_token') . ' where token = ? and status = ?', [$token, 1]);
+        $rows = Sql::factory()->getArray('select * from ' . self::TABLE . ' where token = ? and status = ?', [$token, 1]);
 
         if (0 === count($rows)) {
             return null;
@@ -91,6 +89,19 @@ class Token
         }
 
         return self::getByToken($bearerToken);
+    }
+
+    /**
+     * Splits a stored scope list. Comma separated is the stored format; pipes are accepted too, as written by the
+     * multi-select notation of the REDAXO 5 core form.
+     *
+     * @return list<string>
+     */
+    public static function splitScopes(string $value): array
+    {
+        $parts = preg_split('/[|,]+/', trim($value, '|, ')) ?: [];
+
+        return array_values(array_filter($parts, static fn (string $part) => '' !== $part));
     }
 
     /**

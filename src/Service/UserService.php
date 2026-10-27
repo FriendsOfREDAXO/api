@@ -9,15 +9,16 @@ use Redaxo\Core\Core;
 use Redaxo\Core\Database\Sql;
 use Redaxo\Core\ExtensionPoint\Extension;
 use Redaxo\Core\ExtensionPoint\ExtensionPoint;
-use Redaxo\Core\Security\BackendPasswordPolicy;
-use Redaxo\Core\Security\Login;
+use Redaxo\Core\Security\BackendLogin;
 use Redaxo\Core\Security\User;
+use Redaxo\Core\Security\UserRole;
 use Redaxo\Core\Security\UserSession;
 use Redaxo\Core\Translation\I18n;
 use Redaxo\Core\Validator\Validator;
 
 use function count;
 use function in_array;
+use function is_array;
 
 /**
  * Service class for user operations.
@@ -28,14 +29,14 @@ use function in_array;
 final class UserService
 {
     /** Columns exposed by the list/get endpoints. */
-    public const array FIELDS = ['id', 'name', 'description', 'login', 'email', 'status', 'admin', 'language', 'startpage', 'theme', 'login_tries', 'createdate', 'createuser', 'updatedate', 'updateuser', 'password_changed', 'password_change_required', 'lasttrydate', 'lastlogin', 'role'];
+    public const array FIELDS = ['id', 'name', 'description', 'login', 'email', 'status', 'admin', 'language', 'startpage', 'theme', 'login_tries', 'createdate', 'createuser', 'updatedate', 'updateuser', 'password_changed', 'password_change_required', 'lasttrydate', 'lastlogin'];
 
     private function __construct() {}
 
     /**
      * @param array{login: string, password: string, name?: string, email?: string, description?: string, admin?: int, status?: int, role?: string, language?: string, startpage?: string, password_change_required?: bool} $data
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function addUser(array $data): array
     {
@@ -48,7 +49,7 @@ final class UserService
         }
 
         $checkSql = Sql::factory();
-        $checkSql->setQuery('SELECT id FROM ' . Core::getTable('user') . ' WHERE login = ?', [$data['login']]);
+        $checkSql->setQuery('SELECT id FROM ' . Core::TABLE_PREFIX . 'user WHERE login = ?', [$data['login']]);
 
         if ($checkSql->getRows() > 0) {
             throw new ApiFunctionException(I18n::msg('user_login_exists'));
@@ -58,15 +59,15 @@ final class UserService
             throw new ApiFunctionException(I18n::msg('invalid_email'));
         }
 
-        $passwordPolicy = BackendPasswordPolicy::factory();
+        $passwordPolicy = BackendLogin::getPasswordPolicy();
         if (true !== $msg = $passwordPolicy->check($data['password'], null)) {
             throw new ApiFunctionException($msg);
         }
 
-        $passwordHash = Login::passwordHash($data['password']);
+        $passwordHash = BackendLogin::passwordHash($data['password']);
 
         $sql = Sql::factory();
-        $sql->setTable(Core::getTable('user'));
+        $sql->setTable(Core::TABLE_PREFIX . 'user');
         $sql->setValue('login', $data['login']);
         $sql->setValue('password', $passwordHash);
         $sql->setValue('name', $data['name'] ?? '');
@@ -74,7 +75,6 @@ final class UserService
         $sql->setValue('description', $data['description'] ?? '');
         $sql->setValue('admin', isset($data['admin']) && 1 === (int) $data['admin'] ? 1 : 0);
         $sql->setValue('status', isset($data['status']) && 1 === (int) $data['status'] ? 1 : 0);
-        $sql->setValue('role', $data['role'] ?? '');
         $sql->setValue('language', $data['language'] ?? '');
         $sql->setValue('startpage', $data['startpage'] ?? '');
         $sql->setValue('password_change_required', isset($data['password_change_required']) && $data['password_change_required'] ? 1 : 0);
@@ -86,6 +86,9 @@ final class UserService
 
         $sql->insert();
         $userId = $sql->getLastId();
+
+        UserRole::setForUser($userId, self::parseRoleIds($data['role'] ?? ''));
+        User::clearInstance($userId);
 
         Extension::dispatch(new ExtensionPoint('USER_ADDED', '', [
             'id' => $userId,
@@ -101,8 +104,8 @@ final class UserService
 
     /**
      * @param array{name?: string, email?: string, description?: string, admin?: int, status?: int, role?: string, language?: string, startpage?: string, password?: string, password_change_required?: bool, login_tries_reset?: bool} $data
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function updateUser(int $userId, array $data): array
     {
@@ -116,19 +119,19 @@ final class UserService
         }
 
         $passwordHash = null;
-        $passwordPolicy = BackendPasswordPolicy::factory();
+        $passwordPolicy = BackendLogin::getPasswordPolicy();
         if (!empty($data['password'])) {
             if (true !== $msg = $passwordPolicy->check($data['password'], $userId)) {
                 throw new ApiFunctionException($msg);
             }
-            $passwordHash = Login::passwordHash($data['password']);
+            $passwordHash = BackendLogin::passwordHash($data['password']);
         }
 
         $sql = Sql::factory();
-        $sql->setTable(Core::getTable('user'));
+        $sql->setTable(Core::TABLE_PREFIX . 'user');
         $sql->setWhere(['id' => $userId]);
 
-        foreach (['name', 'email', 'description', 'role', 'language', 'startpage'] as $column) {
+        foreach (['name', 'email', 'description', 'language', 'startpage'] as $column) {
             if (isset($data[$column])) {
                 $sql->setValue($column, $data[$column]);
             }
@@ -157,6 +160,10 @@ final class UserService
         $sql->addGlobalUpdateFields(self::getCurrentUserLogin());
         $sql->update();
 
+        if (isset($data['role'])) {
+            UserRole::setForUser($userId, self::parseRoleIds($data['role']));
+        }
+
         User::clearInstance($userId);
 
         Extension::dispatch(new ExtensionPoint('USER_UPDATED', '', [
@@ -178,8 +185,8 @@ final class UserService
 
     /**
      * @param int|null $currentUserId The ID of the current user (to prevent self-deletion)
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function deleteUser(int $userId, ?int $currentUserId = null): array
     {
@@ -195,13 +202,13 @@ final class UserService
         // Check if this is the last admin
         if ($user->admin) {
             $adminSql = Sql::factory();
-            $adminSql->setQuery('SELECT COUNT(*) as admin_count FROM ' . Core::getTable('user') . ' WHERE admin = 1 AND status = 1');
+            $adminSql->setQuery('SELECT COUNT(*) as admin_count FROM ' . Core::TABLE_PREFIX . 'user WHERE admin = 1 AND status = 1');
             if ((int) $adminSql->getValue('admin_count') <= 1) {
                 throw new ApiFunctionException(I18n::msg('api_user_admin_delete_notallowed'));
             }
         }
 
-        Sql::factory()->setQuery('DELETE FROM ' . Core::getTable('user') . ' WHERE id = ? LIMIT 1', [$userId]);
+        Sql::factory()->setQuery('DELETE FROM ' . Core::TABLE_PREFIX . 'user WHERE id = ? LIMIT 1', [$userId]);
 
         User::clearInstance($userId);
 
@@ -242,22 +249,24 @@ final class UserService
         $orderBy = in_array($orderBy, self::FIELDS, true) ? $orderBy : 'name';
         $orderDirection = 'DESC' === strtoupper($orderDirection) ? 'DESC' : 'ASC';
 
-        return Sql::factory()->getArray(
-            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::getTable('user')
+        $users = Sql::factory()->getArray(
+            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::TABLE_PREFIX . 'user'
             . (count($sqlWhere) > 0 ? ' WHERE ' . implode(' AND ', $sqlWhere) : '')
             . ' ORDER BY ' . $orderBy . ' ' . $orderDirection,
             $sqlParams,
         );
+
+        return array_map(self::withRoles(...), $users);
     }
 
     /**
-     * @return array<string, mixed>
      * @throws ApiFunctionException
+     * @return array<string, mixed>
      */
     public static function getUser(int $userId): array
     {
         $users = Sql::factory()->getArray(
-            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::getTable('user') . ' WHERE id = ?',
+            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::TABLE_PREFIX . 'user WHERE id = ?',
             [$userId],
         );
 
@@ -265,11 +274,37 @@ final class UserService
             throw new ApiFunctionException(I18n::msg('api_user_not_found'));
         }
 
-        return $users[0];
+        return self::withRoles($users[0]);
+    }
+
+    /**
+     * The roles are assigned in `rex_user_role_assignment`.
+     *
+     * @param array<string, mixed> $user
+     * @return array<string, mixed>
+     */
+    private static function withRoles(array $user): array
+    {
+        $user['roles'] = UserRole::getIdsForUser((int) $user['id']);
+
+        return $user;
+    }
+
+    /**
+     * Role ids as list or comma separated string (the REDAXO 5 format of `rex_user.role`).
+     *
+     * @param string|list<int|string> $roles
+     * @return list<int>
+     */
+    public static function parseRoleIds(string|array $roles): array
+    {
+        $ids = is_array($roles) ? $roles : explode(',', $roles);
+
+        return array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
     }
 
     public static function getCurrentUserLogin(): string
     {
-        return Core::getUser()?->login ?? Core::getEnvironment()->value;
+        return Core::getUser()->login ?? Core::getEnvironment()->value;
     }
 }

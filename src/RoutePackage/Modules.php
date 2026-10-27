@@ -7,10 +7,10 @@ use FriendsOfRedaxo\Api\Auth\BearerAuth;
 use FriendsOfRedaxo\Api\ListHelper;
 use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
+use FriendsOfRedaxo\Api\Service\FormValues;
 use InvalidArgumentException;
 use Override;
 use Redaxo\Core\Content\Module;
-use Redaxo\Core\Content\ModulePermission;
 use Redaxo\Core\Security\User;
 use Redaxo\Core\Translation\I18n;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -104,12 +104,12 @@ class Modules extends RoutePackage
         $user = RouteCollection::getBackendUser($route);
         $modules = [];
 
-        foreach (Module::getAll() as $module) {
-            if (!self::isPermitted($user, $module->key)) {
+        foreach (Module::getAll() as $key => $module) {
+            if (!self::isPermitted($user, $key)) {
                 continue;
             }
 
-            if (null !== $query['filter']['key'] && false === stripos($module->key, (string) $query['filter']['key'])) {
+            if (null !== $query['filter']['key'] && false === stripos($key, (string) $query['filter']['key'])) {
                 continue;
             }
 
@@ -141,17 +141,20 @@ class Modules extends RoutePackage
      */
     public static function handleGetModule(array $parameter, array $route = []): Response
     {
-        $module = Module::get((string) $parameter['key']);
+        $module = Module::getClass((string) $parameter['key']);
 
         if (null === $module) {
             return new JsonResponse(['error' => 'Module not found'], 404);
         }
 
-        if (!self::isPermitted(RouteCollection::getBackendUser($route), $module->key)) {
+        if (!self::isPermitted(RouteCollection::getBackendUser($route), $module::key())) {
             return new JsonResponse(['error' => 'Permission denied'], 403);
         }
 
-        return new JsonResponse(json_encode(self::moduleToArray($module), JSON_PRETTY_PRINT), 200, [], true);
+        // the fields describe the `data` object of the slices of this module
+        $details = self::moduleToArray($module) + ['fields' => FormValues::describeFields($module)];
+
+        return new JsonResponse(json_encode($details, JSON_PRETTY_PRINT), 200, [], true);
     }
 
     private static function isPermitted(?User $user, string $moduleKey): bool
@@ -162,7 +165,7 @@ class Modules extends RoutePackage
 
         $perm = $user->getComplexPerm('modules');
 
-        return $perm instanceof ModulePermission && $perm->hasPerm($moduleKey);
+        return $perm->hasPerm($moduleKey);
     }
 
     /**
@@ -170,18 +173,22 @@ class Modules extends RoutePackage
      *
      * Escaping is off: this goes into a JSON payload, not into HTML.
      */
-    private static function nameOf(Module $module): string
+    /** @param class-string<Module> $module */
+    private static function nameOf(string $module): string
     {
-        return I18n::translate($module->name, false);
+        return I18n::translate($module::name(), false);
     }
 
-    /** @return array<string, string> */
-    private static function moduleToArray(Module $module): array
+    /**
+     * @param class-string<Module> $module
+     * @return array<string, string>
+     */
+    private static function moduleToArray(string $module): array
     {
         return [
-            'key' => $module->key,
+            'key' => $module::key(),
             'name' => self::nameOf($module),
-            'class' => $module::class,
+            'class' => $module,
         ];
     }
 }

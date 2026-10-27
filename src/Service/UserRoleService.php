@@ -27,8 +27,8 @@ final class UserRoleService
 
     /**
      * @param array{name: string, description?: string, perms?: array<string, mixed>} $data
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function addRole(array $data): array
     {
@@ -37,14 +37,14 @@ final class UserRoleService
         }
 
         $checkSql = Sql::factory();
-        $checkSql->setQuery('SELECT id FROM ' . Core::getTable('user_role') . ' WHERE name = ?', [$data['name']]);
+        $checkSql->setQuery('SELECT id FROM ' . Core::TABLE_PREFIX . 'user_role WHERE name = ?', [$data['name']]);
 
         if ($checkSql->getRows() > 0) {
             throw new ApiFunctionException(I18n::msg('api_user_role_name_exists'));
         }
 
         $sql = Sql::factory();
-        $sql->setTable(Core::getTable('user_role'));
+        $sql->setTable(Core::TABLE_PREFIX . 'user_role');
         $sql->setValue('name', $data['name']);
         $sql->setValue('description', $data['description'] ?? '');
         $sql->setValue('perms', json_encode(isset($data['perms']) && is_array($data['perms']) ? $data['perms'] : []));
@@ -61,13 +61,13 @@ final class UserRoleService
 
     /**
      * @param array{name?: string, description?: string, perms?: array<string, mixed>} $data
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function updateRole(int $roleId, array $data): array
     {
         $checkSql = Sql::factory();
-        $checkSql->setQuery('SELECT id FROM ' . Core::getTable('user_role') . ' WHERE id = ?', [$roleId]);
+        $checkSql->setQuery('SELECT id FROM ' . Core::TABLE_PREFIX . 'user_role WHERE id = ?', [$roleId]);
 
         if (0 === $checkSql->getRows()) {
             throw new ApiFunctionException(I18n::msg('api_user_role_not_found'));
@@ -76,7 +76,7 @@ final class UserRoleService
         if (!empty($data['name'])) {
             $nameSql = Sql::factory();
             $nameSql->setQuery(
-                'SELECT id FROM ' . Core::getTable('user_role') . ' WHERE name = ? AND id != ?',
+                'SELECT id FROM ' . Core::TABLE_PREFIX . 'user_role WHERE name = ? AND id != ?',
                 [$data['name'], $roleId],
             );
 
@@ -86,7 +86,7 @@ final class UserRoleService
         }
 
         $sql = Sql::factory();
-        $sql->setTable(Core::getTable('user_role'));
+        $sql->setTable(Core::TABLE_PREFIX . 'user_role');
         $sql->setWhere(['id' => $roleId]);
 
         if (isset($data['name'])) {
@@ -111,13 +111,13 @@ final class UserRoleService
     }
 
     /**
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function deleteRole(int $roleId): array
     {
         $checkSql = Sql::factory();
-        $checkSql->setQuery('SELECT id, name FROM ' . Core::getTable('user_role') . ' WHERE id = ?', [$roleId]);
+        $checkSql->setQuery('SELECT id, name FROM ' . Core::TABLE_PREFIX . 'user_role WHERE id = ?', [$roleId]);
 
         if (0 === $checkSql->getRows()) {
             throw new ApiFunctionException(I18n::msg('api_user_role_not_found'));
@@ -125,7 +125,7 @@ final class UserRoleService
 
         $usageSql = Sql::factory();
         $usageSql->setQuery(
-            'SELECT COUNT(*) as count FROM ' . Core::getTable('user') . ' WHERE FIND_IN_SET(?, role)',
+            'SELECT COUNT(*) as count FROM ' . Core::TABLE_PREFIX . 'user_role_assignment WHERE role_id = ?',
             [$roleId],
         );
 
@@ -133,7 +133,7 @@ final class UserRoleService
             throw new ApiFunctionException(I18n::msg('api_user_role_in_use'));
         }
 
-        Sql::factory()->setQuery('DELETE FROM ' . Core::getTable('user_role') . ' WHERE id = ? LIMIT 1', [$roleId]);
+        Sql::factory()->setQuery('DELETE FROM ' . Core::TABLE_PREFIX . 'user_role WHERE id = ? LIMIT 1', [$roleId]);
 
         return [
             'id' => $roleId,
@@ -159,7 +159,7 @@ final class UserRoleService
         $orderDirection = 'DESC' === strtoupper($orderDirection) ? 'DESC' : 'ASC';
 
         $roles = Sql::factory()->getArray(
-            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::getTable('user_role')
+            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::TABLE_PREFIX . 'user_role'
             . (count($sqlWhere) > 0 ? ' WHERE ' . implode(' AND ', $sqlWhere) : '')
             . ' ORDER BY ' . $orderBy . ' ' . $orderDirection,
             $sqlParams,
@@ -175,13 +175,13 @@ final class UserRoleService
     }
 
     /**
-     * @return array<string, mixed>
      * @throws ApiFunctionException
+     * @return array<string, mixed>
      */
     public static function getRole(int $roleId): array
     {
         $roles = Sql::factory()->getArray(
-            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::getTable('user_role') . ' WHERE id = ?',
+            'SELECT ' . implode(', ', self::FIELDS) . ' FROM ' . Core::TABLE_PREFIX . 'user_role WHERE id = ?',
             [$roleId],
         );
 
@@ -200,8 +200,8 @@ final class UserRoleService
 
     /**
      * @param string|null $newName Optional new name for the duplicated role
-     * @return array{id: int, message: string}
      * @throws ApiFunctionException
+     * @return array{id: int, message: string}
      */
     public static function duplicateRole(int $roleId, ?string $newName = null): array
     {

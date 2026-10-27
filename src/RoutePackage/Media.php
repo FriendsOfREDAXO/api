@@ -9,32 +9,53 @@ use FriendsOfRedaxo\Api\RouteCollection;
 use FriendsOfRedaxo\Api\RoutePackage;
 use InvalidArgumentException;
 use Override;
-use Redaxo\Core\ApiFunction\Exception\ApiFunctionException;
 use Redaxo\Core\Core;
 use Redaxo\Core\Database\Sql;
 use Redaxo\Core\Exception\UserMessageException;
 use Redaxo\Core\Filesystem\Path;
+use Redaxo\Core\Filesystem\Url;
+use Redaxo\Core\Language\Language;
 use Redaxo\Core\MediaPool\Media as PoolMedia;
 use Redaxo\Core\MediaPool\MediaCategory;
 use Redaxo\Core\MediaPool\MediaCategoryHandler;
 use Redaxo\Core\MediaPool\MediaHandler;
 use Redaxo\Core\MediaPool\MediaPool;
-use Redaxo\Core\MediaPool\MediaPoolPermission;
 use Redaxo\Core\Security\User;
+use Symfony\Component\HttpFoundation\File\File as SymfonyFile;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Route;
 use Throwable;
 
+use function array_key_exists;
+use function array_slice;
 use function count;
 use function is_array;
+use function strlen;
 
 use const JSON_PRETTY_PRINT;
 use const UPLOAD_ERR_OK;
 
 class Media extends RoutePackage
 {
-    public const array MEDIA_FIELDS = ['id', 'filename', 'category_id', 'filetype', 'originalname', 'filesize', 'width', 'height', 'title', 'createdate', 'createuser', 'updatedate', 'updateuser'];
+    /** API field => SQL expression of the media list. */
+    private const array MEDIA_COLUMNS = [
+        'id' => 'm.id',
+        'filename' => 'm.filename',
+        'category_id' => 'm.category_id',
+        'filetype' => 'm.filetype',
+        'originalname' => 'm.originalname',
+        'filesize' => 'm.filesize',
+        'width' => 'm.width',
+        'height' => 'm.height',
+        'title' => 't.title',
+        'language_id' => 't.language_id',
+        'createdate' => 'm.createdate',
+        'createuser' => 'm.createuser',
+        'updatedate' => 'm.updatedate',
+        'updateuser' => 'm.updateuser',
+    ];
 
     /** Filenames may contain letters, digits and `-_.@` — same character class as the REDAXO 5 addon. */
     private const string FILENAME_PATTERN = '[a-zA-Z0-9\-\_\.\@]+';
@@ -52,7 +73,8 @@ class Media extends RoutePackage
                     'query' => [
                         'filter' => [
                             'fields' => [
-                                'category_id' => ['type' => 'integer', 'required' => false, 'default' => null],
+                                'category_id' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => '0 for the root level'],
+                                'language_id' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => 'Language of the title, default: the start language'],
                                 'title' => ['type' => 'string', 'required' => false, 'default' => null],
                                 'filename' => ['type' => 'string', 'required' => false, 'default' => null],
                                 'filetype' => ['type' => 'string', 'required' => false, 'default' => null],
@@ -160,7 +182,7 @@ class Media extends RoutePackage
                     'Body' => [
                         'file' => ['type' => 'file', 'required' => true, 'description' => 'The file to upload'],
                         'category_id' => ['type' => 'integer', 'required' => false, 'default' => 0],
-                        'title' => ['type' => 'string', 'required' => false, 'default' => ''],
+                        'title' => ['type' => 'string', 'required' => false, 'default' => '', 'description' => 'Title in all languages'],
                     ],
                 ],
                 [],
@@ -183,8 +205,9 @@ class Media extends RoutePackage
                     '_controller' => self::class . '::handleUpdateMedia',
                     'Body' => [
                         'file' => ['type' => 'file', 'required' => false, 'description' => 'New file (same extension as the original)'],
-                        'category_id' => ['type' => 'integer', 'required' => false, 'default' => null],
+                        'category_id' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => '0 for the root level'],
                         'title' => ['type' => 'string', 'required' => false, 'default' => null],
+                        'language_id' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => 'Language of the title, default: the start language'],
                     ],
                 ],
                 ['filename' => self::FILENAME_PATTERN],
@@ -297,27 +320,30 @@ class Media extends RoutePackage
         );
     }
 
-    /**
-     * @param int|null $categoryId `0`/`null` means the media pool root, which requires the "all
-     *     categories" permission.
-     */
-    private static function checkMediaPerm(?User $user, ?int $categoryId): ?Response
+    /** @param int|null $categoryId `null` (or 0) for the media pool root */
+    private static function hasMediaPerm(?User $user, ?int $categoryId): bool
     {
         if (null === $user || $user->admin) {
-            return null;
+            return true;
         }
 
         $perm = $user->getComplexPerm('media');
 
-        if (!$perm instanceof MediaPoolPermission) {
-            return new JsonResponse(['error' => 'Permission denied'], 403);
+        return $perm->hasCategoryPerm($categoryId ?: null);
+    }
+
+    private static function checkMediaPerm(?User $user, ?int $categoryId): ?Response
+    {
+        return self::hasMediaPerm($user, $categoryId) ? null : new JsonResponse(['error' => 'Permission denied'], 403);
+    }
+
+    private static function isInUse(PoolMedia $media): bool
+    {
+        try {
+            return !MediaPool::findUsages($media)->isEmpty();
+        } catch (Throwable) {
+            return false;
         }
-
-        $allowed = null !== $categoryId && 0 !== $categoryId
-            ? $perm->hasCategoryPerm($categoryId)
-            : $perm->hasAll();
-
-        return $allowed ? null : new JsonResponse(['error' => 'Permission denied'], 403);
     }
 
     /**
@@ -333,8 +359,14 @@ class Media extends RoutePackage
             return new JsonResponse(['error' => 'query field: ' . $e->getMessage() . ' is required'], 400);
         }
 
-        $where = [];
-        $params = [];
+        $user = RouteCollection::getBackendUser($route);
+        $languageId = (int) ($query['filter']['language_id'] ?? 0) ?: Language::getStartId();
+        if (!Language::exists($languageId)) {
+            return new JsonResponse(['error' => 'Language not found'], 404);
+        }
+
+        $where = ['t.language_id = :language_id'];
+        $params = ['language_id' => $languageId];
 
         if (null !== $query['filter']['category_id']) {
             $categoryId = (int) $query['filter']['category_id'];
@@ -343,19 +375,23 @@ class Media extends RoutePackage
                 return new JsonResponse(['error' => 'Category not found'], 404);
             }
 
-            $where[] = 'category_id = :category_id';
-            $params[':category_id'] = $categoryId;
+            if (0 === $categoryId) {
+                $where[] = 'm.category_id IS NULL';
+            } else {
+                $where[] = 'm.category_id = :category_id';
+                $params['category_id'] = $categoryId;
+            }
         }
 
         if (null !== $query['filter']['title'] && '' !== $query['filter']['title']) {
-            $where[] = 'title LIKE :title';
-            $params[':title'] = '%' . $query['filter']['title'] . '%';
+            $where[] = 't.title LIKE :title';
+            $params['title'] = '%' . $query['filter']['title'] . '%';
         }
 
         foreach (['filename', 'filetype'] as $column) {
             if (null !== $query['filter'][$column] && '' !== $query['filter'][$column]) {
-                $where[] = $column . ' = :' . $column;
-                $params[':' . $column] = $query['filter'][$column];
+                $where[] = 'm.' . $column . ' = :' . $column;
+                $params[$column] = $query['filter'][$column];
             }
         }
 
@@ -370,40 +406,48 @@ class Media extends RoutePackage
 
         foreach ($ranges as $key => [$column, $operator]) {
             if (null !== $query['filter'][$key] && '' !== $query['filter'][$key]) {
-                $where[] = $column . ' ' . $operator . ' :' . $key;
-                $params[':' . $key] = $query['filter'][$key];
+                $where[] = 'm.' . $column . ' ' . $operator . ' :' . $key;
+                $params[$key] = $query['filter'][$key];
             }
         }
 
         try {
-            $sortDefs = ListHelper::parseSort($query['sort'] ?? null, ['id', 'filename', 'category_id', 'filetype', 'filesize', 'title', 'createdate', 'updatedate', 'width', 'height'], [['field' => 'filename', 'direction' => 'asc']]);
+            $sortDefs = ListHelper::parseSort($query['sort'] ?? null, array_keys(self::MEDIA_COLUMNS), [['field' => 'filename', 'direction' => 'asc']]);
         } catch (InvalidArgumentException $e) {
             return ListHelper::sortErrorResponse($e);
         }
 
-        $whereClause = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
+        $select = [];
+        foreach (self::MEDIA_COLUMNS as $field => $expression) {
+            $select[] = $expression . ' AS `' . $field . '`';
+        }
 
-        $countResult = Sql::factory()->getArray(
-            'SELECT COUNT(*) as total FROM ' . Core::getTable('media') . ' ' . $whereClause,
+        $rows = Sql::factory()->getArray(
+            'SELECT ' . implode(', ', $select) . '
+            FROM ' . Core::TABLE_PREFIX . 'media m
+            JOIN ' . Core::TABLE_PREFIX . 'media_translation t ON t.media_id = m.id
+            WHERE ' . implode(' AND ', $where) . '
+            ORDER BY ' . ListHelper::buildSqlOrderBy($sortDefs),
             $params,
         );
-        $total = (int) $countResult[0]['total'];
+
+        // rows of categories the backend user may not see are dropped after the query
+        $media = [];
+        foreach ($rows as $row) {
+            if (!self::hasMediaPerm($user, null === $row['category_id'] ? null : (int) $row['category_id'])) {
+                continue;
+            }
+            foreach (['id', 'category_id', 'filesize', 'width', 'height', 'language_id'] as $field) {
+                $row[$field] = null === $row[$field] ? null : (int) $row[$field];
+            }
+            $media[] = $row;
+        }
 
         $perPage = 1 > $query['per_page'] ? 10 : (int) $query['per_page'];
         $page = 1 > $query['page'] ? 1 : (int) $query['page'];
-        $pagination = ListHelper::paginate($page, $perPage, $total);
+        $pagination = ListHelper::paginate($page, $perPage, count($media));
 
-        // LIMIT inlined as integers (Sql binds parameters as strings -> MySQL strict mode rejects them).
-        $media = Sql::factory()->getArray(
-            'SELECT ' . implode(',', self::MEDIA_FIELDS) . '
-            FROM ' . Core::getTable('media') . '
-            ' . $whereClause . '
-            ORDER BY ' . ListHelper::buildSqlOrderBy($sortDefs) . '
-            LIMIT ' . (int) $pagination['offset'] . ', ' . (int) $pagination['limit'],
-            $params,
-        );
-
-        return new JsonResponse(json_encode(ListHelper::wrapResponse($media, $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
+        return new JsonResponse(json_encode(ListHelper::wrapResponse(array_slice($media, $pagination['offset'], $pagination['limit']), $pagination['meta']), JSON_PRETTY_PRINT), 200, [], true);
     }
 
     /**
@@ -413,7 +457,8 @@ class Media extends RoutePackage
      */
     public static function handleGetMedia(array $parameter, array $route = []): Response
     {
-        $media = PoolMedia::get((string) $parameter['filename']);
+        $languageId = (int) Core::getRequest()->query->get('language_id', '0') ?: Language::getStartId();
+        $media = Language::exists($languageId) ? PoolMedia::get((string) $parameter['filename'], $languageId) : null;
 
         if (null === $media) {
             return new JsonResponse(['error' => 'Get specific media - not found'], 404);
@@ -422,12 +467,6 @@ class Media extends RoutePackage
         $permResponse = self::checkMediaPerm(RouteCollection::getBackendUser($route), $media->categoryId);
         if (null !== $permResponse) {
             return $permResponse;
-        }
-
-        try {
-            $isInUse = false !== MediaPool::mediaIsInUse($media->fileName);
-        } catch (Throwable) {
-            $isInUse = false;
         }
 
         return new JsonResponse(json_encode([
@@ -440,12 +479,14 @@ class Media extends RoutePackage
             'width' => $media->width,
             'height' => $media->height,
             'title' => $media->title,
-            'createdate' => $media->createDate,
+            'language_id' => $media->languageId,
+            'url' => Url::absoluteBase('media/' . $media->fileName),
+            'createdate' => date('Y-m-d H:i:s', $media->createDate),
             'createuser' => $media->createUser,
-            'updatedate' => $media->updateDate,
+            'updatedate' => date('Y-m-d H:i:s', $media->updateDate),
             'updateuser' => $media->updateUser,
-            'is_in_use' => $isInUse,
-            'is_image' => str_starts_with($media->type, 'image/'),
+            'is_in_use' => self::isInUse($media),
+            'is_image' => str_starts_with((string) $media->type, 'image/'),
             'file_exists' => $media->fileExists(),
         ], JSON_PRETTY_PRINT), 200, [], true);
     }
@@ -473,7 +514,7 @@ class Media extends RoutePackage
         }
 
         $response = new Response((string) file_get_contents(Path::media($media->fileName)));
-        $response->headers->set('Content-Type', $media->type);
+        $response->headers->set('Content-Type', $media->type ?? 'application/octet-stream');
         $response->headers->set('Content-Disposition', 'inline; filename="' . addcslashes($media->fileName, '"\\') . '"');
 
         return $response;
@@ -486,12 +527,13 @@ class Media extends RoutePackage
      */
     public static function handleAddMedia(array $parameter, array $route = []): Response
     {
-        if (!isset($_FILES['file']) || UPLOAD_ERR_OK !== $_FILES['file']['error']) {
+        $request = Core::getRequest();
+        $file = $request->files->get('file');
+        if (!$file instanceof UploadedFile) {
             return new JsonResponse(['error' => 'No file uploaded or upload error'], 400);
         }
 
-        $request = Core::getRequest();
-        $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0);
+        $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0) ?: null;
         $title = (string) ($request->request->get('title') ?? $request->query->get('title') ?? '');
 
         $permResponse = self::checkMediaPerm(RouteCollection::getBackendUser($route), $categoryId);
@@ -499,34 +541,17 @@ class Media extends RoutePackage
             return $permResponse;
         }
 
-        if (0 !== $categoryId && null === MediaCategory::get($categoryId)) {
+        if (null !== $categoryId && null === MediaCategory::get($categoryId)) {
             return new JsonResponse(['error' => 'Category not found'], 404);
         }
 
         try {
-            $result = MediaHandler::addMedia([
-                'category_id' => $categoryId,
-                'title' => $title,
-                'file' => [
-                    'name' => $_FILES['file']['name'],
-                    'tmp_name' => $_FILES['file']['tmp_name'],
-                    'error' => $_FILES['file']['error'],
-                ],
-            ], true);
-
-            if ($result['ok'] ?? false) {
-                return new JsonResponse([
-                    'message' => 'Media created',
-                    'filename' => $result['filename'],
-                ], 201);
-            }
-
-            return new JsonResponse(['error' => $result['msg'] ?? 'Unknown error'], 400);
-        } catch (ApiFunctionException|UserMessageException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 400);
-        } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            $media = MediaHandler::add(['file' => $file, 'category_id' => $categoryId, 'title' => $title]);
+        } catch (UserMessageException $e) {
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 400);
         }
+
+        return new JsonResponse(['message' => 'Media created', 'filename' => $media->fileName], 201);
     }
 
     /**
@@ -550,10 +575,9 @@ class Media extends RoutePackage
 
         $contentType = (string) (Core::getRequest()->headers->get('Content-Type') ?? '');
 
-        $serviceData = [
-            'title' => $media->title,
-            'category_id' => $media->categoryId,
-        ];
+        $serviceData = [];
+        $languageId = Language::getStartId();
+        $tmpFile = null;
 
         if (str_contains($contentType, 'multipart/form-data')) {
             // Multipart request: file + metadata. PHP only populates $_POST/$_FILES for POST; for PUT and
@@ -564,19 +588,27 @@ class Media extends RoutePackage
                 : self::parseMultipartInput();
 
             if (isset($parsed['fields']['category_id'])) {
-                $categoryId = (int) $parsed['fields']['category_id'];
-                if (0 !== $categoryId && null === MediaCategory::get($categoryId)) {
+                $categoryId = (int) $parsed['fields']['category_id'] ?: null;
+                if (null !== $categoryId && null === MediaCategory::get($categoryId)) {
                     return new JsonResponse(['error' => 'Category not found'], 404);
                 }
                 $serviceData['category_id'] = $categoryId;
             }
 
             if (isset($parsed['fields']['title'])) {
-                $serviceData['title'] = $parsed['fields']['title'];
+                $serviceData['title'] = (string) $parsed['fields']['title'];
             }
 
-            if (isset($parsed['files']['file'])) {
-                $serviceData['file'] = $parsed['files']['file'];
+            if (isset($parsed['fields']['language_id'])) {
+                $languageId = (int) $parsed['fields']['language_id'];
+            }
+
+            $upload = 'POST' === Core::getRequest()->getMethod() ? Core::getRequest()->files->get('file') : null;
+            if ($upload instanceof UploadedFile) {
+                $serviceData['file'] = $upload;
+            } elseif (isset($parsed['files']['file']) && 'POST' !== Core::getRequest()->getMethod()) {
+                $tmpFile = $parsed['files']['file']['tmp_name'];
+                $serviceData['file'] = new SymfonyFile($tmpFile);
             }
         } else {
             // JSON request: metadata only
@@ -593,39 +625,41 @@ class Media extends RoutePackage
             }
 
             if (null !== $data['category_id']) {
-                $categoryId = (int) $data['category_id'];
-                if (0 !== $categoryId && null === MediaCategory::get($categoryId)) {
+                $categoryId = (int) $data['category_id'] ?: null;
+                if (null !== $categoryId && null === MediaCategory::get($categoryId)) {
                     return new JsonResponse(['error' => 'Category not found'], 404);
                 }
                 $serviceData['category_id'] = $categoryId;
             }
 
             if (null !== $data['title']) {
-                $serviceData['title'] = $data['title'];
+                $serviceData['title'] = (string) $data['title'];
             }
+
+            if (null !== $data['language_id']) {
+                $languageId = (int) $data['language_id'];
+            }
+        }
+
+        if (!Language::exists($languageId)) {
+            return new JsonResponse(['error' => 'Language not found'], 404);
+        }
+
+        if (array_key_exists('category_id', $serviceData) && null !== $permResponse = self::checkMediaPerm(RouteCollection::getBackendUser($route), $serviceData['category_id'])) {
+            return $permResponse;
         }
 
         try {
-            $result = MediaHandler::updateMedia($filename, $serviceData);
-
-            if ($result['ok'] ?? false) {
-                return new JsonResponse([
-                    'message' => 'Media updated',
-                    'filename' => $filename,
-                ], 200);
-            }
-
-            return new JsonResponse(['error' => $result['msg'] ?? 'Unknown error'], 400);
-        } catch (ApiFunctionException|UserMessageException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 400);
-        } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            MediaHandler::edit($filename, $languageId, $serviceData);
+        } catch (UserMessageException $e) {
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 400);
         } finally {
-            // Clean up the temp file
-            if (isset($serviceData['file']['tmp_name']) && file_exists($serviceData['file']['tmp_name'])) {
-                @unlink($serviceData['file']['tmp_name']);
+            if (null !== $tmpFile && file_exists($tmpFile)) {
+                @unlink($tmpFile);
             }
         }
+
+        return new JsonResponse(['message' => 'Media updated', 'filename' => $filename], 200);
     }
 
     /**
@@ -647,14 +681,14 @@ class Media extends RoutePackage
             return $permResponse;
         }
 
-        if (false !== MediaPool::mediaIsInUse($filename)) {
+        if (self::isInUse($media)) {
             return new JsonResponse(['error' => 'Media is in use.', 'filename' => $filename], 409);
         }
 
         try {
-            MediaHandler::deleteMedia($media->fileName);
-        } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage(), 'filename' => $filename], 500);
+            MediaHandler::delete($media->fileName);
+        } catch (UserMessageException $e) {
+            return new JsonResponse(['error' => self::plain($e->getMessage()), 'filename' => $filename], 409);
         }
 
         return new JsonResponse(['message' => 'Media deleted', 'filename' => $filename], 200);
@@ -678,9 +712,7 @@ class Media extends RoutePackage
 
         if ($filterCategoryId > 0) {
             // A bearer token is already scoped by the route, so only backend users get filtered further.
-            $permitted = null === $user
-                || $user->admin
-                || ($user->getComplexPerm('media') instanceof MediaPoolPermission && $user->getComplexPerm('media')->hasCategoryPerm($filterCategoryId));
+            $permitted = self::hasMediaPerm($user, $filterCategoryId);
 
             $mediaCategory = $permitted ? MediaCategory::get($filterCategoryId) : null;
 
@@ -692,7 +724,7 @@ class Media extends RoutePackage
         } else {
             $permitted = null === $user
                 || $user->admin
-                || ($user->getComplexPerm('media') instanceof MediaPoolPermission && $user->getComplexPerm('media')->hasAll());
+                || $user->getComplexPerm('media')->hasAll();
 
             $collection = $permitted ? MediaCategory::getRootCategories() : [];
         }
@@ -740,41 +772,24 @@ class Media extends RoutePackage
             return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
-        $parentId = (int) ($data['parent_id'] ?? 0);
+        $parentId = (int) ($data['parent_id'] ?? 0) ?: null;
 
         $permResponse = self::checkMediaPerm(RouteCollection::getBackendUser($route), $parentId);
         if (null !== $permResponse) {
             return $permResponse;
         }
 
-        $parent = null;
-        if (0 !== $parentId) {
-            $parent = MediaCategory::get($parentId);
-            if (null === $parent) {
-                return new JsonResponse(['error' => 'Parent category not found'], 404);
-            }
+        if (null !== $parentId && null === MediaCategory::get($parentId)) {
+            return new JsonResponse(['error' => 'Parent category not found'], 404);
         }
 
-        // Mirrors the media pool structure page: MediaCategoryHandler::addCategory() fires
-        // MEDIA_CATEGORY_ADDED and takes care of cache invalidation.
         try {
-            MediaCategoryHandler::addCategory((string) $data['name'], $parent);
-        } catch (ApiFunctionException|UserMessageException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 400);
-        } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            $category = MediaCategoryHandler::add(['parent_id' => $parentId, 'name' => (string) $data['name']]);
+        } catch (UserMessageException $e) {
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 400);
         }
 
-        // The handler does not return the new id — fetch the most recent one for this parent/name.
-        $rows = Sql::factory()->getArray(
-            'SELECT id FROM ' . Core::getTable('media_category') . ' WHERE parent_id = :p AND name = :n ORDER BY id DESC LIMIT 1',
-            [':p' => $parentId, ':n' => $data['name']],
-        );
-
-        return new JsonResponse([
-            'message' => 'Media category created',
-            'id' => isset($rows[0]['id']) ? (int) $rows[0]['id'] : null,
-        ], 201);
+        return new JsonResponse(['message' => 'Media category created', 'id' => $category->id], 201);
     }
 
     /**
@@ -808,15 +823,11 @@ class Media extends RoutePackage
             return new JsonResponse(['error' => 'Body field: `' . $e->getMessage() . '` is required'], 400);
         }
 
-        // Mirrors the media pool structure page: MediaCategoryHandler::editCategory() takes only the name
-        // and fires MEDIA_CATEGORY_UPDATED. Core does not support parent_id changes there, so neither
-        // does the API.
+        // like the media pool structure page only the name can be changed, core has no move for media categories
         try {
-            MediaCategoryHandler::editCategory($categoryId, ['name' => $data['name']]);
-        } catch (ApiFunctionException|UserMessageException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 400);
-        } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            MediaCategoryHandler::edit($categoryId, ['name' => (string) $data['name']]);
+        } catch (UserMessageException $e) {
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 400);
         }
 
         return new JsonResponse([
@@ -844,15 +855,11 @@ class Media extends RoutePackage
             return $permResponse;
         }
 
-        // Mirrors the media pool structure page: MediaCategoryHandler::deleteCategory() checks for
-        // children/media and the MEDIA_CATEGORY_IS_IN_USE extension point itself, then fires
-        // MEDIA_CATEGORY_DELETED. A UserMessageException means "still in use" -> 409.
+        // the handler refuses a category with children or media, or one that is in use -> 409
         try {
-            MediaCategoryHandler::deleteCategory($categoryId);
-        } catch (ApiFunctionException|UserMessageException $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 409);
-        } catch (Exception $e) {
-            return new JsonResponse(['error' => $e->getMessage()], 500);
+            MediaCategoryHandler::delete($categoryId);
+        } catch (UserMessageException $e) {
+            return new JsonResponse(['error' => self::plain($e->getMessage())], 409);
         }
 
         return new JsonResponse([
