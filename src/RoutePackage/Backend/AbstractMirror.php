@@ -70,7 +70,7 @@ abstract class AbstractMirror extends RoutePackage
                 $registered['description'],
                 $registered['responses'],
                 new BackendUser(),
-                ['backend'],
+                [RouteCollection::backendTag($registered)],
             );
         }
     }

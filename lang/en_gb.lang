@@ -25,12 +25,41 @@ api_token_name_validate = Please enter a name
 api_token_token_validate = Please enter a token
 api_token_token_exists = This token already exists
 api_token_delete_confirm = Really delete this token?
+api_token_expires = Expires
+api_token_expires_at = Expiry date
+api_token_expires_preset_3h = 3 hours
+api_token_expires_preset_1d = 1 day
+api_token_expires_preset_7d = 7 days
+api_token_expires_preset_30d = 30 days
+api_token_expires_preset_90d = 90 days
+api_token_expires_preset_1y = 1 year
+api_token_expires_preset_custom = Custom
+api_token_expires_preset_never = Never
+api_token_expires_at_invalid = Please choose a complete expiry date
+api_token_expires_never = does not expire
+api_token_expired = expired
 
 api_openapi_title = OpenAPI documentation
 api_openapi_description = All registered endpoints are listed here and can be inspected and tested. To use them, a token with the matching scopes has to be created first.
 
 api_openapi_tag_default_description = Endpoints called with a bearer token.
 api_openapi_tag_backend_description = Mirror of the endpoints below /api/backend/, authenticated via the backend session.
+api_openapi_tag_meta_description = Self-description: the endpoints the current token or backend user may use
+api_openapi_tag_media_description = Media files and media categories, including the chunked upload for large files
+api_openapi_tag_structure_description = Articles, categories and slices
+api_openapi_tag_users_description = Users and user roles
+api_openapi_tag_metainfo_description = Metainfo field definitions and their values
+api_openapi_tag_modules_description = Modules and their fields
+api_openapi_tag_templates_description = Templates and their content sections
+api_openapi_tag_system_description = System settings, currently the languages
+api_openapi_tag_backend/media_description = Media via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/structure_description = Structure via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/users_description = User management via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/metainfo_description = Metainfo via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/modules_description = Modules via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/templates_description = Templates via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/system_description = System settings via the backend session, with the permissions of the logged-in user
+api_openapi_tag_backend/meta_description = Self-description via the backend session
 
 # User Service
 api_user_not_found = User not found

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace FriendsOfRedaxo\Api\Tests;
 
-use function count;
-
-/** `media/*` — media pool files and media categories. */
+/**
+ * `media/*` — media pool files and media categories.
+ * @internal
+ */
 final class MediaApiTest extends ApiTestCase
 {
     /** @var list<string> Uploaded filenames, deleted again in tearDown() */
@@ -59,21 +60,21 @@ final class MediaApiTest extends ApiTestCase
 
         $created = $this->post('media/category', ['name' => $name, 'parent_id' => 0]);
         $this->assertStatus(201, $created);
-        $this->assertIsArray($created['data']);
+        self::assertIsArray($created['data']);
 
         $categoryId = (int) $created['data']['id'];
-        $this->assertGreaterThan(0, $categoryId);
+        self::assertGreaterThan(0, $categoryId);
 
         try {
             $categories = $this->assertListResponse($this->get('media/category'));
             $names = array_column($categories, 'name');
-            $this->assertContains($name, $names);
+            self::assertContains($name, $names);
 
             $renamed = $name . '_updated';
             $this->assertSuccess($this->patch('media/category/' . $categoryId, ['name' => $renamed]));
 
             $names = array_column($this->assertListResponse($this->get('media/category')), 'name');
-            $this->assertContains($renamed, $names);
+            self::assertContains($renamed, $names);
         } finally {
             $this->assertSuccess($this->delete('media/category/' . $categoryId));
         }
@@ -100,18 +101,34 @@ final class MediaApiTest extends ApiTestCase
         $this->assertSuccess($info);
 
         foreach (['id', 'category_id', 'filetype', 'filename', 'filesize', 'width', 'height', 'title', 'is_in_use', 'is_image', 'file_exists'] as $field) {
-            $this->assertArrayHasKey($field, $info['data']);
+            self::assertArrayHasKey($field, $info['data']);
         }
 
-        $this->assertTrue($info['data']['is_image']);
-        $this->assertTrue($info['data']['file_exists']);
-        $this->assertFalse($info['data']['is_in_use']);
-        $this->assertSame('image/png', $info['data']['filetype']);
+        self::assertTrue($info['data']['is_image']);
+        self::assertTrue($info['data']['file_exists']);
+        self::assertFalse($info['data']['is_in_use']);
+        self::assertSame('image/png', $info['data']['filetype']);
 
         // The raw file is served as-is, so the response is not JSON.
         $file = $this->get('media/' . $filename . '/file');
         $this->assertSuccess($file);
-        $this->assertStringStartsWith("\x89PNG", (string) ($file['raw'] ?? ''));
+        self::assertStringStartsWith("\x89PNG", (string) ($file['raw'] ?? ''));
+    }
+
+    public function testListCanBeSearchedLikeTheMediaPool(): void
+    {
+        $filename = $this->uploadTestImage();
+        $title = (string) $this->get('media/' . $filename . '/info')['data']['title'];
+        $found = fn (array $filter): array => array_column($this->assertListResponse($this->get('media', ['filter' => $filter, 'per_page' => 1000])), 'filename');
+
+        // the title is searched as well as the file name
+        self::assertContains($filename, $found(['term' => $title]));
+        self::assertContains($filename, $found(['term' => $title . ' type:png']));
+        self::assertNotContains($filename, $found(['term' => $title . ' type:jpg']));
+        self::assertContains($filename, $found(['term' => $title, 'types' => 'gif,png']));
+        self::assertNotContains($filename, $found(['term' => $title, 'types' => 'pdf']));
+        // `%` is no wildcard
+        self::assertSame([], $found(['term' => '%%' . $title]));
     }
 
     public function testMetadataUpdateViaJson(): void
@@ -120,7 +137,7 @@ final class MediaApiTest extends ApiTestCase
         $title = $this->generateTestName('title');
 
         $this->assertSuccess($this->patch('media/' . $filename . '/update', ['title' => $title]));
-        $this->assertSame($title, $this->get('media/' . $filename . '/info')['data']['title'] ?? null);
+        self::assertSame($title, $this->get('media/' . $filename . '/info')['data']['title'] ?? null);
     }
 
     public function testFileReplacementViaMultipartPost(): void
@@ -128,7 +145,7 @@ final class MediaApiTest extends ApiTestCase
         $filename = $this->uploadTestImage(8);
 
         $before = $this->get('media/' . $filename . '/info');
-        $this->assertSame(8, (int) $before['data']['width']);
+        self::assertSame(8, (int) $before['data']['width']);
 
         // Replacing the file itself goes through POST: PHP does not populate $_FILES for PUT/PATCH.
         $replacement = $this->createTempPng(16);
@@ -138,8 +155,8 @@ final class MediaApiTest extends ApiTestCase
         $this->assertSuccess($response);
 
         $after = $this->get('media/' . $filename . '/info');
-        $this->assertSame(16, (int) $after['data']['width'], 'The replaced file should have the new dimensions');
-        $this->assertSame('replaced', $after['data']['title']);
+        self::assertSame(16, (int) $after['data']['width'], 'The replaced file should have the new dimensions');
+        self::assertSame('replaced', $after['data']['title']);
     }
 
     public function testUploadIntoCategory(): void
@@ -150,7 +167,7 @@ final class MediaApiTest extends ApiTestCase
 
         try {
             $filename = $this->uploadTestImage(8, $categoryId);
-            $this->assertSame($categoryId, (int) $this->get('media/' . $filename . '/info')['data']['category_id']);
+            self::assertSame($categoryId, (int) $this->get('media/' . $filename . '/info')['data']['category_id']);
 
             // A category holding files is refused, mirroring the media pool page.
             $this->assertStatus(409, $this->delete('media/category/' . $categoryId));
@@ -185,7 +202,7 @@ final class MediaApiTest extends ApiTestCase
         ], ['file' => $path]);
 
         $this->assertStatus(201, $response, 'Media upload failed');
-        $this->assertIsArray($response['data']);
+        self::assertIsArray($response['data']);
 
         $filename = (string) $response['data']['filename'];
         $this->uploadedFiles[] = $filename;

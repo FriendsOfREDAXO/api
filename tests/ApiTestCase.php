@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 use function count;
 use function in_array;
-use function is_array;
+use function strlen;
 
 use const CURLINFO_HTTP_CODE;
 use const CURLOPT_COOKIEFILE;
@@ -259,6 +259,9 @@ abstract class ApiTestCase extends TestCase
             }
 
             $curlOptions[CURLOPT_POSTFIELDS] = $postData;
+        } elseif (isset($options['body'])) {
+            $curlOptions[CURLOPT_POSTFIELDS] = (string) $options['body'];
+            $headers[] = 'Content-Type: application/octet-stream';
         }
 
         $curlOptions[CURLOPT_HTTPHEADER] = $headers;
@@ -321,28 +324,28 @@ abstract class ApiTestCase extends TestCase
     /** @param TResponse $response */
     protected function assertSuccess(array $response, string $message = ''): void
     {
-        $this->assertTrue($response['success'], $message . $this->describe($response));
+        self::assertTrue($response['success'], $message . $this->describe($response));
     }
 
     /** @param TResponse $response */
     protected function assertStatus(int $expected, array $response, string $message = ''): void
     {
-        $this->assertSame($expected, $response['status'], $message . $this->describe($response));
+        self::assertSame($expected, $response['status'], $message . $this->describe($response));
     }
 
     /** @param TResponse $response */
     protected function assertError(array $response, string $message = ''): void
     {
-        $this->assertFalse($response['success'], $message . $this->describe($response));
-        $this->assertIsArray($response['data'], $message);
-        $this->assertArrayHasKey('error', $response['data'], $message);
+        self::assertFalse($response['success'], $message . $this->describe($response));
+        self::assertIsArray($response['data'], $message);
+        self::assertArrayHasKey('error', $response['data'], $message);
     }
 
     /** @param TResponse $response */
     protected function assertHasField(array $response, string $field, string $message = ''): void
     {
-        $this->assertIsArray($response['data'], $message . $this->describe($response));
-        $this->assertArrayHasKey($field, $response['data'], $message . $this->describe($response));
+        self::assertIsArray($response['data'], $message . $this->describe($response));
+        self::assertArrayHasKey($field, $response['data'], $message . $this->describe($response));
     }
 
     /**
@@ -354,15 +357,15 @@ abstract class ApiTestCase extends TestCase
     protected function assertListResponse(array $response, string $message = ''): array
     {
         $this->assertSuccess($response, $message);
-        $this->assertIsArray($response['data'], $message);
-        $this->assertArrayHasKey('data', $response['data'], $message);
-        $this->assertArrayHasKey('meta', $response['data'], $message);
+        self::assertIsArray($response['data'], $message);
+        self::assertArrayHasKey('data', $response['data'], $message);
+        self::assertArrayHasKey('meta', $response['data'], $message);
 
         foreach (['page', 'per_page', 'total', 'total_pages'] as $key) {
-            $this->assertArrayHasKey($key, $response['data']['meta'], $message);
+            self::assertArrayHasKey($key, $response['data']['meta'], $message);
         }
 
-        $this->assertIsArray($response['data']['data'], $message);
+        self::assertIsArray($response['data']['data'], $message);
 
         return $response['data']['data'];
     }
@@ -400,7 +403,7 @@ abstract class ApiTestCase extends TestCase
         ]);
 
         $this->assertStatus(201, $response, 'Article creation failed');
-        $this->assertIsArray($response['data']);
+        self::assertIsArray($response['data']);
 
         $id = (int) $response['data']['id'];
         $this->trackResource('structure/articles', $id);
@@ -419,7 +422,7 @@ abstract class ApiTestCase extends TestCase
         ]);
 
         $this->assertStatus(201, $response, 'Category creation failed');
-        $this->assertIsArray($response['data']);
+        self::assertIsArray($response['data']);
 
         $id = (int) $response['data']['id'];
         $this->trackResource('structure/categories', $id);

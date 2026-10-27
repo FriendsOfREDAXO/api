@@ -62,10 +62,37 @@ class RouteCollection
             'description' => $description,
             'responses' => $responses,
             'authorization' => $auth,
-            'tags' => 0 === count($tags) ? ['default'] : $tags,
+            'tags' => 0 === count($tags) ? [self::tagFromScope($scope)] : $tags,
         ];
 
         return self::$routes;
+    }
+
+    /**
+     * The group of a route in the OpenAPI document (an accordion in Swagger UI), from its scope.
+     *
+     * The first segment is taken: `media/category/add` gives `media`. The scope itself would be useless as group —
+     * nearly every scope belongs to exactly one endpoint. Routes passing their own tags (also from other addons) keep
+     * them.
+     */
+    public static function tagFromScope(string $scope): string
+    {
+        $segment = explode('/', $scope)[0];
+
+        return '' === $segment ? 'default' : $segment;
+    }
+
+    /**
+     * The group of a backend mirror: `backend/media`, `backend/structure`, …, taken from the mirrored route, so that a
+     * route with its own tag (like `meta` of `/me`) keeps it.
+     *
+     * @param TRoute $sourceRoute
+     */
+    public static function backendTag(array $sourceRoute): string
+    {
+        $tag = $sourceRoute['tags'][0] ?? '';
+
+        return 'backend/' . ('' !== $tag && 'default' !== $tag ? $tag : self::tagFromScope($sourceRoute['scope']));
     }
 
     public static function registerRoutePackage(RoutePackage $routePackage): void

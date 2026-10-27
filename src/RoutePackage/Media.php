@@ -31,11 +31,19 @@ use Throwable;
 use function array_key_exists;
 use function array_slice;
 use function count;
+use function ini_get;
 use function is_array;
 use function strlen;
 
 use const JSON_PRETTY_PRINT;
+use const UPLOAD_ERR_CANT_WRITE;
+use const UPLOAD_ERR_EXTENSION;
+use const UPLOAD_ERR_FORM_SIZE;
+use const UPLOAD_ERR_INI_SIZE;
+use const UPLOAD_ERR_NO_FILE;
+use const UPLOAD_ERR_NO_TMP_DIR;
 use const UPLOAD_ERR_OK;
+use const UPLOAD_ERR_PARTIAL;
 
 class Media extends RoutePackage
 {
@@ -76,6 +84,9 @@ class Media extends RoutePackage
                                 'category_id' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => '0 for the root level'],
                                 'language_id' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => 'Language of the title, default: the start language'],
                                 'title' => ['type' => 'string', 'required' => false, 'default' => null],
+                                'term' => ['type' => 'string', 'required' => false, 'default' => null, 'description' => 'Search in file name and title like the media pool: words are combined, "quotes" group, `type:jpg,png` restricts the extensions'],
+                                'types' => ['type' => 'string', 'required' => false, 'default' => null, 'description' => 'Comma separated file extensions, e.g. `jpg,png`'],
+                                'category_id_path' => ['type' => 'integer', 'required' => false, 'default' => null, 'description' => 'The category and all its subcategories'],
                                 'filename' => ['type' => 'string', 'required' => false, 'default' => null],
                                 'filetype' => ['type' => 'string', 'required' => false, 'default' => null],
                                 'filesize_max' => ['type' => 'integer', 'required' => false, 'default' => null],
@@ -320,6 +331,59 @@ class Media extends RoutePackage
         );
     }
 
+    /**
+     * The error response for a failed upload, or `null` if the file arrived.
+     *
+     * A request over `post_max_size` is discarded by PHP as a whole: no file and no fields, although a body arrived.
+     * Without telling this apart, "no file", "file too large" and "body too large" look the same to a client, which
+     * then cannot know that it has to split the file.
+     */
+    private static function uploadErrorResponse(?UploadedFile $file): ?Response
+    {
+        $limits = [
+            'upload_max_filesize' => self::iniBytes((string) ini_get('upload_max_filesize')),
+            'post_max_size' => self::iniBytes((string) ini_get('post_max_size')),
+        ];
+
+        if (null === $file) {
+            $request = Core::getRequest();
+            $contentLength = (int) $request->server->get('CONTENT_LENGTH', 0);
+            if ($contentLength > 0 && 0 === $request->request->count() && $limits['post_max_size'] > 0 && $contentLength > $limits['post_max_size']) {
+                return new JsonResponse([
+                    'error' => 'Request body too large: the whole request was discarded because it exceeds post_max_size',
+                    'content_length' => $contentLength,
+                    'limits' => $limits,
+                ], 413);
+            }
+
+            return new JsonResponse(['error' => 'No file uploaded'], 400);
+        }
+
+        return match ($file->getError()) {
+            UPLOAD_ERR_OK => null,
+            UPLOAD_ERR_INI_SIZE => new JsonResponse(['error' => 'File too large: exceeds upload_max_filesize', 'limits' => $limits], 413),
+            UPLOAD_ERR_FORM_SIZE => new JsonResponse(['error' => 'File too large: exceeds the MAX_FILE_SIZE given in the request', 'limits' => $limits], 413),
+            UPLOAD_ERR_PARTIAL => new JsonResponse(['error' => 'Upload incomplete: only part of the file was received'], 400),
+            UPLOAD_ERR_NO_FILE => new JsonResponse(['error' => 'No file uploaded'], 400),
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE, UPLOAD_ERR_EXTENSION => new JsonResponse(['error' => 'Upload failed on the server', 'upload_error' => $file->getError()], 500),
+            default => new JsonResponse(['error' => 'Upload error', 'upload_error' => $file->getError()], 400),
+        };
+    }
+
+    /** Converts an ini size like "8M" into bytes. */
+    public static function iniBytes(string $value): int
+    {
+        $value = trim($value);
+        $number = (int) $value;
+
+        return match (strtolower(substr($value, -1))) {
+            'g' => $number * 1024 * 1024 * 1024,
+            'm' => $number * 1024 * 1024,
+            'k' => $number * 1024,
+            default => $number,
+        };
+    }
+
     /** @param int|null $categoryId `null` (or 0) for the media pool root */
     private static function hasMediaPerm(?User $user, ?int $categoryId): bool
     {
@@ -386,6 +450,45 @@ class Media extends RoutePackage
         if (null !== $query['filter']['title'] && '' !== $query['filter']['title']) {
             $where[] = 't.title LIKE :title';
             $params['title'] = '%' . $query['filter']['title'] . '%';
+        }
+
+        // the same semantics as the search of the media pool (MediaHandler::getList())
+        $extension = 'LOWER(RIGHT(m.filename, LOCATE(".", REVERSE(m.filename)) - 1))';
+        $types = [];
+        if (null !== $query['filter']['types'] && '' !== $query['filter']['types']) {
+            $types[] = array_map('trim', explode(',', strtolower((string) $query['filter']['types'])));
+        }
+        if (null !== $query['filter']['term'] && '' !== trim((string) $query['filter']['term'])) {
+            foreach (str_getcsv(trim((string) $query['filter']['term']), ' ', '"', '') as $i => $part) {
+                if (null === $part || '' === $part) {
+                    continue;
+                }
+                if (str_starts_with($part, 'type:') && strlen($part) > 5) {
+                    $types[] = explode(',', strtolower(substr($part, 5)));
+                    continue;
+                }
+                $where[] = '(m.filename LIKE :term_' . $i . ' OR t.title LIKE :term_' . $i . ')';
+                $params['term_' . $i] = '%' . addcslashes($part, '%_\\') . '%';
+            }
+        }
+        foreach ($types as $i => $list) {
+            $placeholders = [];
+            foreach (array_values(array_filter($list, static fn (string $type): bool => '' !== $type)) as $j => $type) {
+                $placeholders[] = ':type_' . $i . '_' . $j;
+                $params['type_' . $i . '_' . $j] = $type;
+            }
+            if ($placeholders) {
+                $where[] = $extension . ' IN (' . implode(', ', $placeholders) . ')';
+            }
+        }
+        if (null !== $query['filter']['category_id_path']) {
+            $pathId = (int) $query['filter']['category_id_path'];
+            if (null === MediaCategory::get($pathId)) {
+                return new JsonResponse(['error' => 'Category not found'], 404);
+            }
+            $where[] = 'm.category_id IN (SELECT id FROM ' . Core::TABLE_PREFIX . 'media_category WHERE id = :path_id OR path LIKE :path_like)';
+            $params['path_id'] = $pathId;
+            $params['path_like'] = '%|' . $pathId . '|%';
         }
 
         foreach (['filename', 'filetype'] as $column) {
@@ -529,9 +632,10 @@ class Media extends RoutePackage
     {
         $request = Core::getRequest();
         $file = $request->files->get('file');
-        if (!$file instanceof UploadedFile) {
-            return new JsonResponse(['error' => 'No file uploaded or upload error'], 400);
+        if (null !== $uploadError = self::uploadErrorResponse($file instanceof UploadedFile ? $file : null)) {
+            return $uploadError;
         }
+        /** @var UploadedFile $file */
 
         $categoryId = (int) ($request->request->get('category_id') ?? $request->query->get('category_id') ?? 0) ?: null;
         $title = (string) ($request->request->get('title') ?? $request->query->get('title') ?? '');
@@ -605,6 +709,9 @@ class Media extends RoutePackage
 
             $upload = 'POST' === Core::getRequest()->getMethod() ? Core::getRequest()->files->get('file') : null;
             if ($upload instanceof UploadedFile) {
+                if (null !== $uploadError = self::uploadErrorResponse($upload)) {
+                    return $uploadError;
+                }
                 $serviceData['file'] = $upload;
             } elseif (isset($parsed['files']['file']) && 'POST' !== Core::getRequest()->getMethod()) {
                 $tmpFile = $parsed['files']['file']['tmp_name'];

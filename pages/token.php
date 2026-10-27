@@ -13,6 +13,7 @@ use Redaxo\Core\Http\Request;
 use Redaxo\Core\Http\Response;
 use Redaxo\Core\Security\CsrfToken;
 use Redaxo\Core\Translation\I18n;
+use Redaxo\Core\Util\Formatter;
 use Redaxo\Core\View\Component\ColumnType;
 use Redaxo\Core\View\Component\Section;
 use Redaxo\Core\View\Component\SectionVariant;
@@ -56,6 +57,10 @@ if ('add' === $func || 'edit' === $func) {
     );
 
     if ($form->handleRequest()) {
+        if (Token::EXPIRY_CUSTOM === $data->expiresPreset && null === $data->expiresAt) {
+            $form->addError($this->i18n('token_expires_at_invalid'), 'expiresAt');
+        }
+
         $exists = Sql::factory()->getArray('SELECT id FROM ' . $table . ' WHERE token = ? AND id <> ?', [$data->token, null !== $row ? $dataId : 0]);
         if ([] !== $exists) {
             $form->addError($this->i18n('token_token_exists'), 'token');
@@ -80,6 +85,8 @@ if ('add' === $func || 'edit' === $func) {
             foreach ($form->getFormErrors() as $error) {
                 echo Message::error((string) Html::from($error));
             }
+            echo $form->row('status'), $form->row('name'), $form->row('token'), $form->row('expiresPreset');
+            echo '<div data-api-token-expires-custom>', $form->row('expiresAt'), '</div>';
             echo $form->rest();
         });
         echo new Section(
@@ -89,6 +96,19 @@ if ('add' === $func || 'edit' === $func) {
             variant: SectionVariant::Edit,
         )->render();
     });
+
+    // the date is only asked for with the preset "custom"
+    echo '
+        <script nonce="' . Response::getNonce() . '">
+            (function () {
+                var preset = document.querySelector(\'[name="api_token[expiresPreset]"]\');
+                var custom = document.querySelector(\'[data-api-token-expires-custom]\');
+                if (!preset || !custom) { return; }
+                function update() { custom.style.display = \'' . Token::EXPIRY_CUSTOM . '\' === preset.value ? \'\' : \'none\'; }
+                preset.addEventListener(\'change\', update);
+                update();
+            })();
+        </script>';
 
     return;
 }
@@ -100,7 +120,8 @@ if ('added' === $info) {
     echo Message::success($this->i18n('token_updated'));
 }
 
-$list = new DataList('SELECT id, status, name, scopes FROM ' . $table . ' ORDER BY name', rowsPerPage: 100);
+// the expiry is judged by the database, like in Token::isExpired()
+$list = new DataList('SELECT id, status, name, scopes, expires_at, (expires_at IS NOT NULL AND expires_at <= now()) AS expired FROM ' . $table . ' ORDER BY name', rowsPerPage: 100);
 $list->addParam('page', 'api/token');
 $list->empty = $this->i18n('token_not_found');
 $editUrl = static fn (array $row): string => $list->getUrl(['func' => 'edit', 'data_id' => $row['id']]);
@@ -121,6 +142,15 @@ $list->column(
         ? Html::raw('<span class="rex-online">' . escape(I18n::msg('api_token_active')) . '</span>')
         : Html::raw('<span class="rex-offline">' . escape(I18n::msg('api_token_inactive')) . '</span>'),
 );
+$list->column('expires_at', $this->i18n('token_expires_at'), static function (array $row): Html {
+    if (null === $row['expires_at']) {
+        return Html::raw('<span class="text-muted">' . escape(I18n::msg('api_token_expires_never')) . '</span>');
+    }
+
+    $formatted = escape(Formatter::intlDateTime((string) $row['expires_at']));
+
+    return Html::raw(1 == $row['expired'] ? '<span class="text-danger">' . $formatted . ' · ' . escape(I18n::msg('api_token_expired')) . '</span>' : $formatted);
+});
 $list->column('scopes', $this->i18n('token_token_scopes'), static function (array $row): Html {
     $scopes = Token::splitScopes((string) $row['scopes']);
 

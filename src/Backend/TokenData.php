@@ -5,6 +5,7 @@ namespace FriendsOfRedaxo\Api\Backend;
 use FriendsOfRedaxo\Api\Token;
 use Redaxo\Core\Form\Field\Checkbox;
 use Redaxo\Core\Form\Field\Choice;
+use Redaxo\Core\Form\Field\DateTimePicker;
 use Redaxo\Core\Form\Field\Text;
 use Redaxo\Core\Translation\Translatable;
 
@@ -27,6 +28,12 @@ final class TokenData
     #[Text(new Translatable('api_token_token'), required: true, maxLength: 191)]
     public string $token = '';
 
+    #[Choice(new Translatable('api_token_expires'), choices: Token::getExpiryChoices(...))]
+    public string $expiresPreset = Token::EXPIRY_NEVER;
+
+    #[DateTimePicker(new Translatable('api_token_expires_at'))]
+    public ?string $expiresAt = null;
+
     /** @var list<string> */
     #[Choice(new Translatable('api_token_token_scopes'), choices: self::scopeChoices(...), multiple: true, note: new Translatable('api_token_scopes_notice'))]
     public array $scopes = [];
@@ -40,6 +47,12 @@ final class TokenData
         $data->token = (string) $row['token'];
         // scopes of routes that no longer exist would make the choice invalid, so they are dropped on edit
         $data->scopes = array_values(array_intersect(Token::splitScopes((string) ($row['scopes'] ?? '')), Token::getAvailableScopes()));
+        $expiresAt = (string) ($row['expires_at'] ?? '');
+        if ('' !== $expiresAt && !str_starts_with($expiresAt, '0000')) {
+            // an existing date is kept as is, a preset would move it
+            $data->expiresPreset = Token::EXPIRY_CUSTOM;
+            $data->expiresAt = $expiresAt;
+        }
 
         return $data;
     }
@@ -52,6 +65,11 @@ final class TokenData
             'name' => $this->name,
             'token' => $this->token,
             'scopes' => implode(',', $this->scopes),
+            'expires_at' => match ($this->expiresPreset) {
+                Token::EXPIRY_CUSTOM => $this->expiresAt,
+                Token::EXPIRY_NEVER => null,
+                default => Token::resolveExpiryDate($this->expiresPreset),
+            },
         ];
     }
 

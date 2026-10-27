@@ -32,6 +32,13 @@ without the matching scope gets a `401`, so tokens can be cut down to exactly wh
 curl -H 'Authorization: Bearer <token>' https://example.org/api/structure/articles
 ```
 
+A token can expire: the token page offers periods from 3 hours to 1 year (each labelled with the point in time it
+leads to), a custom date, or never. An expired token is treated like an unknown one: `401`.
+
+`GET /api/me` needs no scope: it lists the endpoints the calling token (or, under `/api/backend/me`, the backend
+user) may use, with their parameters; `?format=openapi` returns them as an OpenAPI document. In the OpenAPI
+specification every operation names the scope it needs (`x-required-scope`).
+
 `/api/backend/<same path>` needs no token: it authenticates with the backend session cookie and then
 applies the logged-in user's permissions (structure permissions, media categories, module permissions,
 admin flag) the same way the corresponding backend page does.
@@ -42,7 +49,7 @@ admin flag) the same way the corresponding backend page does.
 |---|---|
 | Structure | `structure/articles`, `structure/articles/{id}`, `structure/articles/{id}/move`, `structure/articles/{id}/copy`, `structure/categories`, `structure/categories/{id}`, `structure/categories/{id}/move` |
 | Slices | `structure/articles/{id}/slices`, `structure/articles/{id}/slices/{slice_id}`, `structure/articles/{id}/slices/{slice_id}/move` |
-| Media | `media`, `media/{filename}/info`, `media/{filename}/file`, `media/{filename}/update`, `media/{filename}/delete` |
+| Media | `media`, `media/{filename}/info`, `media/{filename}/file`, `media/{filename}/update`, `media/{filename}/delete`, chunked upload `media/upload` |
 | Media categories | `media/category`, `media/category/{id}` |
 | Languages | `system/clangs`, `system/clangs/{id}` |
 | Users | `users`, `users/{id}`, `users/{id}/role/{role_id}` |
@@ -60,6 +67,20 @@ object:
   "meta": { "page": 1, "per_page": 100, "total": 0, "total_pages": 0 }
 }
 ```
+
+### Media
+
+`media` filters like the search of the media pool: `filter[term]` searches file name and title (words are
+combined, `"quotes"` group, `type:jpg,png` restricts the extensions), `filter[types]` takes extensions,
+`filter[category_id_path]` a category including its subcategories.
+
+Uploads over the PHP limits answer `413` with the limits in effect (`upload_max_filesize`, `post_max_size`).
+Larger files go through the **chunked upload**: `POST media/upload` with `filename` and `size` returns an
+`upload_id` and the maximum chunk size, the chunks are sent to `media/upload/{upload_id}/chunk/{index}` (raw body
+or multipart field `chunk`, zero-based, resending replaces), `GET media/upload/{upload_id}` reports what arrived,
+`POST …/finalize` adds the file through the media pool (same extension and MIME checks and extension points as a
+normal upload) and `DELETE media/upload/{upload_id}` aborts. All steps share the scope `media/upload`; an
+upload belongs to the token that started it, unfinished ones are removed after 24 hours.
 
 ## Differences to the REDAXO 5 addon
 

@@ -6,31 +6,34 @@ namespace FriendsOfRedaxo\Api\Tests;
 
 use function count;
 
-/** `structure/*` — articles, categories and slices. */
+/**
+ * `structure/*` — articles, categories and slices.
+ * @internal
+ */
 final class StructureApiTest extends ApiTestCase
 {
     public function testArticleListReturnsEnvelopeAndFields(): void
     {
         $articles = $this->assertListResponse($this->get('structure/articles'));
 
-        $this->assertNotEmpty($articles);
+        self::assertNotEmpty($articles);
 
         // `template` holds a template *key* in REDAXO 6; there is no template_id anymore.
         foreach (['id', 'name', 'language_id', 'category_id', 'priority', 'is_category', 'status', 'template'] as $field) {
-            $this->assertArrayHasKey($field, $articles[0]);
+            self::assertArrayHasKey($field, $articles[0]);
         }
 
-        $this->assertArrayNotHasKey('template_id', $articles[0]);
-        $this->assertArrayNotHasKey('clang_id', $articles[0]);
+        self::assertArrayNotHasKey('template_id', $articles[0]);
+        self::assertArrayNotHasKey('clang_id', $articles[0]);
     }
 
     public function testArticleListCanBeFilteredToCategoriesOnly(): void
     {
         $categories = $this->assertListResponse($this->get('structure/articles', ['filter' => ['is_category' => 1]]));
 
-        $this->assertNotEmpty($categories);
+        self::assertNotEmpty($categories);
         foreach ($categories as $category) {
-            $this->assertTrue($category['is_category']);
+            self::assertTrue($category['is_category']);
         }
     }
 
@@ -39,7 +42,7 @@ final class StructureApiTest extends ApiTestCase
         $articles = $this->assertListResponse($this->get('structure/articles', ['filter' => ['category_id' => 0]]));
 
         foreach ($articles as $article) {
-            $this->assertNull($article['category_id']);
+            self::assertNull($article['category_id']);
         }
     }
 
@@ -48,9 +51,9 @@ final class StructureApiTest extends ApiTestCase
         $response = $this->get('structure/articles', ['per_page' => 1, 'page' => 1]);
         $rows = $this->assertListResponse($response);
 
-        $this->assertLessThanOrEqual(1, count($rows));
-        $this->assertSame(1, $response['data']['meta']['per_page']);
-        $this->assertSame(1, $response['data']['meta']['page']);
+        self::assertLessThanOrEqual(1, count($rows));
+        self::assertSame(1, $response['data']['meta']['per_page']);
+        self::assertSame(1, $response['data']['meta']['page']);
     }
 
     public function testGetArticleReturnsSameShapeAsList(): void
@@ -59,9 +62,9 @@ final class StructureApiTest extends ApiTestCase
         $response = $this->get('structure/articles/' . $articleId);
 
         $this->assertSuccess($response);
-        $this->assertSame($articleId, $response['data']['id'] ?? null);
-        $this->assertArrayHasKey('template', $response['data']);
-        $this->assertArrayHasKey('language_id', $response['data']);
+        self::assertSame($articleId, $response['data']['id'] ?? null);
+        self::assertArrayHasKey('template', $response['data']);
+        self::assertArrayHasKey('language_id', $response['data']);
     }
 
     public function testGetUnknownArticleReturnsNotFound(): void
@@ -83,15 +86,15 @@ final class StructureApiTest extends ApiTestCase
 
         $fetched = $this->get('structure/articles/' . $articleId);
         $this->assertSuccess($fetched);
-        $this->assertSame($name, $fetched['data']['name'] ?? null);
-        $this->assertFalse($fetched['data']['is_category']);
+        self::assertSame($name, $fetched['data']['name'] ?? null);
+        self::assertFalse($fetched['data']['is_category']);
 
         $renamed = $name . '_updated';
         $this->assertSuccess($this->patch('structure/articles/' . $articleId, ['name' => $renamed, 'status' => 1]));
 
         $updated = $this->get('structure/articles/' . $articleId);
-        $this->assertSame($renamed, $updated['data']['name'] ?? null);
-        $this->assertSame(1, (int) $updated['data']['status']);
+        self::assertSame($renamed, $updated['data']['name'] ?? null);
+        self::assertSame(1, (int) $updated['data']['status']);
     }
 
     public function testUnknownBodyFieldsAreRejected(): void
@@ -102,7 +105,7 @@ final class StructureApiTest extends ApiTestCase
         $response = $this->patch('structure/articles/' . $articleId, ['name' => 'x', 'clang_id' => 1]);
 
         $this->assertStatus(400, $response);
-        $this->assertSame(['clang_id'], $response['data']['fields'] ?? null);
+        self::assertSame(['clang_id'], $response['data']['fields'] ?? null);
     }
 
     public function testCreateArticleWithUnknownTemplateIsRejected(): void
@@ -135,20 +138,20 @@ final class StructureApiTest extends ApiTestCase
 
         $fetched = $this->get('structure/categories/' . $categoryId);
         $this->assertSuccess($fetched);
-        $this->assertSame($name, $fetched['data']['name'] ?? null);
-        $this->assertNull($fetched['data']['parent_id']);
+        self::assertSame($name, $fetched['data']['name'] ?? null);
+        self::assertNull($fetched['data']['parent_id']);
 
         // A category is a start article, so it shows up under structure/articles as well.
         $article = $this->get('structure/articles/' . $categoryId);
         $this->assertSuccess($article);
-        $this->assertTrue($article['data']['is_category']);
+        self::assertTrue($article['data']['is_category']);
 
         $renamed = $name . '_updated';
         $this->assertSuccess($this->patch('structure/categories/' . $categoryId, ['name' => $renamed, 'status' => 1]));
 
         $updated = $this->get('structure/categories/' . $categoryId);
-        $this->assertSame($renamed, $updated['data']['name'] ?? null);
-        $this->assertSame(1, (int) $updated['data']['status']);
+        self::assertSame($renamed, $updated['data']['name'] ?? null);
+        self::assertSame(1, (int) $updated['data']['status']);
     }
 
     public function testCategoryListCanBeFilteredByParent(): void
@@ -158,7 +161,7 @@ final class StructureApiTest extends ApiTestCase
 
         $children = $this->assertListResponse($this->get('structure/categories', ['filter' => ['parent_id' => $parentId]]));
 
-        $this->assertSame([$childId], array_column($children, 'id'));
+        self::assertSame([$childId], array_column($children, 'id'));
     }
 
     public function testCategoryWithContentCannotBeDeleted(): void
@@ -195,7 +198,7 @@ final class StructureApiTest extends ApiTestCase
         $fetched = $this->get('structure/articles/' . $articleId);
 
         $this->assertSuccess($fetched);
-        $this->assertSame($categoryId, (int) $fetched['data']['category_id']);
+        self::assertSame($categoryId, (int) $fetched['data']['category_id']);
     }
 
     public function testArticleCanBeMovedAndCopied(): void
@@ -204,18 +207,18 @@ final class StructureApiTest extends ApiTestCase
         $articleId = $this->createArticle();
 
         $this->assertSuccess($this->post('structure/articles/' . $articleId . '/move', ['category_id' => $categoryId]));
-        $this->assertSame($categoryId, $this->get('structure/articles/' . $articleId)['data']['category_id'] ?? null);
+        self::assertSame($categoryId, $this->get('structure/articles/' . $articleId)['data']['category_id'] ?? null);
 
         $copy = $this->post('structure/articles/' . $articleId . '/copy', ['category_id' => 0]);
         $this->assertStatus(201, $copy);
         $copyId = (int) $copy['data']['id'];
         $this->trackResource('structure/articles', $copyId);
 
-        $this->assertNotSame($articleId, $copyId);
+        self::assertNotSame($articleId, $copyId);
         $copied = $this->get('structure/articles/' . $copyId);
         $this->assertSuccess($copied);
-        $this->assertArrayHasKey('category_id', $copied['data']);
-        $this->assertNull($copied['data']['category_id']);
+        self::assertArrayHasKey('category_id', $copied['data']);
+        self::assertNull($copied['data']['category_id']);
     }
 
     public function testCategoryCanBeMoved(): void
@@ -224,7 +227,7 @@ final class StructureApiTest extends ApiTestCase
         $categoryId = $this->createCategory();
 
         $this->assertSuccess($this->post('structure/categories/' . $categoryId . '/move', ['parent_id' => $targetId]));
-        $this->assertSame($targetId, $this->get('structure/categories/' . $categoryId)['data']['parent_id'] ?? null);
+        self::assertSame($targetId, $this->get('structure/categories/' . $categoryId)['data']['parent_id'] ?? null);
 
         // back to the root, so the cleanup can delete the target
         $this->assertSuccess($this->post('structure/categories/' . $categoryId . '/move', ['parent_id' => 0]));
@@ -244,30 +247,30 @@ final class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertStatus(201, $created);
-        $this->assertIsArray($created['data']);
+        self::assertIsArray($created['data']);
         $sliceId = (int) $created['data']['slice_id'];
-        $this->assertGreaterThan(0, $sliceId);
+        self::assertGreaterThan(0, $sliceId);
 
         // List
         $slices = $this->assertListResponse($this->get('structure/articles/' . $articleId . '/slices'));
-        $this->assertCount(1, $slices);
-        $this->assertSame($moduleKey, $slices[0]['module'], 'A slice references its module by key in REDAXO 6');
-        $this->assertArrayNotHasKey('module_id', $slices[0]);
+        self::assertCount(1, $slices);
+        self::assertSame($moduleKey, $slices[0]['module'], 'A slice references its module by key in REDAXO 6');
+        self::assertArrayNotHasKey('module_id', $slices[0]);
 
         // Get
         $slice = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId);
         $this->assertSuccess($slice);
-        $this->assertSame('created by the api test suite', $slice['data']['data'][$field] ?? null);
+        self::assertSame('created by the api test suite', $slice['data']['data'][$field] ?? null);
 
         // Update: only the given fields change
         $this->assertSuccess($this->patch('structure/articles/' . $articleId . '/slices/' . $sliceId, ['data' => [$field => 'updated']]));
         $updated = $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId)['data'];
-        $this->assertSame('updated', $updated['data'][$field] ?? null);
-        $this->assertSame(array_keys($slice['data']['data']), array_keys($updated['data']));
+        self::assertSame('updated', $updated['data'][$field] ?? null);
+        self::assertSame(array_keys($slice['data']['data']), array_keys($updated['data']));
 
         // Status
         $this->assertSuccess($this->patch('structure/articles/' . $articleId . '/slices/' . $sliceId, ['status' => 0]));
-        $this->assertSame(0, $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId)['data']['status'] ?? null);
+        self::assertSame(0, $this->get('structure/articles/' . $articleId . '/slices/' . $sliceId)['data']['status'] ?? null);
 
         // Update without any content field
         $this->assertStatus(400, $this->patch('structure/articles/' . $articleId . '/slices/' . $sliceId, []));
@@ -288,7 +291,7 @@ final class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertStatus(422, $response);
-        $this->assertArrayHasKey('this_field_does_not_exist', $response['data']['fields'] ?? []);
+        self::assertArrayHasKey('this_field_does_not_exist', $response['data']['fields'] ?? []);
     }
 
     public function testSlicesCanBePlacedAndMoved(): void
@@ -310,13 +313,13 @@ final class StructureApiTest extends ApiTestCase
         $add('b');
         // created within the same second as the others, still placed first
         $add('c', 1);
-        $this->assertSame(['c', 'a', 'b'], $order());
+        self::assertSame(['c', 'a', 'b'], $order());
 
         $this->assertSuccess($this->post('structure/articles/' . $articleId . '/slices/' . $a . '/move', ['priority' => 3]));
-        $this->assertSame(['c', 'b', 'a'], $order());
+        self::assertSame(['c', 'b', 'a'], $order());
 
         $this->assertSuccess($this->post('structure/articles/' . $articleId . '/slices/' . $a . '/move', ['direction' => 'up']));
-        $this->assertSame(['c', 'a', 'b'], $order());
+        self::assertSame(['c', 'a', 'b'], $order());
 
         $this->assertStatus(400, $this->post('structure/articles/' . $articleId . '/slices/' . $a . '/move', []));
     }
@@ -331,7 +334,7 @@ final class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertStatus(404, $response);
-        $this->assertSame('Module not found', $response['data']['error'] ?? null);
+        self::assertSame('Module not found', $response['data']['error'] ?? null);
     }
 
     public function testSliceWithUnknownContentSectionIsRejected(): void
@@ -356,7 +359,7 @@ final class StructureApiTest extends ApiTestCase
         ]);
 
         $this->assertStatus(404, $response);
-        $this->assertSame('Language not found', $response['data']['error'] ?? null);
+        self::assertSame('Language not found', $response['data']['error'] ?? null);
     }
 
     public function testSlicesOfUnknownArticleReturnNotFound(): void

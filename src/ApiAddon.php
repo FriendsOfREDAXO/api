@@ -3,6 +3,7 @@
 namespace FriendsOfRedaxo\Api;
 
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Clangs as BackendClangs;
+use FriendsOfRedaxo\Api\RoutePackage\Backend\Discovery as BackendDiscovery;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Media as BackendMedia;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Metainfo as BackendMetainfo;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Modules as BackendModules;
@@ -10,7 +11,9 @@ use FriendsOfRedaxo\Api\RoutePackage\Backend\Structure as BackendStructure;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Templates as BackendTemplates;
 use FriendsOfRedaxo\Api\RoutePackage\Backend\Users as BackendUsers;
 use FriendsOfRedaxo\Api\RoutePackage\Clangs;
+use FriendsOfRedaxo\Api\RoutePackage\Discovery;
 use FriendsOfRedaxo\Api\RoutePackage\Media;
+use FriendsOfRedaxo\Api\RoutePackage\MediaUpload;
 use FriendsOfRedaxo\Api\RoutePackage\Metainfo;
 use FriendsOfRedaxo\Api\RoutePackage\Modules;
 use FriendsOfRedaxo\Api\RoutePackage\Structure;
@@ -51,9 +54,12 @@ class ApiAddon extends Addon
         RouteCollection::registerRoutePackage(new Structure());
         RouteCollection::registerRoutePackage(new Templates());
         RouteCollection::registerRoutePackage(new Media());
+        RouteCollection::registerRoutePackage(new MediaUpload());
         RouteCollection::registerRoutePackage(new Users());
         RouteCollection::registerRoutePackage(new Metainfo());
+        RouteCollection::registerRoutePackage(new Discovery());
         RouteCollection::registerRoutePackage(new BackendClangs());
+        RouteCollection::registerRoutePackage(new BackendDiscovery());
         RouteCollection::registerRoutePackage(new BackendMedia());
         RouteCollection::registerRoutePackage(new BackendMetainfo());
         RouteCollection::registerRoutePackage(new BackendModules());
@@ -97,6 +103,7 @@ class ApiAddon extends Addon
             ->ensureColumn(new Column('token', 'varchar(191)', false, ''))
             ->ensureColumn(new Column('status', 'tinyint(1)', false, '1'))
             ->ensureColumn(new Column('scopes', 'text', true))
+            ->ensureColumn(new Column('expires_at', 'datetime', true))
             ->ensureIndex(new Index('token', ['token'], Index::UNIQUE))
             ->ensure();
     }

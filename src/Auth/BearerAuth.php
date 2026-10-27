@@ -12,6 +12,16 @@ class BearerAuth extends Auth
 {
     private ?Token $token = null;
 
+    /**
+     * @param string|null $scope the scope a token needs; `null` for the scope of the route itself. Routes that are only
+     *     usable together (like the steps of a chunked upload) share one scope.
+     */
+    public function __construct(
+        public readonly ?string $scope = null,
+        /** `false` for routes every valid token may call, like the self-description `/me`. */
+        public readonly bool $requiresScope = true,
+    ) {}
+
     #[Override]
     public function isAuthorized(array $parameters): bool
     {
@@ -21,7 +31,7 @@ class BearerAuth extends Auth
             return false;
         }
 
-        return in_array($parameters['_route'], $this->token->getScopes(), true);
+        return !$this->requiresScope || in_array($this->scope ?? $parameters['_route'], $this->token->getScopes(), true);
     }
 
     #[Override]
