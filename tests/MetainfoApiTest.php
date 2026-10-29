@@ -341,6 +341,54 @@ class MetainfoApiTest extends ApiTestCase
         }
     }
 
+    /**
+     * Datumsfelder: Zeitstempel als Zahl oder Ziffern-String und Datumsstrings werden gespeichert,
+     * Unlesbares wird mit 400 abgewiesen, statt still als „kein Datum“ zu landen.
+     */
+    public function testArticleDateValues(): void
+    {
+        $name = 'art_test_date_' . uniqid();
+        $clangId = self::$config['test_data']['existing_clang_id'];
+        $articleId = $this->findNonStartArticleId($clangId);
+        $path = 'structure/articles/' . $articleId . '/metainfo?clang_id=' . $clangId;
+
+        // type_id 10 = DATETIME
+        $create = $this->post('metainfo/fields', ['name' => $name, 'title' => 'Date value', 'type_id' => 10]);
+        $this->assertStatus(201, $create);
+        $fieldId = (int) $create['data']['id'];
+
+        try {
+            $asInt = $this->patch($path, [$name => 1793224620]);
+            $this->assertSuccess($asInt);
+            $this->assertSame(1793224620, $asInt['data']['data'][$name]['timestamp']);
+
+            $asDigits = $this->patch($path, [$name => '1793224680']);
+            $this->assertSuccess($asDigits);
+            $this->assertSame(1793224680, $asDigits['data']['data'][$name]['timestamp']);
+
+            // Mit Offset, damit das Ergebnis nicht von der Zeitzone des Servers abhängt.
+            $asDate = $this->patch($path, [$name => '2026-10-28 22:57:00+01:00']);
+            $this->assertSuccess($asDate);
+            $this->assertSame(1793224620, $asDate['data']['data'][$name]['timestamp']);
+
+            foreach (['kein datum', 1.5, true] as $invalid) {
+                $rejected = $this->patch($path, [$name => $invalid]);
+                $this->assertStatus(400, $rejected);
+                $this->assertArrayHasKey($name, $rejected['data']['details']);
+            }
+
+            // Abgewiesene Werte dürfen das bestehende Datum nicht überschrieben haben.
+            $verify = $this->get('structure/articles/' . $articleId . '/metainfo', ['clang_id' => $clangId]);
+            $this->assertSame(1793224620, $verify['data']['data'][$name]['timestamp']);
+
+            $cleared = $this->patch($path, [$name => '']);
+            $this->assertSuccess($cleared);
+            $this->assertNull($cleared['data']['data'][$name]);
+        } finally {
+            $this->delete('metainfo/fields/' . $fieldId);
+        }
+    }
+
     /** Multi-Value-Felder nehmen Arrays weiterhin an — nur verschachtelte Werte darin nicht. */
     public function testMediaValuesAcceptArrayOnMultiValueFieldButRejectNested(): void
     {

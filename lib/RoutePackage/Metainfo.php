@@ -1323,10 +1323,17 @@ class Metainfo extends RoutePackage
                 continue;
             }
 
+            if ('date' === $expected) {
+                // Was sich nicht als Zeitpunkt lesen lässt, würde als 0 gespeichert und damit
+                // ein bestehendes Datum mit Status 200 löschen.
+                if (null === self::parseDateValue($value)) {
+                    $invalid[$key] = 'expects a timestamp, a date string or null';
+                }
+                continue;
+            }
+
             if (!is_scalar($value)) {
-                $invalid[$key] = 'date' === $expected
-                    ? 'expects a timestamp, a date string or null'
-                    : 'expects a scalar value or null';
+                $invalid[$key] = 'expects a scalar value or null';
             }
         }
 
@@ -1437,17 +1444,10 @@ class Metainfo extends RoutePackage
         }
 
         if (self::isDateType($typeId)) {
-            if (null === $value || '' === $value) {
+            if (null === $value) {
                 return 0;
             }
-            if (is_int($value)) {
-                return $value;
-            }
-            if (is_string($value)) {
-                $ts = strtotime($value);
-                return false === $ts ? 0 : $ts;
-            }
-            return 0;
+            return self::parseDateValue($value) ?? 0;
         }
 
         if (self::isMultiValueType($typeId, $attributes)) {
@@ -1516,6 +1516,30 @@ class Metainfo extends RoutePackage
             return true;
         }
         return false;
+    }
+
+    /**
+     * Zeitstempel für ein Datumsfeld: Integer und reine Ziffernfolgen gelten als Unix-Zeitstempel
+     * (`strtotime()` liest „1793224620“ nicht), andere Strings laufen über `strtotime()`.
+     * Ein leerer String ergibt 0 (Datum entfernen), Unlesbares null.
+     */
+    private static function parseDateValue(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+        if (!is_string($value)) {
+            return null;
+        }
+        $value = trim($value);
+        if ('' === $value) {
+            return 0;
+        }
+        if (ctype_digit($value)) {
+            return (int) $value;
+        }
+        $ts = strtotime($value);
+        return false === $ts ? null : $ts;
     }
 
     private static function isDateType(int $typeId): bool
