@@ -14,7 +14,7 @@ use Redaxo\Core\Http\Response;
 use Redaxo\Core\Security\CsrfToken;
 use Redaxo\Core\Translation\I18n;
 use Redaxo\Core\Util\Formatter;
-use Redaxo\Core\View\Component\ColumnType;
+use Redaxo\Core\View\Component\TableColumnType;
 use Redaxo\Core\View\Component\Section;
 use Redaxo\Core\View\Component\SectionVariant;
 use Redaxo\Core\View\DataList;
@@ -128,9 +128,9 @@ $editUrl = static fn (array $row): string => $list->getUrl(['func' => 'edit', 'd
 
 $list->column(
     'icon',
-    Html::raw('<a href="' . escape($list->getUrl(['func' => 'add'])) . '"' . Accesskey::attributes($this->i18n('token_create'), 'add') . '><i class="rex-icon rex-icon-add"></i></a>'),
-    static fn (): Html => Html::raw('<i class="rex-icon rex-icon-user-secret"></i>'),
-    type: ColumnType::Icon,
+    Html::raw('<a href="' . escape($list->getUrl(['func' => 'add'])) . '"' . Accesskey::attributes($this->i18n('token_create'), 'add') . '><i class="rex-icon rex-icon-add" aria-hidden="true"></i></a>'),
+    static fn (array $row): Html => Html::raw('<i class="rex-icon rex-icon-user-secret" aria-hidden="true"></i><span class="rex-u-visually-hidden">' . escape((string) $row['name']) . '</span>'),
+    type: TableColumnType::Icon,
     link: $editUrl,
 );
 $list->column('id', I18n::msg('id'), sortable: true, link: $editUrl);
@@ -139,17 +139,17 @@ $list->column(
     'status',
     $this->i18n('token_status'),
     static fn (array $row): Html => 1 == $row['status']
-        ? Html::raw('<span class="rex-online">' . escape(I18n::msg('api_token_active')) . '</span>')
-        : Html::raw('<span class="rex-offline">' . escape(I18n::msg('api_token_inactive')) . '</span>'),
+        ? Html::raw('<span class="rex-u-text-success">' . escape(I18n::msg('api_token_active')) . '</span>')
+        : Html::raw('<span class="rex-u-text-danger">' . escape(I18n::msg('api_token_inactive')) . '</span>'),
 );
 $list->column('expires_at', $this->i18n('token_expires_at'), static function (array $row): Html {
     if (null === $row['expires_at']) {
-        return Html::raw('<span class="text-muted">' . escape(I18n::msg('api_token_expires_never')) . '</span>');
+        return Html::raw('<span class="rex-u-text-muted">' . escape(I18n::msg('api_token_expires_never')) . '</span>');
     }
 
     $formatted = escape(Formatter::intlDateTime((string) $row['expires_at']));
 
-    return Html::raw(1 == $row['expired'] ? '<span class="text-danger">' . $formatted . ' · ' . escape(I18n::msg('api_token_expired')) . '</span>' : $formatted);
+    return Html::raw(1 == $row['expired'] ? '<span class="rex-u-text-danger">' . $formatted . ' · ' . escape(I18n::msg('api_token_expired')) . '</span>' : $formatted);
 });
 $list->column('scopes', $this->i18n('token_token_scopes'), static function (array $row): Html {
     $scopes = Token::splitScopes((string) $row['scopes']);
@@ -159,8 +159,8 @@ $list->column('scopes', $this->i18n('token_token_scopes'), static function (arra
 $list->column(
     'delete',
     I18n::msg('function'),
-    static fn (): Html => Html::raw('<i class="rex-icon rex-icon-delete"></i> ' . escape(I18n::msg('delete'))),
-    type: ColumnType::Action,
+    static fn (): Html => Html::raw('<i class="rex-icon rex-icon-delete" aria-hidden="true"></i> ' . escape(I18n::msg('delete'))),
+    type: TableColumnType::Action,
     link: static fn (array $row): string => $list->getUrl(['data_id' => $row['id'], 'func' => 'delete'] + $csrf->getUrlParams()),
     linkAttributes: ['data-confirm' => $this->i18n('token_delete_confirm')],
 );

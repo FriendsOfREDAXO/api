@@ -134,7 +134,7 @@ class ApiAddon extends Addon
         );
         $main->addSubpage(
             new Page('readme', $this->i18n('readme'))
-                ->addItemClass('pull-right')
+                ->setItemAttr('data-align', 'end')
                 ->setSubPath($this->getPath('README.md')),
         );
 
