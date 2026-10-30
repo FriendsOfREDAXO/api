@@ -168,6 +168,24 @@ class Media extends RoutePackage
             new BearerAuth(),
         );
 
+        // Media delete, REST-Form ohne "/delete" im Pfad ✅
+        // Manche Web Application Firewalls (z. B. Imperva/Incapsula) blocken Pfade mit "/delete".
+        // Gleicher Controller und gleicher Token-Scope wie 'media/delete'.
+        RouteCollection::registerRoute(
+            'media/delete/rest',
+            new Route(
+                'media/{filename}',
+                ['_controller' => 'FriendsOfRedaxo\Api\RoutePackage\Media::handleDeleteMedia'],
+                ['filename' => '[a-zA-Z0-9\-\_\.\@]+'],
+                [],
+                '',
+                [],
+                ['DELETE']),
+            'Delete a media (REST form, same as media/{filename}/delete)',
+            null,
+            new BearerAuth(true, 'media/delete'),
+        );
+
         // Media get meta ✅
         RouteCollection::registerRoute(
             'media/get',
