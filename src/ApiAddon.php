@@ -73,15 +73,17 @@ class ApiAddon extends Addon
 
         // Two entry points on purpose, whichever comes first wins (RouteCollection::handle() exits):
         //
-        // PACKAGES_INCLUDED is the first point at which every addon has booted, so all route packages are
-        // known. It is also completely independent of any URL addon.
+        // YREWRITE_PREPARE is the regular one when yrewrite is installed. yrewrite registers its URL rewriting
+        // in its own (early) PACKAGES_INCLUDED listener and only then resolves the path, so a handler running
+        // here generates the same article URLs as the website. Handling earlier, before that listener, left
+        // every URL a handler built in the form `./index.php?article_id=…` -- noticed with MCP tools that
+        // return links.
         //
-        // YREWRITE_PREPARE covers the case where yrewrite happens to boot before this addon (both use
-        // LoadOrder::Early, and the relative order of two early addons is not guaranteed) and therefore
-        // already resolves the path from its own PACKAGES_INCLUDED listener.
+        // PACKAGES_INCLUDED (late) covers installations without yrewrite, and paths yrewrite does not hand
+        // on. All route packages are known by then.
         Extension::register('PACKAGES_INCLUDED', static function (): void {
             RouteCollection::handle();
-        }, ExtensionLevel::Early);
+        }, ExtensionLevel::Late);
 
         Extension::register('YREWRITE_PREPARE', static function (): void {
             RouteCollection::handle();
